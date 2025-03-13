@@ -1,0 +1,14 @@
+AkilimoFunctions.R
+AkilimoFunctions_29.R
+R_Wrapper.R
+RF_model_OnePix.R
+*.csv
+*.Rmd
+*.RDS
+*.html
+*.pdf
+*.log
+*.Rout
+*.png
+*.out
+net/*

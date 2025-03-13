@@ -1,0 +1,29 @@
+Package: AKILIMOFun
+Title: What the Package Does (Used within AKILIMO prediction engine)
+Version: 0.1
+Authors@R: 
+    person(given = "Meklit",
+           family = "Chernet",
+           role = c("aut", "cre"),
+           email = "meklitc4@gmail.com",
+           comment = c(ORCID = "YOUR-ORCID-ID"))
+Description: What the package does (The fnctions take care of the advice for severl use cases are generated).
+License: What license it uses
+Encoding: UTF-8
+LazyData: true
+Imports:
+	randomForest,
+  	caret,	
+  	limSolve,  
+  	tidyr,
+ 	plyr,
+  	leaflet,
+ 	mapview,
+   	lubridate,
+ 	kableExtra,
+  	scales,  
+ 	rJava,
+	ggplot2,
+	knitr,
+	flexdashboard
+RoxygenNote: 7.1.1
