@@ -2535,7 +2535,9 @@ FR_MarkdownText <- function(rr, fertilizers, userName, country, userPhoneNr, use
   MarkDownTextD$costcassava <- formatC(signif(MarkDownTextD$costcassava, digits = 4), format = "f", big.mark = ",", digits = 0)
   MarkDownTextD$maxinvest <- formatC(signif(MarkDownTextD$maxinvest, digits = 4), format = "f", big.mark = ",", digits = 0)
 
-  write.csv(MarkDownTextD, "personalized_info.csv", row.names = FALSE)
+  filename <- paste("personalized_info", userPhoneNr, sep = "_")
+  filename <- paste0(filename, ".csv")
+  write.csv(MarkDownTextD, filename, row.names = FALSE)
 
   fertilizers_recom <- fertilizers[fertilizers$type %in% rr$fertilizer_rates$type,]
   if (nrow(fertilizers_recom) > 0) {
@@ -2552,7 +2554,9 @@ FR_MarkdownText <- function(rr, fertilizers, userName, country, userPhoneNr, use
     sum_total <- round(sum(fertilizers_recom$cost), digits = 0)
     MarkDownTextD$sum_total <- sum_total
     MarkDownTextD$revenue <- MarkDownTextD$totalSalePrice - sum_total
-    write.csv(MarkDownTextD, "personalized_info.csv", row.names = FALSE)
+
+    # write.csv(MarkDownTextD, "personalized_info.csv", row.names = FALSE)
+    write.csv(MarkDownTextD, filename, row.names = FALSE)
 
 
     ff <- NULL
@@ -2628,7 +2632,9 @@ IC_MarkdownText <- function(rr, fertilizers, userName, country,
                                        " kg of grain.", sep = "")
   }
 
-  write.csv(MarkDownTextD, "personalized_info.csv", row.names = FALSE)
+  filename <- paste("personalized_info", userPhoneNr, sep = "_")
+  filename <- paste0(filename, ".csv")
+  write.csv(MarkDownTextD, filename, row.names = FALSE)
 
   fertilizers_recom <- fertilizers[fertilizers$type %in% rr$fertilizer_rates$type,]
   if (nrow(fertilizers_recom) > 0) {
@@ -2644,7 +2650,7 @@ IC_MarkdownText <- function(rr, fertilizers, userName, country,
 
     MarkDownTextD$sum_total <- sum(fertilizers_recom$cost)
     MarkDownTextD$revenue = MarkDownTextD$totalSalePrice - MarkDownTextD$sum_total
-    write.csv(MarkDownTextD, "personalized_info.csv", row.names = FALSE)
+    write.csv(MarkDownTextD, filename, row.names = FALSE)
 
 
     ff <- NULL
@@ -2698,7 +2704,9 @@ CIS_MarkdownText <- function(rr, fertilizers, userName, country,
   MarkDownTextD$maxinvest <- formatC(signif(MarkDownTextD$maxinvest, digits = 4), format = "f", big.mark = ",", digits = 0)
 
 
-  write.csv(MarkDownTextD, "personalized_info.csv", row.names = FALSE)
+  filename <- paste("personalized_info", userPhoneNr, sep = "_")
+  filename <- paste0(filename, ".csv")
+  write.csv(MarkDownTextD, filename, row.names = FALSE)
 
   fertilizers_recom <- fertilizers[fertilizers$type %in% rr$fertilizer_rates$type,]
   if (nrow(fertilizers_recom) > 0) {
@@ -2713,7 +2721,7 @@ CIS_MarkdownText <- function(rr, fertilizers, userName, country,
 
     MarkDownTextD$sum_total <- sum(fertilizers_recom$cost)
     MarkDownTextD$revenue = MarkDownTextD$totalSalePrice - MarkDownTextD$sum_total
-    write.csv(MarkDownTextD, "personalized_info.csv", row.names = FALSE)
+    write.csv(MarkDownTextD, filename, row.names = FALSE)
 
 
     ff <- NULL
@@ -2755,7 +2763,9 @@ PPSP_MarkdownText <- function(rr, fname, userName = userName, country = country,
                               costcassava = rootUP, unitcassava = cassPD,
                               maxinvest = maxInv, cassUW = cassUW, product = cassPD, currency = currency)
 
-  write.csv(MarkDownTextD, "personalized_info.csv", row.names = FALSE)
+  filename <- paste("personalized_info", userPhoneNr, sep = "_")
+  filename <- paste0(filename, ".csv")
+  write.csv(MarkDownTextD, filename, row.names = FALSE)
 
   fname2 <- paste(fname, "_MarkDownText.csv", sep = '')
   write.csv(MarkDownTextD, "PP_MarkDownText.csv", row.names = FALSE)
@@ -2844,12 +2854,12 @@ getCISrecommendations <- function(areaHa = 1,
       #trans
 
 
-      reason_F <- "Mbolea sahihi haipatikani"
+      reason_F <- "Mbolea sahihi haipatikani."
       rec_F <- FALSE
     }else {
 
       #trans
-      reason_F <- "Tunakushauri usitumie mbolea kwa sababu itakuongezea gharama hatimae utapata hasara"
+      reason_F <- "Tunakushauri usitumie mbolea kwa sababu itakuongezea gharama hatimae utapata hasara."
       rec_F <- TRUE
     }
   }else {
@@ -2874,7 +2884,7 @@ getCISrecommendations <- function(areaHa = 1,
       rec_F <- TRUE
 
       #trans
-      reason_F <- "Matumizi ya mbolea inapendekezwa"
+      reason_F <- "Matumizi ya mbolea inapendekezwa."
     }else {
       dTC <- 0
       dGR <- 0
