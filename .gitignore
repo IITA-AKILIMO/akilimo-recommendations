@@ -12,3 +12,4 @@ RF_model_OnePix.R
 *.png
 *.out
 net/*
+ScriptPackage
