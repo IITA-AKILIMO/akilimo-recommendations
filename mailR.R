@@ -3,7 +3,7 @@ library(mailR)
 library(rJava)
 
 
-to <- "sammy@tsobu.co.ke"
+to <- "s.barasa@cgiar.org"
 subject <- "Test this message"
 msg <- "This is the body of the email"
 send.mail(from = "AKILIMO@cgiar.org",
