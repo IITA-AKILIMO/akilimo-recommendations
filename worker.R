@@ -31,8 +31,6 @@ while(TRUE) {
   input <- job$input
 
   # --- Do your long-running computation here ---
-  # Simulate with sleep
-  # Sys.sleep(10)
 
   # Example: sum values from input$values
   result <- list(
