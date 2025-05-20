@@ -48,7 +48,8 @@ root <- plumber$new()
 #root$mount("/api/", healthWrapper)
 
 ##Production endpoints
-mainWrapper <- plumber$new("api-wrapper.R")
+# mainWrapper <- plumber$new("api-wrapper.R")
+mainWrapper <- plumber$new("new-api.R")
 
 root$mount("/api/v1/dst/recommendation", mainWrapper)
 root$routes
