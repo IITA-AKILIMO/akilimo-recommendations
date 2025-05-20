@@ -1,4 +1,3 @@
-library(uuid)
 #* Compute recommendations based on input parameters
 #* @plumber
 #* Accepts a JSON payload with user and agronomic data,
@@ -561,7 +560,7 @@ function(req, res) {
           userPhoneCC = userPhoneCC, email = email, userField = userField, area = area, areaUnits = areaUnits,
           PD = PD, HD = HD, lat = lat, lon = lon, sweetPotatoUP = sweetPotatoUP, sweetPotatoPD = sweetPotatoPD,
           sweetPotatoUW = sweetPotatoUW, cassUW = cassUW, cassPD = cassPD, maxInv = maxInv,
-          res = plumberRes, recText = recText
+          res  = plumberRes, recText_input = recText
         )
       }
 
@@ -571,7 +570,7 @@ function(req, res) {
       selected_key <- 'IC'
     }
 
-    if (PP) {
+    if(PP){
       resPP <- process_PP(
         PP = PP, country = country,
         areaHa = areaHa, costLMO = costLMO,

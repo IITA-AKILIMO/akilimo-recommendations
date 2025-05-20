@@ -6,8 +6,9 @@ process_PP <- function(
   userName, userPhoneNr, userPhoneCC,
   userField, area, areaUnits, PD, HD, email, lat, lon,
   cassPD, cassUW, maxInv,
-  res, recText
+  res, recText_input
 ) {
+  recText <- recText_input
   print(paste("Processing PP for", country))
 
   # Generate PP recommendations
