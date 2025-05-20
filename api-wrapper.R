@@ -1,3 +1,4 @@
+library(uuid)
 #* Compute recommendations based on input parameters
 #* @plumber
 #* Accepts a JSON payload with user and agronomic data,
@@ -11,7 +12,8 @@
 function(req, res) {
   tryCatch({
     # Parse JSON body
-    body <- tryCatch(jsonlite::fromJSON(req$postBody), error = function(e) NULL)
+    json_input <- req$postBody
+    body <- tryCatch(jsonlite::fromJSON(json_input), error = function(e) NULL)
 
     # Now extract parameters from the JSON payload
     country <- process_json_value("country", body)
