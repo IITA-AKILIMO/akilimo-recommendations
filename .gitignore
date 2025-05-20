@@ -13,3 +13,6 @@ RF_model_OnePix.R
 *.out
 net/*
 ScriptPackage
+.Rproj.user
+
+*.Rproj
