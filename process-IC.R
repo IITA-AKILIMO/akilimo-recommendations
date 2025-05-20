@@ -76,8 +76,9 @@ process_IC_TZ <- function(
   userField, area, areaUnits, PD, HD, lat, lon,
   sweetPotatoUP, sweetPotatoPD, sweetPotatoUW,
   cassUW, cassPD, maxInv,
-  res, recText
+  res, recText_input
 ) {
+  recText <- recText_input
   print(paste("Processing IC for", country))
 
   # Generate CIS recommendations

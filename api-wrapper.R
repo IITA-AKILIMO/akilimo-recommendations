@@ -11,7 +11,8 @@
 function(req, res) {
   tryCatch({
     # Parse JSON body
-    body <- tryCatch(jsonlite::fromJSON(req$postBody), error = function(e) NULL)
+    json_input <- req$postBody
+    body <- tryCatch(jsonlite::fromJSON(json_input), error = function(e) NULL)
 
     # Now extract parameters from the JSON payload
     country <- process_json_value("country", body)
@@ -559,7 +560,7 @@ function(req, res) {
           userPhoneCC = userPhoneCC, email = email, userField = userField, area = area, areaUnits = areaUnits,
           PD = PD, HD = HD, lat = lat, lon = lon, sweetPotatoUP = sweetPotatoUP, sweetPotatoPD = sweetPotatoPD,
           sweetPotatoUW = sweetPotatoUW, cassUW = cassUW, cassPD = cassPD, maxInv = maxInv,
-          res = plumberRes, recText = recText
+          res  = plumberRes, recText_input = recText
         )
       }
 
@@ -569,7 +570,7 @@ function(req, res) {
       selected_key <- 'IC'
     }
 
-    if (PP) {
+    if(PP){
       resPP <- process_PP(
         PP = PP, country = country,
         areaHa = areaHa, costLMO = costLMO,

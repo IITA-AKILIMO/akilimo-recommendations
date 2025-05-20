@@ -50,14 +50,17 @@ root <- plumber$new()
 ##Production endpoints
 mainWrapper <- plumber$new("api-wrapper.R")
 
+# mainWrapper <- plumber$new("new-api.R")
+
 root$mount("/api/v1/dst/recommendation", mainWrapper)
 root$routes
 
 
 # Log when API is starting up
-cat("Starting plumbR API...4 \n")
+cat("Starting plumbR API v4 \n")
 cat("Working dir:", getwd(), "\n")
 cat("Available CPU cores:", detectCores(), "\n")
+
 cat("R version:", R.version.string, "\n")
 
 
