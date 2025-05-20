@@ -14,5 +14,4 @@ RF_model_OnePix.R
 net/*
 ScriptPackage
 .Rproj.user
-
 *.Rproj
