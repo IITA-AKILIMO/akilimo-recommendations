@@ -23,7 +23,7 @@ cat("Worker started, waiting for jobs...\n")
 while(TRUE) {
   # BRPOP blocks until a job arrives on the "jobs" list
   job_data <- r$BRPOP("jobs", 0)[[2]]  # returns list(queue_name, job_json)
-  cat("Job received:", substr(job_data, 1, 60), "...\n")
+  cat("Recommendation job received:", substr(job_data, 1, 60), "...\n")
 
   # Parse job JSON
   job <- fromJSON(job_data)
