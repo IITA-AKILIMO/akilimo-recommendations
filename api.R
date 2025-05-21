@@ -53,6 +53,7 @@ mainWrapper <- plumber$new("api-wrapper.R")
 
 # mainWrapper <- plumber$new("new-api.R")
 
+root$mount("/api/v1/dst/recommendation", mainWrapper)
 root$mount("/api/v2/dst/recommendation", mainWrapper)
 root$routes
 

@@ -11,8 +11,8 @@ RF_model_OnePix.R
 *.Rout
 *.png
 *.out
-net/*
 ScriptPackage
 .Rproj.user
 *.Rproj
 .Rhistory
+.env
