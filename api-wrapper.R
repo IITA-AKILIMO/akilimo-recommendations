@@ -560,7 +560,7 @@ function(req, res) {
           userPhoneCC = userPhoneCC, email = email, userField = userField, area = area, areaUnits = areaUnits,
           PD = PD, HD = HD, lat = lat, lon = lon, sweetPotatoUP = sweetPotatoUP, sweetPotatoPD = sweetPotatoPD,
           sweetPotatoUW = sweetPotatoUW, cassUW = cassUW, cassPD = cassPD, maxInv = maxInv,
-          res  = plumberRes, recText_input = recText
+          res = plumberRes, recText_input = recText
         )
       }
 
@@ -570,7 +570,7 @@ function(req, res) {
       selected_key <- 'IC'
     }
 
-    if(PP){
+    if (PP) {
       resPP <- process_PP(
         PP = PP, country = country,
         areaHa = areaHa, costLMO = costLMO,
@@ -624,10 +624,10 @@ function(req, res) {
 
     if (is.null(selected_key)) {
       res$status <- 404
-      return(list(
-        status = jsonlite::unbox("error"),
+      data <- list(
         message = jsonlite::unbox("No valid recommendation found")
-      ))
+      )
+      list(status = jsonlite::unbox("error"), data = data)
     }
 
     # Extract data
@@ -642,7 +642,7 @@ function(req, res) {
     data <- list(
       recommendations = recommendations,
       fertilizer_rates = fertilizer_rates,
-      text = jsonlite::unbox(text),
+      recommendation = jsonlite::unbox(text),
       section = jsonlite::unbox(selected_key),  # optional: tells you whether it's FR, SP, IC, PP, etc.
       from = jsonlite::unbox(userName))
 
@@ -650,11 +650,11 @@ function(req, res) {
   }, error = function(e) {
     res$status <- 500
     print(e)
-    list(
-      status = jsonlite::unbox("error"),
+    data <- list(
       message = jsonlite::unbox(e$message),
-      trace = jsonlite::unbox(capture.output(e))
+      traces = jsonlite::unbox(capture.output(e))
     )
+    list(status = jsonlite::unbox("error"), data = data)
   })
 }
 
