@@ -73,8 +73,10 @@ function(req, res) {
     maizeUW <- process_json_value("maizeUW", body, default_value = NA)
     maizeUP <- process_json_value("maizeUP", body)
     maxInv <- process_json_value("maxInv", body, default_value = NA)
+
     SMS <- process_json_value("SMS", body, default_value = FALSE)
     email <- process_json_value("email", body, default_value = FALSE)
+    request_token <- process_json_value("request_token", body)
     userPhoneCC <- process_json_value("userPhoneCC", body)
     userPhoneNr <- process_json_value("userPhoneNr", body)
     userName <- process_json_value("userName", body)
@@ -625,6 +627,7 @@ function(req, res) {
     if (is.null(selected_key)) {
       res$status <- 404
       data <- list(
+        request_token = jsonlite::unbox(request_token),
         message = jsonlite::unbox("No valid recommendation found")
       )
       list(status = jsonlite::unbox("error"), data = data)
@@ -640,17 +643,19 @@ function(req, res) {
 
 
     data <- list(
+      request_token = jsonlite::unbox(request_token),
       recommendations = recommendations,
       fertilizer_rates = fertilizer_rates,
       recommendation = jsonlite::unbox(text),
-      section = jsonlite::unbox(selected_key),  # optional: tells you whether it's FR, SP, IC, PP, etc.
-      from = jsonlite::unbox(userName))
+      rec_type = jsonlite::unbox(selected_key)  # optional: tells you whether it's FR, SP, IC, PP, etc.
+    )
 
     list(status = jsonlite::unbox("success"), data = data)
   }, error = function(e) {
     res$status <- 500
     print(e)
     data <- list(
+      request_token = jsonlite::unbox(request_token),
       message = jsonlite::unbox(e$message),
       traces = jsonlite::unbox(capture.output(e))
     )
