@@ -66,5 +66,5 @@ cat("Available CPU cores:", detectCores(), "\n")
 cat("R version:", R.version.string, "\n")
 
 
-root$run(host = "0.0.0.0", port = 8090, swagger = FALSE)
+root$run(host = "0.0.0.0", port = 80, swagger = FALSE)
 
