@@ -656,7 +656,8 @@ function(req, res) {
     print(e)
     data <- list(
       request_token = jsonlite::unbox(request_token),
-      message = jsonlite::unbox(capture.output(e))
+      message = jsonlite::unbox(e$message),
+      trace = jsonlite::unbox(capture.output(e))
     )
     list(status = jsonlite::unbox("error"), data = data)
   })
