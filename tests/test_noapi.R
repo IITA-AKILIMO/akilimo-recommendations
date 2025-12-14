@@ -4,9 +4,9 @@ if (this == "LAPTOP-IVSPBGCA") {
 	akpath <- "C:/github/omilika/akilimo-recommendations"
 } else {
 	akpath <- "."
-
 }
 setwd(akpath)
+
 srcdir <- file.path(akpath, "R")
 testdir <- file.path(akpath, "tests")
 
@@ -20,13 +20,15 @@ test <- function(i) {
 
 out <- lapply(1:27, test)
 
-cmp <- readRDS(file.path(testdir, "test_out.rds"))
+cmp <- readRDS(file.path(testdir, "test_out2.rds"))
 
 for (i in 1:27) {
 	cat(i, " ------\n")
-	x <- jsonlite::fromJSON(cmp[[i]])$data
+#	x <- jsonlite::fromJSON(cmp[[i]])$data
+	x <- cmp[[i]]$data
 	y <- out[[i]]$data
-	a <- tinytest::expect_equal(x$recommendation, y$recommendation[1])
+#	a <- tinytest::expect_equal(x$recommendation, y$recommendation[1])
+	a <- tinytest::expect_equal(x$recommendation, y$recommendation)
 	if (!a) print(a)
 	if ((length(x$recommendations) > 0) & (length(y$recommendations) > 0)) {
 		b <- tinytest::expect_equivalent(x$recommendations, y$recommendations, tolerance=0.1)
