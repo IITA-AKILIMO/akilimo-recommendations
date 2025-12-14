@@ -13,7 +13,7 @@
 #' @examples
 getSPrecText <- function(ds, country, PD, HD) {
 
-  TRNS <- read.csv("translations_TEST.csv", stringsAsFactors = FALSE)
+  TRNS <- read.csv("./data/input/translations_TEST.csv", stringsAsFactors = FALSE)
   norecom_ng <- gsub(pattern = "\"", replacement = "", TRNS$norecom[1]); norecom_tz <- gsub(pattern = "\"", replacement = "", TRNS$norecom[2]); norecom_rw <- gsub(pattern = "\"", replacement = "", TRNS$norecom[3]);
   notapply_ng <- gsub(pattern = "\"", replacement = "", TRNS$notapply[1]); notapply_tz <- gsub(pattern = "\"", replacement = "", TRNS$notapply[2]); notapply_rw <- gsub(pattern = "\"", replacement = "", TRNS$notapply[3])
   recrev_ng <- gsub(pattern = "\"", replacement = "", TRNS$recrev[1]); recrev_tz <- gsub(pattern = "\"", replacement = "", TRNS$recrev[2]); recrev_rw <- gsub(pattern = "\"", replacement = "", TRNS$recrev[3])
@@ -288,16 +288,16 @@ getSPrecommendations <- function(areaHa,
   lonr <- as.numeric(levels(lonr))
 
 
-  SoilData_fcy1 <- readRDS("SoilData_4Country.RDS")
+  SoilData_fcy1 <- readRDS("./data/input/SoilData_4Country.RDS")
   SoilData <- SoilData_fcy1[SoilData_fcy1$long == lonr & SoilData_fcy1$lat == latr,]
 
 
   if (country == "NG") {
-    WLY_15M <- readRDS("Nigeria_WLY_LINTUL_2020_Server.RDS")
+    WLY_15M <- readRDS("./data/input/Nigeria_WLY_LINTUL_2020_Server.RDS")
   } else if (country == "TZ") {
-    WLY_15M <- readRDS("Tanzania_WLY_LINTUL_2020_Server.RDS")
+    WLY_15M <- readRDS("./data/input/Tanzania_WLY_LINTUL_2020_Server.RDS")
   } else if (country == "GH") {
-    WLY_15M <- readRDS("Ghana_WLY_LINTUL_SP.RDS")
+    WLY_15M <- readRDS("./data/input/Ghana_WLY_LINTUL_SP.RDS")
   }
 
 
@@ -318,7 +318,7 @@ getSPrecommendations <- function(areaHa,
   }
 
 
-  TRNS <- read.csv("translations_TEST.csv", stringsAsFactors = FALSE)
+  TRNS <- read.csv("./data/input/translations_TEST.csv", stringsAsFactors = FALSE)
   frnotrec_ng <- gsub(pattern = "\"", replacement = "", TRNS$frnotrec[1]);
   frnotrec_tz <- gsub(pattern = "\"", replacement = "", TRNS$frnotrec[2]);
   frnotrec_rw <- gsub(pattern = "\"", replacement = "", TRNS$frnotrec[3])
@@ -379,9 +379,7 @@ getSPrecommendations <- function(areaHa,
     if (saleSF) {
 
       ds$SC <- 0.75 * ds$WY / ds$RFWY * 100
-      #SF <- read.csv("E:/03-projects/ACAI/ODK briefcase storage/created forms/DSTs/media_SPHS/starchPrices.csv")
-      SF <- read.csv("starchPrices.csv")
-      #SF <- read.csv("D:/ACAI_Wrapper/cloud_compute/starchPrices.csv")
+      SF <- read.csv("./data/input/starchPrices.csv")
       SF <- SF[SF$starchFactory == nameSF,]
       price <- NULL
       for (i in 1:nrow(ds)) {
@@ -406,7 +404,7 @@ getSPrecommendations <- function(areaHa,
     #sort by decreasing GR, increasing HWnr, decreasing PWnr
     #recommendation is highest GR, earliest harvesting, latest planting combination
     ds <- ds[order(-ds$dGR, ds$rHWnr, -ds$rPWnr),]
-    write.csv(ds, "SP_rec.csv", row.names = FALSE)
+    write.csv(ds, "./temp/SP_rec.csv", row.names = FALSE)
     return(ds)
   }
 
@@ -449,7 +447,7 @@ process_SP <- function(
         HD = HD
       )
 
-      write.csv(recText$SP, 'SP_recText.csv', row.names = FALSE)
+      write.csv(recText$SP, './temp/SP_recText.csv', row.names = FALSE)
 
       SP_MarkdownText(
         user = user, country = country,

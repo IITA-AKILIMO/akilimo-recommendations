@@ -93,7 +93,7 @@ getPPrecommendations <- function(areaHa,
 #' @examples
 getPPrecText <- function(ds, country = c("NG", "TZ", "RW")) {
 
-  TRNS <- read.csv("translations_TEST.csv", stringsAsFactors = FALSE)
+  TRNS <- read.csv("./data/input/translations_TEST.csv", stringsAsFactors = FALSE)
   no_ng <- gsub(pattern = "\"", replacement = "", TRNS$no[1])
   no_tz <- gsub(pattern = "\"", replacement = "", TRNS$no[2])
   no_rw <- gsub(pattern = "\"", replacement = "", TRNS$no[3])
@@ -253,8 +253,8 @@ process_PP <- function( PP, country, areaHa, costLMO, ploughing, ridging,
   recText[["PP"]] <- getPPrecText(ds = res$PP, country = country)
 
   # Write output files
-  write.csv(res$PP, 'PP_rec.csv', row.names = FALSE)
-  write.csv(recText$PP, 'PP_recText.csv', row.names = FALSE)
+  write.csv(res$PP, './temp/PP_rec.csv', row.names = FALSE)
+  write.csv(recText$PP, './temp/PP_recText.csv', row.names = FALSE)
 
   # Generate markdown output
   PP_MarkdownText(

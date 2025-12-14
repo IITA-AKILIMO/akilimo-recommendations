@@ -13,11 +13,11 @@ new_Rfmodel_Wrapper <- function(FCY, country, lat, lon) {
   }
     
   # NOT data
-  sINS <- read.csv("NOT_GIS_CON_2020.csv")
+  sINS <- read.csv("./data/input/NOT_GIS_CON_2020.csv")
   sINS$CON <- NULL 
   
   # Soil data for farmer's field
-  sISRIC <- readRDS("ISRIC_SoilData_2020.RDS")
+  sISRIC <- readRDS("./data/input/ISRIC_SoilData_2020.RDS")
   sISRIC <- sISRIC[sISRIC$lat == lat & sISRIC$long == lon, ]
   sISRIC$soilN <- sISRIC$soilP <- sISRIC$soilK <- 0
   sISRIC$CONclass <- class_from_con(FCY)
@@ -85,13 +85,13 @@ Rfmodel_Wrapper <- function(FCY, country, lat, lon) {
 #  )
   
   # Prepare GIS data
-  GIS_soilINS_modData2 <- read.csv("NOT_GIS_CON_2020.csv")
+  GIS_soilINS_modData2 <- read.csv("./data/input/NOT_GIS_CON_2020.csv")
   GIS_soilINS_modData2$ncluster = as.factor(GIS_soilINS_modData2$ncluster)
   GIS_soilINS_modData2$CONclass = class_from_con(GIS_soilINS_modData2$CON)
   GIS_soilINS_modData2$country = as.factor(GIS_soilINS_modData2$country)
 
   # Prepare point data
-  ISRIC_SoilData <- readRDS("ISRIC_SoilData_2020.RDS")
+  ISRIC_SoilData <- readRDS("./data/input/ISRIC_SoilData_2020.RDS")
   ISRIC_SoilData <- ISRIC_SoilData[ISRIC_SoilData$lat == lat & ISRIC_SoilData$long == lon, ]
   ISRIC_SoilData <- unique(ISRIC_SoilData) #? needed
 

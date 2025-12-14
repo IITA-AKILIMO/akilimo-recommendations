@@ -6,8 +6,7 @@ get_fertilizers2 <- function(js, country) {
 
 	get_df <- function(js) {
 		nms <- names(js)
-		ava <-
-		grep("available$", nms, value=TRUE)
+		ava <- grep("available$", nms, value=TRUE)
 		ava <- data.frame(type=gsub("available$", "", ava), available=unlist(js[ava]))
 		ava$type <- gsub("DOLOMITEA", "DOLOMITE", ava$type)
 		
@@ -34,7 +33,7 @@ get_fertilizers2 <- function(js, country) {
 		#RH: these prices are bag prices. For what weight? 50 kg? If so, 
 		# if the user specified bag weight is not 50, this price needs to be adjusted. 
 		# or is that not allowed (either price and weight or nothing?)
-		default_prices <- read.csv("Default_prices.csv")
+		default_prices <- read.csv("./data/input/Default_prices.csv")
 		default_prices <- default_prices[default_prices$Country == country, ]		
 		m <- match(d$type, default_prices$Item)
 		d$costPerBag[i] <- default_prices$Price[m[i]] 
@@ -147,7 +146,7 @@ fertilizerFunc <- function(NPK201216available = TRUE, NPK201216CostperBag = NA, 
 		message(paste("arguments ignored by fertilizerFunc:", paste(names(dots), collapse=", ")))
 	}
 
-  Default_prices <- read.csv("Default_prices.csv")
+  Default_prices <- read.csv("./data/input/Default_prices.csv")
   if (country == "NG") {
     if (ureaCostperBag == 0) { ureaCostperBag <- Default_prices[Default_prices$Country == "NG" & Default_prices$Item == "urea",]$Price } else { ureaCostperBag <- as.numeric(ureaCostperBag) }
     if (MOPCostperBag == 0) { MOPCostperBag <- Default_prices[Default_prices$Country == "NG" & Default_prices$Item == "MOP",]$Price }else { MOPCostperBag <- as.numeric(MOPCostperBag) }

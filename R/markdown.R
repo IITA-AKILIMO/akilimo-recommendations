@@ -20,12 +20,12 @@ fertilizerAdviseTable <- function(FR, IC, country, areaUnits) {
 
 
   if (FR == TRUE & IC == FALSE) {
-    acairm <- read.csv("FR_MarkDownText.csv")
+    acairm <- read.csv("./temp/FR_MarkDownText.csv")
   }else if (IC == TRUE & FR == FALSE) {
     if (country == "TZ") {
-      acairm <- read.csv("CIS_MarkDownText.csv")
+      acairm <- read.csv("./temp/CIS_MarkDownText.csv")
     }else if (country == "NG") {
-      acairm <- read.csv("IC_MarkDownText.csv")
+      acairm <- read.csv("./temp/IC_MarkDownText.csv")
     }
   }else {
     return("FR and IC can not be true together")
@@ -131,7 +131,7 @@ fertilizerAdviseTable <- function(FR, IC, country, areaUnits) {
       #   dat$unit_field <- "TZacre"
       # }
 
-      fn <- paste("datall", j, ".csv", sep = "")
+      fn <- paste("./temp/datall", j, ".csv", sep = "")
       write.csv(dat, fn, row.names = FALSE)
 
     }
@@ -180,7 +180,7 @@ fertilizerAdviseTable <- function(FR, IC, country, areaUnits) {
   }else if (ratioFertCost == 10) {
     totalCostmoney$moneypack <- sprintf('![](net/cash/Picture10.png)')
   }
-  write.csv(totalCostmoney, "totalCostmoney.csv", row.names = FALSE)
+  write.csv(totalCostmoney, "./temp/totalCostmoney.csv", row.names = FALSE)
 
   if (ratioTotalSale == 1) {
     totalSalemoney$moneypack <- sprintf('![](net/cash/Picture1.png)')
@@ -203,7 +203,7 @@ fertilizerAdviseTable <- function(FR, IC, country, areaUnits) {
   }else if (ratioTotalSale == 10) {
     totalSalemoney$moneypack <- sprintf('![](net/cash/Picture10.png)')
   }
-  write.csv(totalSalemoney, "totalSalemoney.csv", row.names = FALSE)
+  write.csv(totalSalemoney, "./temp/totalSalemoney.csv", row.names = FALSE)
 
 
   if (ratioRevenue == 1) {
@@ -227,7 +227,7 @@ fertilizerAdviseTable <- function(FR, IC, country, areaUnits) {
   }else if (ratioRevenue == 10) {
     totalRevenuemoney$moneypack <- sprintf('![](net/cash/Picture10.png)')
   }
-  write.csv(totalRevenuemoney, "totalRevenuemoney.csv", row.names = FALSE)
+  write.csv(totalRevenuemoney, "./temp/totalRevenuemoney.csv", row.names = FALSE)
 
 
   #return(acairm)
@@ -297,7 +297,7 @@ getFRrecomMarkdown <- function(lat, lon, PD, HD, maxInv, fertilizers, GPS_fertRe
 
   T_csv <- cbind(T_csv, FA)
 
-  fnc <- "MarkDownTextD.csv"
+  fnc <- "./temp/MarkDownTextD.csv"
   if (file.exists(fnc)) file.remove(fnc)
   write.csv(T_csv, fnc, row.names = FALSE)
 
@@ -339,7 +339,7 @@ FR_MarkdownText <- function(rr, fertilizers, user, country, userField,
   MarkDownTextD$costcassava <- formatC(signif(MarkDownTextD$costcassava, digits = 4), format = "f", big.mark = ",", digits = 0)
   MarkDownTextD$maxinvest <- formatC(signif(MarkDownTextD$maxinvest, digits = 4), format = "f", big.mark = ",", digits = 0)
 
-  filename <- paste("personalized_info", user$PhoneNr, sep = "_")
+  filename <- paste("./temp/personalized_info", user$PhoneNr, sep = "_")
   filename <- paste0(filename, ".csv")
   write.csv(MarkDownTextD, filename, row.names = FALSE)
 
@@ -359,7 +359,6 @@ FR_MarkdownText <- function(rr, fertilizers, user, country, userField,
     MarkDownTextD$sum_total <- sum_total
     MarkDownTextD$revenue <- MarkDownTextD$totalSalePrice - sum_total
 
-    # write.csv(MarkDownTextD, "personalized_info.csv", row.names = FALSE)
     write.csv(MarkDownTextD, filename, row.names = FALSE)
 
 
@@ -381,7 +380,7 @@ FR_MarkdownText <- function(rr, fertilizers, user, country, userField,
       }
     }
     MarkDownTextD <- cbind(MarkDownTextD, ff)
-    write.csv(MarkDownTextD, "FR_MarkDownText.csv", row.names = FALSE)
+    write.csv(MarkDownTextD, "./temp/FR_MarkDownText.csv", row.names = FALSE)
   }
 }
 
@@ -436,7 +435,7 @@ IC_MarkdownText <- function(rr, fertilizers, user, country, userField,
                                        " kg of grain.", sep = "")
   }
 
-  filename <- paste("personalized_info", user$PhoneNr, sep = "_")
+  filename <- paste("./temp/personalized_info", user$PhoneNr, sep = "_")
   filename <- paste0(filename, ".csv")
   write.csv(MarkDownTextD, filename, row.names = FALSE)
 
@@ -476,7 +475,7 @@ IC_MarkdownText <- function(rr, fertilizers, user, country, userField,
     }
 
     MarkDownTextD <- cbind(MarkDownTextD, ff, rr$rec)
-    write.csv(MarkDownTextD, "IC_MarkDownText.csv", row.names = FALSE)
+    write.csv(MarkDownTextD, "./temp/IC_MarkDownText.csv", row.names = FALSE)
   }
 }
 
@@ -507,7 +506,7 @@ CIS_MarkdownText <- function(rr, fertilizers, user, country, userField, area, ar
   MarkDownTextD$maxinvest <- formatC(signif(MarkDownTextD$maxinvest, digits = 4), format = "f", big.mark = ",", digits = 0)
 
 
-  filename <- paste("personalized_info", user$PhoneNr, sep = "_")
+  filename <- paste("./temp/personalized_info", user$PhoneNr, sep = "_")
   filename <- paste0(filename, ".csv")
   write.csv(MarkDownTextD, filename, row.names = FALSE)
 
@@ -548,7 +547,7 @@ CIS_MarkdownText <- function(rr, fertilizers, user, country, userField, area, ar
     }
 
     MarkDownTextD <- cbind(MarkDownTextD, ff, rr$rec)
-    write.csv(MarkDownTextD, "CIS_MarkDownText.csv", row.names = FALSE)
+    write.csv(MarkDownTextD, "./temp/CIS_MarkDownText.csv", row.names = FALSE)
   }
 }
 
@@ -563,7 +562,7 @@ PPSP_MarkdownText <- function(rr, fname, user, country, userField, area, areaUni
         email = user$Email, latitude = lat, longitude = lon, costcassava = rootUP, unitcassava = cassPD,
         maxinvest = maxInv, cassUW = cassUW, product = cassPD, currency = currency)
 
-  filename <- paste("personalized_info", user$PhoneNr, sep = "_")
+  filename <- paste("./temp/personalized_info", user$PhoneNr, sep = "_")
   filename <- paste0(filename, ".csv")
   write.csv(MarkDownTextD, filename, row.names = FALSE)
 
@@ -584,7 +583,7 @@ PP_MarkdownText <- function(user, country, userField, area, areaUnits, PD, HD, l
         method_ploughing = method_ploughing, method_ridging = method_ridging, userPhoneCC = user$PhoneCC)
 
 
-	write.csv(MarkDownTextD, "PP_MarkDownText.csv", row.names = FALSE)
+	write.csv(MarkDownTextD, "./temp/PP_MarkDownText.csv", row.names = FALSE)
 }
 
 
@@ -603,7 +602,7 @@ SP_MarkdownText <- function(user, country, userField, area, areaUnits, PD, HD, l
         cassUW = cassUW, cassUP = cassUP, cassUP_m1 = cassUP_m1, cassUP_m2 = cassUP_m2,
         cassUP_p1 = cassUP_p1, cassUP_p2 = cassUP_p2, userPhoneCC = user$PhoneCC)
 		
-  write.csv(MarkDownTextD, "SP_MarkDownText.csv", row.names = FALSE)
+  write.csv(MarkDownTextD, "./temp/SP_MarkDownText.csv", row.names = FALSE)
 }
 
 #SHORT DEF:   Function to obtain recommendations on cassava-sweet potato intercropping.

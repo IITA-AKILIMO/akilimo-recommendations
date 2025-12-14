@@ -10,8 +10,14 @@ process_json_value <- function(field_name, body, default_value = "NA") {
 }
 
 
-get_cassUPW <- function(cassUP, cassUW, cassPD, country) {
-	if (cassUP == 0) {
+get_cassUPUW <- function(cassUP, cassUW, cassPD, country, saleSF, nameSF) {
+
+    if (saleSF) {
+		SF <- read.csv("./data/input/starchPrices.csv")
+		SF <- SF[SF$starchFactory == nameSF,]
+		cassUP <- max(SF$price)
+		cassUW <- 1000
+    } else if (cassUP == 0) {
 		if (country == "NG") {
 			  if (cassPD == "roots") { cassUP <- 12000; cassUW <- 1000 }
 			  if (cassPD == "chips") { cassUP <- 36000; cassUW <- 1000 }
@@ -58,12 +64,13 @@ get_user <- function(body) {
 
 run_akilimo <- function(json) {
 
+	dir.create("temp", FALSE, FALSE)
+
     # Parse JSON body
     body <- tryCatch(jsonlite::fromJSON(json), error = function(e) NULL)
+
     # extract parameters from the JSON payload
-
     country <- process_json_value("country", body)
-
     lat <- process_json_value("lat", body)
     lon <- process_json_value("lon", body)
     area <- process_json_value("area", body)
@@ -123,23 +130,15 @@ run_akilimo <- function(json) {
     rootConv <- data.frame(cassPD = c("roots", "chips", "flour", "gari"), conversion = c(1, 3, 3.2, 3.5))
 
 
-    if (saleSF) {
-		SF <- read.csv("starchPrices.csv")
-		SF <- SF[SF$starchFactory == nameSF,]
-		cassUP <- max(SF$price)
-		cassUW <- 1000
-    } else {
-		UPW <- get_cassUPW(cassUP, cassUW, cassPD, country)
-		cassUP <- UPW[1]
-		cassUW <- UPW[2]		
-    }
-
+	UPUW <- get_cassUPUW(cassUP, cassUW, cassPD, country, saleSF, nameSF)
+	cassUP <- UPUW[1]
+	cassUW <- UPUW[2]		
+	
     # Extract conversion factor once
     conversion_factor <- rootConv[rootConv$cassPD == cassPD, "conversion"]
 
     # Calculate rootUP values using the same denominator
     denominator <- cassUW * conversion_factor / 1000
-
     # Compute each rootUP variant
     rootUP <- cassUP / denominator
     rootUP_m1 <- cassUP_m1 / denominator
@@ -161,7 +160,6 @@ run_akilimo <- function(json) {
     area_basis <- switch(cost_LMO_areaBasis, "areaField" = areaHa, 
 			"acre" = 0.404686, "ha" = 1, 0.0001)  # fallback default (likely m²)
     
-
     ### dates and weeks
     #pd         : Character, Planting date, in format of the ith day of the year (as.numeric(strftime(PD, format = "%j")))
     #pw         : planting week of the year = as.numeric(format(PD, format = "%W"))
@@ -194,7 +192,7 @@ run_akilimo <- function(json) {
     SPrecom <- NULL
 
     # Read the CSV file
-    TRNS <- read.csv("translations_TEST.csv", stringsAsFactors = FALSE)
+    TRNS <- read.csv("./data/input/translations_TEST.csv", stringsAsFactors = FALSE)
 
     # Define a function to clean the data
     clean_data <- function(column, index) {
@@ -408,13 +406,13 @@ run_akilimo <- function(json) {
 				cost_tractor_ploughing, cost_tractor_harrowing, cost_tractor_ridging,
 				cost_weeding1, cost_weeding2)))) {
 		  costLMO_MD$area <- paste(costLMO_MD$area, areaUnits, sep = "")
-		  write.csv(costLMO_MD, "costLMO.csv", row.names = FALSE)
+		  write.csv(./temp/costLMO_MD, "costLMO.csv", row.names = FALSE)
 		} else {
 		  costLMO_MD <- costLMO
 		  names(costLMO_MD) <- c("operation", "method", "cost")
 		  costLMO_MD$area <- "1ha"
 		  costLMO_MD$cost <- formatC(signif(costLMO_MD$cost, digits = 3), format = "f", big.mark = ",", digits = 0)
-		  write.csv(costLMO_MD, "costLMO.csv", row.names = FALSE)
+		  write.csv(./temp/costLMO_MD, "costLMO.csv", row.names = FALSE)
 
 		}
 	
@@ -436,6 +434,7 @@ run_akilimo <- function(json) {
     }
 
     if (SPP || SPH) {
+	
       resSP <- process_SP(
         SPP = SPP, SPH = SPH, PD_window = PD_window, HD_window = HD_window,
         areaHa = areaHa, country = country, lat = lat, lon = lon, PD = PD, HD = HD,

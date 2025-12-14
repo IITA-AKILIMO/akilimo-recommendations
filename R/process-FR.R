@@ -10,7 +10,7 @@
 #'
 #' @examples
 getFRrecText <- function(ds, country, fertilizers, rootUP) {
-  TRNS <- read.csv("translations_TEST.csv", stringsAsFactors = FALSE)
+  TRNS <- read.csv("./data/input/translations_TEST.csv", stringsAsFactors = FALSE)
   norecom_ng <- gsub(pattern = "\"", replacement = "", TRNS$norecom[1]); norecom_tz <- gsub(pattern = "\"", replacement = "", TRNS$norecom[2]); norecom_rw <- gsub(pattern = "\"", replacement = "", TRNS$norecom[3]);
   notapply_ng <- gsub(pattern = "\"", replacement = "", TRNS$notapply[1]); notapply_tz <- gsub(pattern = "\"", replacement = "", TRNS$notapply[2]); notapply_rw <- gsub(pattern = "\"", replacement = "", TRNS$notapply[3])
 
@@ -214,21 +214,21 @@ getFRrecommendations <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers,
 
   ## get WLY:get PDand HD to the closest daes fr which we have WLY
   if (country == "NG") {
-    WLY_365 <- readRDS("Nigeria_WLY_LINTUL_2020.RDS")
+    WLY_365 <- readRDS("./data/input/Nigeria_WLY_LINTUL_2020.RDS")
   }else if (country == "TZ") {
-    WLY_365 <- readRDS("Tanzania_WLY_LINTUL_2020.RDS")
+    WLY_365 <- readRDS("./data/input/Tanzania_WLY_LINTUL_2020.RDS")
   }else if (country == "RW") {
-    WLY_365 <- readRDS("Rwanda_WLY_LINTUL.RDS")
+    WLY_365 <- readRDS("./data/input/Rwanda_WLY_LINTUL.RDS")
     WLY_365$pl_Date <- WLY_365$plantingDate
     WLY_365$PlweekNr <- WLY_365$weekNr
     colnames(WLY_365) <- gsub("WLY_", "", colnames(WLY_365))
   }else if (country == "GH") {
-    WLY_365 <- readRDS("Ghana_WLY_LINTUL.RDS")
+    WLY_365 <- readRDS("./data/input/Ghana_WLY_LINTUL.RDS")
     WLY_365$pl_Date <- WLY_365$plantingDate
     WLY_365$PlweekNr <- WLY_365$weekNr
     colnames(WLY_365) <- gsub("WLY_", "", colnames(WLY_365))
   }else if (country == "BU") {
-    WLY_365 <- readRDS("Burundi_WLY_LINTUL.RDS")
+    WLY_365 <- readRDS("./data/input/Burundi_WLY_LINTUL.RDS")
     WLY_365$pl_Date <- WLY_365$plantingDate
     WLY_365$PlweekNr <- WLY_365$weekNr
     colnames(WLY_365) <- gsub("WLY_", "", colnames(WLY_365))
@@ -278,7 +278,7 @@ getFRrecommendations <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers,
                      ifelse(FCY >= 7.5 & FCY < 15, "FCY2",
                             ifelse(FCY >= 15 & FCY < 22.5, "FCY3",
                                    ifelse(FCY >= 22.5 & FCY < 30, "FCY4", "FCY5"))))
-      SoilData <- readRDS(paste("RW_", fcyy, "_soilNPK.RDS", sep = ""))
+      SoilData <- readRDS(paste("./data/input/RW_", fcyy, "_soilNPK.RDS", sep = ""))
       SoilData$location <- paste(SoilData$lat, SoilData$lon, sep = "_")
       SoilData <- SoilData[SoilData$location == wlydata$location,]
       SoilData$Zone <- "RW"
@@ -295,7 +295,7 @@ getFRrecommendations <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers,
                      ifelse(FCY >= 7.5 & FCY < 15, "FCY2",
                             ifelse(FCY >= 15 & FCY < 22.5, "FCY3",
                                    ifelse(FCY >= 22.5 & FCY < 30, "FCY4", "FCY5"))))
-      SoilData <- readRDS(paste("GH_", fcyy, "_soilNPK.RDS", sep = ""))
+      SoilData <- readRDS(paste("./data/input/GH_", fcyy, "_soilNPK.RDS", sep = ""))
       SoilData$location <- paste(SoilData$lat, SoilData$lon, sep = "_")
       SoilData <- SoilData[SoilData$location == wlydata$location,]
       SoilData$Zone <- "RW"
@@ -312,7 +312,7 @@ getFRrecommendations <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers,
                      ifelse(FCY >= 7.5 & FCY < 15, "FCY2",
                             ifelse(FCY >= 15 & FCY < 22.5, "FCY3",
                                    ifelse(FCY >= 22.5 & FCY < 30, "FCY4", "FCY5"))))
-      SoilData <- readRDS(paste("BU_", fcyy, "_soilNPK.RDS", sep = ""))
+      SoilData <- readRDS(paste("./data/input/BU_", fcyy, "_soilNPK.RDS", sep = ""))
       SoilData$location <- paste(SoilData$lat, SoilData$lon, sep = "_")
       SoilData <- SoilData[SoilData$location == wlydata$location,]
       SoilData$Zone <- "BU"
@@ -425,7 +425,7 @@ process_FR <- function(FR, lat, lon, pd, pw, HD, had, maxInv, fertilizers, rootU
         fertilizers = fertilizers,
         rootUP = rootUP
       )
-      write.csv(recText$FR, 'FR_recText.csv', row.names = FALSE)
+      write.csv(recText$FR, './temp/FR_recText.csv', row.names = FALSE)
 
       FR_MarkdownText(
         rr = plumberRes$FR, fertilizers = fertilizers, user = user,
