@@ -10,44 +10,22 @@
 #'
 #' @examples
 getFRrecText <- function(ds, country, fertilizers, rootUP) {
-  TRNS <- read.csv("./data/input/translations_TEST.csv", stringsAsFactors = FALSE)
-  norecom_ng <- gsub(pattern = "\"", replacement = "", TRNS$norecom[1]); norecom_tz <- gsub(pattern = "\"", replacement = "", TRNS$norecom[2]); norecom_rw <- gsub(pattern = "\"", replacement = "", TRNS$norecom[3]);
-  notapply_ng <- gsub(pattern = "\"", replacement = "", TRNS$notapply[1]); notapply_tz <- gsub(pattern = "\"", replacement = "", TRNS$notapply[2]); notapply_rw <- gsub(pattern = "\"", replacement = "", TRNS$notapply[3])
+  
+	TRNS <- read.csv("./data/input/translations_TEST.csv", stringsAsFactors = FALSE)
+	
+	unquote <- function(x) gsub(pattern = "\"", replacement = "", x)
+	TRNS <- data.frame(lapply(TRNS, unquote))
 
+	rec <- ds$rec
+	frate <- ds$fertilizer_rates
 
-  rec <- ds$rec
+	ci <- ifelse(country %in% c("NG", "GH", "BU"), 1, 
+			ifelse(country == "TZ", 2, 3)) #RW = 3
 
-  frate <- ds$fertilizer_rates
-
-  if (is.null(rec)) {
-
-    #trans
-    recom <- if (country == "NG" |
-      country == "GH" |
-      country == "BU") {
-      paste(norecom_ng)
-    }else if (country == "TZ") {
-      paste(norecom_tz)
-    }else {
-      paste(norecom_rw)
-    }
-
-
-  }else {
-
-    if (rec$TC == 0) {
-
-      #trans
-      recom <- if (country == "NG" |
-        country == "GH" |
-        country == "BU") {
-        paste(notapply_ng)
-      }else if (country == "TZ") {
-        paste(norecom_tz)
-      }else {
-        paste(notapply_rw)
-      }
-
+	if (is.null(rec)) {
+		TRNS$norecom[ci]
+	} else if (rec$TC == 0) {
+        TRNS$notapply[ci]
 
       #TODO: This does not provide details on the reasons why we do not recommend to apply fertilizer.
       #This might either be due to
@@ -55,16 +33,17 @@ getFRrecText <- function(ds, country, fertilizers, rootUP) {
       #2 low yield potential (unfavourable planting / harvest date and low WLY),
       #3. high soil fertility and low response (high FCY or high indigenous nutrient supply).
 
+    } else {
 
-    }else {
-
-
-      currency <- ifelse(country == "NG", "NGN", ifelse(country == "RW", "RWF", ifelse(country == "GH", "GHS", ifelse(country == "BU", "BIF", "TZS"))))
+      currency <- ifelse(country == "NG", "NGN", 
+					ifelse(country == "RW", "RWF", 
+					ifelse(country == "GH", "GHS", 
+					ifelse(country == "BU", "BIF", "TZS"))))
 
       fertilizerTypes <- frate$type
       fertilizerRates <- round(frate$rate, digits = 0)
 
-      bags <- round(fertilizerRates / 50, digits = 1)
+      bags <- round(fertilizerRates / 50, digits = 1)  # 50 hard coded
       Bagsfull <- trunc(bags)
       bagshalf <- bags - floor(bags)
       bagshalf <- ifelse(bagshalf >= 0.25 & bagshalf <= 0.75, 0.5, ifelse(bagshalf < 0.25, 0, 1))
@@ -88,42 +67,20 @@ getFRrecText <- function(ds, country, fertilizers, rootUP) {
       NR <- formatC(revenue, format = "f", big.mark = ",", digits = 0)
       DY <- signif(rec$TargetY - rec$CurrentY, digits = 2)
 
+		add_more <- function(x, i) {
+             paste0(x, TRNS$area[i], "\n",
+               TRNS$willc[i], currency, " ", TC, ".\n",
+               TRNS$extrap[i], DY, TRNS$tonof[1],
+               TRNS$netincr[i], currency, " ", NR, ".")
+		}
 
-      werec_ng <- gsub(pattern = "\"", replacement = "", TRNS$werec[1]); werec_tz <- gsub(pattern = "\"", replacement = "", TRNS$werec[2]); werec_rw <- gsub(pattern = "\"", replacement = "", TRNS$werec[3])
-      kgof_ng <- gsub(pattern = "\"", replacement = "", TRNS$kgof[1]); kgof_tz <- gsub(pattern = "\"", replacement = "", TRNS$kgof[2]); kgof_rw <- gsub(pattern = "\"", replacement = "", TRNS$kgof[3]); area_ng <- gsub(pattern = "\"", replacement = "", TRNS$area[1]); area_tz <- gsub(pattern = "\"", replacement = "", TRNS$area[2]);
-      area_rw <- gsub(pattern = "\"", replacement = "", TRNS$area[3])
-      willc_ng <- gsub(pattern = "\"", replacement = "", TRNS$willc[1]); willc_tz <- gsub(pattern = "\"", replacement = "", TRNS$willc[2]); willc_rw <- gsub(pattern = "\"", replacement = "", TRNS$willc[3]); extrap_ng <- gsub(pattern = "\"", replacement = "", TRNS$extrap[1]); extrap_tz <- gsub(pattern = "\"", replacement = "", TRNS$extrap[2]);
-      extrap_rw <- gsub(pattern = "\"", replacement = "", TRNS$extrap[3])
-      tonof_ng <- gsub(pattern = "\"", replacement = "", TRNS$tonof[1]); tonof_tz <- gsub(pattern = "\"", replacement = "", TRNS$tonof[2]); tonof_rw <- gsub(pattern = "\"", replacement = "", TRNS$tonof[3]); netincr_ng <- gsub(pattern = "\"", replacement = "", TRNS$netincr[1]); netincr_tz <- gsub(pattern = "\"", replacement = "", TRNS$netincr[2]);
-      netincr_rw <- gsub(pattern = "\"", replacement = "", TRNS$netincr[3])
-      of_tz <- gsub(pattern = "\"", replacement = "", TRNS$of[2]); of_rw <- gsub(pattern = "\"", replacement = "", TRNS$of[3]);
-
-      recom <- if (country == "NG" |
-        country == "GH" |
-        country == "BU") {
-        paste0(werec_ng, "\n",
-               paste0(fertilizerRates, kgof_ng, fertilizerTypes, collapse = "\n"),
-               area_ng, "\n",
-               willc_ng, currency, " ", TC, ".\n",
-               extrap_ng, DY, tonof_ng,
-               netincr_ng, currency, " ", NR, ".")
-      }else if (country == "TZ") {
-        paste0(werec_tz, " ", "\n",
-               paste0(kgof_tz, fertilizerRates, of_tz, fertilizerTypes, collapse = "\n"),
-               area_tz, "\n",
-               willc_tz, currency, " ", TC, ".\n",
-               extrap_tz, " ", DY, tonof_tz,
-               netincr_tz, " ", currency, " ", NR, ".")
-
-      }else if (country == "RW") {
-        paste0(werec_rw, " ", "\n",
-               paste0(kgof_rw, fertilizerRates, of_rw, fertilizerTypes, collapse = "\n"),
-               area_rw, "\n",
-               willc_rw, currency, " ", TC, ".\n",
-               extrap_rw, " ", DY, tonof_rw,
-               netincr_rw, " ", currency, " ", NR, ".")
-
-      }
+      recom <- if (ci == 1) {
+				add_more(paste0(TRNS$werec[1], "\n", fertilizerRates, TRNS$kgof[1], 
+					fertilizerTypes, collapse = "\n"), ci)
+			} else {
+				add_more(paste0(TRNS$werec[2], " ", "\n", TRNS$kgof[2], 
+					fertilizerRates, TRNS$of[2], fertilizerTypes, collapse = "\n"), ci)
+			}
 
 
       #TODO: This only provides the minimal information to return to the user. We may consider adding following information:
@@ -132,8 +89,6 @@ getFRrecText <- function(ds, country, fertilizers, rootUP) {
       #3. Possible better alternative fertilizers...
       #4. Importance of good agronomic practices
       #5. Possible issues with the input data - very high fertilizer prices or very low root price, very low or very high FCY, very low or very high WY,...
-
-    }
   }
 
   recom <- gsub("  ", " ", recom)
@@ -407,12 +362,7 @@ process_FR <- function(FR, lat, lon, pd, pw, HD, had, maxInv, fertilizers, rootU
     } # else ? {}
   } else if (plumberRes[["FR"]]$rec$NR > 0) {
       FRrecom <- TRUE
-      recText[["FR"]] <- getFRrecText(
-        ds = plumberRes$FR,
-        country = country,
-        fertilizers = fertilizers,
-        rootUP = rootUP
-      )
+      recText[["FR"]] <- getFRrecText(ds = plumberRes$FR, country=country, fertilizers=fertilizers, rootUP=rootUP)
       write.csv(recText$FR, './temp/FR_recText.csv', row.names = FALSE)
 
       FR_MarkdownText(
