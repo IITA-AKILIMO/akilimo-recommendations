@@ -25,15 +25,15 @@ run_Optim_NG2 <- function(rootUP, QID, fertilizer, invest, plDate, WLYData, lat,
   CY_user <- ((getRFY(HD = HD, RDY = DCY, country = "NG")) / 1000) * areaHa ## TZ model is extrememly high
   WLY_user <- ((getRFY(HD = HD, RDY = WLY, country = "NG")) / 1000) * areaHa
 
+print(initial)
   ## this is where the optimization is done, and thereuslt is the NPK rate that gives max profit
-  FR <- optim(par = initial, fn = optim_NR, lower = lowerST, method = "L-BFGS-B", control = list(fnscale = -1), rootUP = rootUP,
-              QID = QID, CY = DCY, fertilizer = fertilizer, invest = invest, HD = HD, country = country)$par
-
+  FR <- optim(par = initial, fn = optim_NR, lower = lowerST, method = "L-BFGS-B", 
+		control = list(fnscale = -1, ndeps=rep(1, length(initial))),
+		rootUP = rootUP, QID = QID, CY = DCY, fertilizer = fertilizer, invest = invest, HD = HD, country = country)$par
 
   if (all(FR == 0)) {
-    return(data.frame(lat = lat, lon = lon, plDate, N = 0, P = 0, K = 0, WLY = WLY_user, CurrentY = CY_user, TargetY = CY_user, TC = 0, NR = 0))
-  }else {
-
+    return(data.frame(lat = lat, lon = lon, plDate, N = 0, P = 0, K = 0, WLY = WLY_user, CurrentY = CY_user, TargetY = 	CY_user, TC = 0, NR = 0))
+  } else {
     fertilizer$FR <- FR
 
     ## NPK rate for ha of land
