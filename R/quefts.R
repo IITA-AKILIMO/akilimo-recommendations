@@ -112,13 +112,12 @@ QUEFTS1_Pedotransfer <- function(QID, rec) {
 
 
   Queft_Input_Data_Var1 <- cbind(QID, crop_param)
-  indata <- Queft_Input_Data_Var1[, c("lat", "long", "WLY", "aN", "dN", "aP", "dP", "aK", "dK", "rN", "rP", "rK", "soilN", "soilP", "soilK", "max_yield", "tolerance")]
+ 
+ indata <- Queft_Input_Data_Var1[, c("lat", "long", "WLY", "aN", "dN", "aP", "dP", "aK", "dK", "rN", "rP", "rK", "soilN", "soilP", "soilK", "max_yield", "tolerance")]
 
-  N_rate <- rec[1]
-  P_rate <- rec[2]
-  K_rate <- rec[3]
+#  N_rate <- rec[1]; P_rate <- rec[2]; K_rate <- rec[3]
 
-  TargetYield_from_NPK <- NPK_TargetYield_forOutput(NutrUse_soilNPK = indata, N_rate, P_rate, K_rate)
+  TargetYield_from_NPK <- NPK_TargetYield_forOutput(NutrUse_soilNPK = indata, rec[1], rec[2], rec[3])
 
   return(TargetYield_from_NPK$TargetYield)
 }

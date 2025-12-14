@@ -286,8 +286,9 @@ getFRrecommendations <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers,
 
 
     ## 3. optimize the fertilizer recommendation for maxInv in local currency and provide expected target yield in kg
-    fert_optim <- run_Optim_NG2(rootUP = rootUP, QID = SoilData, fertilizer = fertilizers, invest = InvestHa, plDate = WLYData$pl_Date,
-                                WLYData = WLYData, lat = lat, lon = lon, areaHa, HD = HD, DCY = DCY, WLY = WLY, country = country)
+    fert_optim <- run_Optim_NG2(rootUP = rootUP, QID = SoilData, fertilizer = fertilizers, 
+			invest = InvestHa, plDate = WLYData$pl_Date, WLYData = WLYData, 
+			lat = lat, lon = lon, areaHa=areaHa, HD = HD, DCY = DCY, WLY = WLY, country = country)
 
     if (fert_optim$NR == 0) { ## no fertilizer recommendation
       fertilizer_rates <- NULL
