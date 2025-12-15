@@ -20,13 +20,13 @@ test <- function(i) {
 
 out <- lapply(1:27, test)
 
-cmp <- readRDS(file.path(testdir, "test_out2.rds"))
+cmp <- readRDS(file.path(testdir, "test_out3.rds"))
 
 for (i in 1:27) {
 	cat(i, " ------\n")
 #	x <- jsonlite::fromJSON(cmp[[i]])$data
-	x <- cmp[[i]]$data
-	y <- out[[i]]$data
+	x <- out[[i]]$data
+	y <- cmp[[i]]$data
 #	a <- tinytest::expect_equal(x$recommendation, y$recommendation[1])
 	a <- tinytest::expect_equal(x$recommendation, y$recommendation)
 	if (!a) print(a)
