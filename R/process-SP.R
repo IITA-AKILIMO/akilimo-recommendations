@@ -1,5 +1,4 @@
 
-
 #' Title
 #'
 #' @param ds is a dataframe and out put of getSPrecommendations function
@@ -13,48 +12,20 @@
 #' @examples
 getSPrecText <- function(ds, country, PD, HD) {
 
-  TRNS <- read.csv("./data/input/translations_TEST.csv", stringsAsFactors = FALSE)
-  norecom_ng <- gsub(pattern = "\"", replacement = "", TRNS$norecom[1]); norecom_tz <- gsub(pattern = "\"", replacement = "", TRNS$norecom[2]); norecom_rw <- gsub(pattern = "\"", replacement = "", TRNS$norecom[3]);
-  notapply_ng <- gsub(pattern = "\"", replacement = "", TRNS$notapply[1]); notapply_tz <- gsub(pattern = "\"", replacement = "", TRNS$notapply[2]); notapply_rw <- gsub(pattern = "\"", replacement = "", TRNS$notapply[3])
-  recrev_ng <- gsub(pattern = "\"", replacement = "", TRNS$recrev[1]); recrev_tz <- gsub(pattern = "\"", replacement = "", TRNS$recrev[2]); recrev_rw <- gsub(pattern = "\"", replacement = "", TRNS$recrev[3])
-  hvsdate_ng <- gsub(pattern = "\"", replacement = "", TRNS$hvsdate[1]); hvsdate_tz <- gsub(pattern = "\"", replacement = "", TRNS$hvsdate[2]); hvsdate_rw <- gsub(pattern = "\"", replacement = "", TRNS$hvsdate[3]);
-  nochange_ng <- gsub(pattern = "\"", replacement = "", TRNS$nochange[1]); nochange_tz <- gsub(pattern = "\"", replacement = "", TRNS$nochange[2]); nochange_rw <- gsub(pattern = "\"", replacement = "", TRNS$nochange[3])
-  recPln_ng <- gsub(pattern = "\"", replacement = "", TRNS$recPln[1]); recPln_tz <- gsub(pattern = "\"", replacement = "", TRNS$recPln[2]); recPln_rw <- gsub(pattern = "\"", replacement = "", TRNS$recPln[3]);
-  recHvs_ng <- gsub(pattern = "\"", replacement = "", TRNS$recHvs[1]); recHvs_tz <- gsub(pattern = "\"", replacement = "", TRNS$recHvs[2]); recHvs_rw <- gsub(pattern = "\"", replacement = "", TRNS$recHvs[3])
-  wks_ng <- gsub(pattern = "\"", replacement = "", TRNS$wks[1]); wks_tz <- gsub(pattern = "\"", replacement = "", TRNS$wks[2]); wks_rw <- gsub(pattern = "\"", replacement = "", TRNS$wks[3]);
-  recPlnP_ng <- gsub(pattern = "\"", replacement = "", TRNS$recPlnP[1]); recPlnP_tz <- gsub(pattern = "\"", replacement = "", TRNS$recPlnP[2]); recPlnP_rw <- gsub(pattern = "\"", replacement = "", TRNS$recPlnP[3])
-  early_ng <- gsub(pattern = "\"", replacement = "", TRNS$early[1]); early_tz <- gsub(pattern = "\"", replacement = "", TRNS$early[2]); early_rw <- gsub(pattern = "\"", replacement = "", TRNS$early[3]);
-  late_ng <- gsub(pattern = "\"", replacement = "", TRNS$late[1]); late_tz <- gsub(pattern = "\"", replacement = "", TRNS$late[2]); late_rw <- gsub(pattern = "\"", replacement = "", TRNS$late[3])
-  recPhv_ng <- gsub(pattern = "\"", replacement = "", TRNS$recPhv[1]); recPhv_tz <- gsub(pattern = "\"", replacement = "", TRNS$recPhv[2]); recPhv_rw <- gsub(pattern = "\"", replacement = "", TRNS$recPhv[3]);
-
+	TRNS <- read.csv("./data/input/translations_TEST.csv", stringsAsFactors = FALSE)
+	unquote <- function(x) gsub(pattern = "\"", replacement = "", x)
+	tr <- data.frame(lapply(TRNS, unquote))
+  
+  
+  	cni <- ifelse(country %in% c("GH", "NG"), 1, ifelse(country=="TZ", 2, 3))
 
   if (is.null(ds)) {
-
-    rec <- if (country == "NG" | country == "GH") {
-      norecom_ng
-    }else if (country == "TZ") {
-      norecom_tz
-    }else {
-      norecom_rw
-    }
-
-  }else {
-
+    rec <- tr$norecom[cni]
+  } else {
     if (ds[1,]$CP) {
-      if (country == "NG" | country == "GH") {
-        rec <- paste0(recrev_ng, " ( ", format(ds[1,]$PD, "%d %B %Y"), " ) ",
-                      hvsdate_ng, " ( ", format(ds[1,]$HD, "%d %B %Y"), " ) ",
-                      nochange_ng)
-      }else if (country == "TZ") {
-        rec <- paste0(recrev_tz, " ( ", format(ds[1,]$PD, "%d %B %Y"), " ) ",
-                      hvsdate_tz, " ( ", format(ds[1,]$HD, "%d %B %Y"), " ) ",
-                      nochange_tz)
-      }else {
-        rec <- paste0(recrev_rw, " ( ", format(ds[1,]$PD, "%d %B %Y"), " ) ",
-                      hvsdate_rw, " ( ", format(ds[1,]$HD, "%d %B %Y"), " ) ",
-                      nochange_rw)
-      }
-
+        rec <- paste0(tr$recrev[cni], " ( ", format(ds[1,]$PD, "%d %B %Y"), " ) ",
+                      tr$hvsdate[cni], " ( ", format(ds[1,]$HD, "%d %B %Y"), " ) ",
+                      tr$nochange[cni])
 
       #TODO: This does not provide details on the reasons. This might either be due to
       #1. unfavourable price conditions at other planting/harvest dates,
@@ -63,54 +34,47 @@ getSPrecText <- function(ds, country, PD, HD) {
       #4. combination of both.
       #We may also want to include some information on the impact on cropping practices, requirement to ridge, risks of pest and disease issues,...
 
-    }else {
+    } else {
 
       if (ds[1,]$PD != ds[ds$CP == TRUE,]$PD) {
         #trans
-        if (country == "NG" | country == "GH") {
-          recP <- paste0(recPln_ng, format(ds[1,]$PD, "%d %B %Y"), ", ",
-                         abs(ds[1,]$rPWnr), " ", wks_ng, " ", ifelse(ds[1,]$rPWnr < 0, early_ng, late_ng), " ", recPlnP_ng, "\n")
+        if (country %in% c("NG", "GH")) {
+          recP <- paste0(tr$recPln[1], format(ds[1,]$PD, "%d %B %Y"), ", ",
+                         abs(ds[1,]$rPWnr), " ", tr$wks[1], " ", ifelse(ds[1,]$rPWnr < 0, tr$early[1], tr$late[1]), " ", tr$recPlnP[1], "\n")
 
-        }else if (country == "TZ") {
-          recP <- paste0(recPln_tz, " ", format(ds[1,]$PD, "%d %B %Y"), ", ",
-                         wks_tz, " ", abs(ds[1,]$rPWnr), " ", " ", ifelse(ds[1,]$rPWnr < 0, early_tz, late_tz), " ", recPlnP_tz, "\n")
-        }else {
-          recP <- paste0(recPln_rw, " ", format(ds[1,]$PD, "%d %B %Y"), ", ",
-                         wks_rw, " ", abs(ds[1,]$rPWnr), " ", " ", ifelse(ds[1,]$rPWnr < 0, early_tz, late_rw), " ", recPlnP_rw, "\n")
+        } else {
+          recP <- paste0(tr$recPln[cni], " ", format(ds[1,]$PD, "%d %B %Y"), ", ",
+                         tr$wks[cni], " ", abs(ds[1,]$rPWnr), " ", " ", ifelse(ds[1,]$rPWnr < 0, tr$early[cni], tr$late[cni]), " ", tr$recPlnP[cni], "\n")
         }
-
-      }else {
+      } else {
         # recP <- NULL
-        if (country == "NG" | country == "GH") {
-          recP <- paste0("Your revenue will be highest at your proposed planting date, on ", format(ds[1,]$PD, "%d %B %Y"), ".", sep = "")
-        }else if (country == "TZ") {
-          recP <- paste0("Mapato yako yatakuwa makubwa zaidi ukipanda tarehe, ", format(ds[1,]$PD, "%d %B %Y"), ".", sep = "")
-        }else {
-          recP <- paste0("kinyarwanda, ", format(ds[1,]$PD, "%d %B %Y"), ".", sep = "")
+        if (country %in% c("NG", "GH")) {
+          recP <- paste0("Your revenue will be highest at your proposed planting date, on ", format(ds[1,]$PD, "%d %B %Y"), ".")
+        } else if (country == "TZ") {
+          recP <- paste0("Mapato yako yatakuwa makubwa zaidi ukipanda tarehe, ", format(ds[1,]$PD, "%d %B %Y"), ".")
+        } else {
+          recP <- paste0("kinyarwanda, ", format(ds[1,]$PD, "%d %B %Y"), ".")
         }
 
       }
 
 
       if (ds[1,]$HD != ds[ds$CP == TRUE,]$HD) {
-        if (country == "NG" | country == "GH") {
-          recH <- paste0(recHvs_ng, format(ds[1,]$PD, "%d %B %Y"), ", ",
-                         abs(ds[1,]$rPWnr), " ", wks_ng, " ", ifelse(ds[1,]$rPWnr < 0, early_ng, late_ng), recPhv_ng, "\n")
-        }else if (country == "TZ") {
-          recH <- paste0(recHvs_tz, " ", format(ds[1,]$PD, "%d %B %Y"), ", ", wks_tz, " ",
-                         abs(ds[1,]$rPWnr), " ", ifelse(ds[1,]$rPWnr < 0, early_tz, late_tz), recPhv_tz, "\n")
-        }else {
-          recH <- paste0(recHvs_rw, " ", format(ds[1,]$PD, "%d %B %Y"), ", ", wks_rw, " ",
-                         abs(ds[1,]$rPWnr), " ", ifelse(ds[1,]$rPWnr < 0, early_rw, late_rw), recPhv_rw, "\n")
+        if (country %in% c("NG", "GH")) {
+          recH <- paste0(tr$recHvs[1], format(ds[1,]$PD, "%d %B %Y"), ", ",
+                         abs(ds[1,]$rPWnr), " ", tr$wks[1], " ", ifelse(ds[1,]$rPWnr < 0, tr$early[1], tr$late[1]), tr$recPhv[1], "\n")
+        } else {
+          recH <- paste0(tr$recHvs[cni], " ", format(ds[1,]$PD, "%d %B %Y"), ", ", tr$wks[cni], " ",
+                         abs(ds[1,]$rPWnr), " ", ifelse(ds[1,]$rPWnr < 0, tr$early[cni], tr$late[cni]), tr$recPhv[cni], "\n")
         }
       }else {
         recH <- NULL
-        if (country == "NG" | country == "GH") {
-          recH <- paste0("Your selected harvest date is optimal, harvest your cassava on ", format(ds[1,]$HD, "%d %B %Y"), ".", sep = " ")
+        if (country %in% c("NG", "GH")) {
+          recH <- paste0("Your selected harvest date is optimal, harvest your cassava on ", format(ds[1,]$HD, "%d %B %Y"), ".")
         }else if (country == "TZ") {
-          recH <- paste0("Tarehe uliyochagua ya kuvuna ni bora, vuna mihogo yako tarehe ", format(ds[1,]$HD, "%d %B %Y"), ".", sep = " ")
+          recH <- paste0("Tarehe uliyochagua ya kuvuna ni bora, vuna mihogo yako tarehe ", format(ds[1,]$HD, "%d %B %Y"), ".")
         }else {
-          recH <- paste0("kinyarwanda ", format(ds[1,]$HD, "%d %B %Y"), ".", sep = " ")
+          recH <- paste0("kinyarwanda ", format(ds[1,]$HD, "%d %B %Y"), ".")
         }
       }
 
@@ -118,104 +82,37 @@ getSPrecText <- function(ds, country, PD, HD) {
       DP <- signif(ds[1,]$RP - ds[ds$CP == TRUE,]$RP, digits = 2)
       currency <- ifelse(country == "NG", "NGN", ifelse(country == "RW", "RWF", ifelse(country == "GH", "GHS", "TZS")))
       dGR <- formatC(signif(ds[1,]$dGR, digits = 3), format = "f", big.mark = ",", digits = 0)
-      rechange_ng <- gsub(pattern = "\"", replacement = "", TRNS$rechange[1]); rechange_tz <- gsub(pattern = "\"", replacement = "", TRNS$rechange[2]); rechange_rw <- gsub(pattern = "\"", replacement = "", TRNS$rechange[3])
-      hvst_ng <- gsub(pattern = "\"", replacement = "", TRNS$hvst[1]); hvst_tz <- gsub(pattern = "\"", replacement = "", TRNS$hvst[2]); hvst_rw <- gsub(pattern = "\"", replacement = "", TRNS$hvst[3])
-      plnt_ng <- gsub(pattern = "\"", replacement = "", TRNS$plnt[1]); plnt_tz <- gsub(pattern = "\"", replacement = "", TRNS$plnt[2]); plnt_rw <- gsub(pattern = "\"", replacement = "", TRNS$plnt[3])
-      recRatt1_ng <- gsub(pattern = "\"", replacement = "", TRNS$recRatt1[1]); recRatt1_tz <- gsub(pattern = "\"", replacement = "", TRNS$recRatt1[2]); recRatt1_rw <- gsub(pattern = "\"", replacement = "", TRNS$recRatt1[3])
-      recRatt2_ng <- gsub(pattern = "\"", replacement = "", TRNS$recRatt2[1]); recRatt2_tz <- gsub(pattern = "\"", replacement = "", TRNS$recRatt2[2]); recRatt2_rw <- gsub(pattern = "\"", replacement = "", TRNS$recRatt2[3])
-      exp_ng <- gsub(pattern = "\"", replacement = "", TRNS$exp[1]); exp_tz <- gsub(pattern = "\"", replacement = "", TRNS$exp[2]); exp_rw <- gsub(pattern = "\"", replacement = "", TRNS$exp[3])
-      dec_ng <- gsub(pattern = "\"", replacement = "", TRNS$dec[1]); dec_tz <- gsub(pattern = "\"", replacement = "", TRNS$dec[2]); dec_rw <- gsub(pattern = "\"", replacement = "", TRNS$dec[3])
-      inc_ng <- gsub(pattern = "\"", replacement = "", TRNS$inc[1]); inc_tz <- gsub(pattern = "\"", replacement = "", TRNS$inc[2]); inc_rw <- gsub(pattern = "\"", replacement = "", TRNS$inc[3])
-      root_ng <- gsub(pattern = "\"", replacement = "", TRNS$root[1]); root_tz <- gsub(pattern = "\"", replacement = "", TRNS$root[2]); root_rw <- gsub(pattern = "\"", replacement = "", TRNS$root[3])
-      notot_ng <- gsub(pattern = "\"", replacement = "", TRNS$notot[1]); notot_tz <- gsub(pattern = "\"", replacement = "", TRNS$notot[2]); notot_rw <- gsub(pattern = "\"", replacement = "", TRNS$notot[3])
-      optim_ng <- gsub(pattern = "\"", replacement = "", TRNS$optim[1]); optim_tz <- gsub(pattern = "\"", replacement = "", TRNS$optim[2]); optim_rw <- gsub(pattern = "\"", replacement = "", TRNS$optim[3])
-      ton_ng <- gsub(pattern = "\"", replacement = "", TRNS$ton[1]); ton_tz <- gsub(pattern = "\"", replacement = "", TRNS$ton[2]); ton_rw <- gsub(pattern = "\"", replacement = "", TRNS$ton[3])
-      but_ng <- gsub(pattern = "\"", replacement = "", TRNS$but[1]); but_tz <- gsub(pattern = "\"", replacement = "", TRNS$but[2]); but_rw <- gsub(pattern = "\"", replacement = "", TRNS$but[3])
-      and_ng <- gsub(pattern = "\"", replacement = "", TRNS$and[1]); and_tz <- gsub(pattern = "\"", replacement = "", TRNS$and[2]); and_rw <- gsub(pattern = "\"", replacement = "", TRNS$and[3])
-      valinc_ng <- gsub(pattern = "\"", replacement = "", TRNS$valinc[1]); valinc_tz <- gsub(pattern = "\"", replacement = "", TRNS$valinc[2]); valinc_rw <- gsub(pattern = "\"", replacement = "", TRNS$valinc[3])
-
+	  
 
       if (DP == 0) {
 
         if (dGR == 0) {
-          if (country == "NG" | country == "GH") {
-            recR <- paste0(rechange_ng,
-                           ifelse(!is.null(recH), paste(hvst_ng), paste(plnt_ng)))
-          }else if (country == "TZ") {
-            recR <- paste0(rechange_tz,
-                           ifelse(!is.null(recH), paste(hvst_tz), paste(plnt_tz)))
-          }else {
-            recR <- paste0(rechange_rw,
-                           ifelse(!is.null(recH), paste(hvst_rw), paste(plnt_rw)))
-          }
-
+            recR <- paste0(tr$rechange[cni],
+                     ifelse(!is.null(recH), paste(tr$hvst[cni]), paste(tr$plnt[cni])))
         } else {
-          if (country == "NG" | country == "GH") {
-            recR <- paste0(recRatt1_ng, currency, " ", dGR, " ", recRatt2_ng)
-          }else if (country == "TZ") {
-            recR <- paste0(recRatt1_tz, currency, " ", dGR, " ", recRatt2_tz)
-          }else {
-            recR <- paste0(recRatt1_rw, currency, " ", dGR, " ", recRatt2_rw)
-          }
+            recR <- paste0(tr$recRatt1[cni], currency, " ", dGR, " ", tr$recRatt2[cni])
         }
       } else {
         if (dGR == 0) {
-          if (country == "NG" | country == "GH") {
-            recR <- paste0(exp_ng,
-                           ifelse(DP < 0, paste(dec_ng), paste(inc_ng)), root_ng, abs(DP), " ", ton_ng,
-                           notot_ng,
-                           ifelse(!is.null(recH), paste(hvst_ng), paste(plnt_ng)))
-          }else if (country == "TZ") {
-            recR <- paste0(exp_tz,
-                           ifelse(DP < 0, paste(dec_tz), paste(inc_tz)), root_tz, " ", abs(DP), " ", ton_tz,
-                           notot_tz,
-                           ifelse(!is.null(recH), paste(hvst_tz), paste(plnt_tz)))
-
-          }else {
-            recR <- paste0(exp_rw,
-                           ifelse(DP < 0, paste(dec_rw), paste(inc_rw)), root_rw, " ", abs(DP), " ", ton_rw,
-                           notot_rw,
-                           ifelse(!is.null(recH), paste(hvst_rw), paste(plnt_rw)))
-          }
-        }else {
-
-          if (country == "NG" | country == "GH") {
-            recR <- paste0(exp_ng,
-                           ifelse(DP < 0, paste(dec_ng), paste(inc_ng)), root_ng, abs(DP), " ", ton_ng,
-                           ifelse(DP < 0, paste(but_ng), paste(and_ng)),
-                           valinc_ng, currency, " ", dGR, ".")
-          }else if (country == "TZ") {
-            recR <- paste0(exp_tz,
-                           ifelse(DP < 0, paste(dec_tz), paste(inc_tz)), root_tz, " ", abs(DP), ton_tz,
-                           ifelse(DP < 0, paste(but_tz), paste(and_tz)),
-                           valinc_tz, currency, " ", dGR, ".")
-          }else {
-            recR <- paste0(exp_rw,
-                           ifelse(DP < 0, paste(dec_rw), paste(inc_rw)), root_rw, " ", abs(DP), ton_rw,
-                           ifelse(DP < 0, paste(but_rw), paste(and_rw)),
-                           valinc_rw, currency, " ", dGR, ".")
-          }
+            recR <- paste0(tr$exp[cni],
+                           ifelse(DP < 0, paste(tr$dec[cni]), paste(tr$inc[cni])), tr$root[cni], " ", abs(DP), " ", tr$ton[cni], tr$notot[cni],
+                           ifelse(!is.null(recH), paste(tr$hvst[cni]), paste(tr$plnt[cni])))
+        } else {
+            recR <- paste0(tr$exp[cni],
+                           ifelse(DP < 0, paste(tr$dec[cni]), paste(tr$inc[cni])), tr$root[cni], " ", abs(DP), " ", tr$ton[cni],
+                           ifelse(DP < 0, paste(tr$but[cni]), paste(tr$and[cni])),
+                           tr$valinc[cni], currency, " ", dGR, ".")
 
 
         }
       }
 
-      if (ds[1,]$PD != ds[ds$CP == TRUE,]$PD & ds[1,]$HD != ds[ds$CP == TRUE,]$HD) {
+      if ((ds[1,]$PD != ds[ds$CP,]$PD) & (ds[1,]$HD != ds[ds$CP,]$HD)) {
 
-        if (country == "NG" | country == "GH") {
-          rec <- paste0(recrev_ng, " ( ", format(ds[1,]$PD, "%d %B %Y"), " ) ",
-                        hvsdate_ng, " ( ", format(ds[1,]$HD, "%d %B %Y"), " ) ",
-                        nochange_ng)
-        }else if (country == "TZ") {
-          rec <- paste0(recrev_tz, " ( ", format(ds[1,]$PD, "%d %B %Y"), " ) ",
-                        hvsdate_tz, " ( ", format(ds[1,]$HD, "%d %B %Y"), " ) ",
-                        nochange_tz)
-        }else {
-          rec <- paste0(recrev_rw, " ( ", format(ds[1,]$PD, "%d %B %Y"), " ) ",
-                        hvsdate_rw, " ( ", format(ds[1,]$HD, "%d %B %Y"), " ) ",
-                        nochange_rw)
-        }
-      }else {
+         rec <- paste0(tr$recrev[cni], " ( ", format(ds[1,]$PD, "%d %B %Y"), " ) ",
+                        tr$hvsdate[cni], " ( ", format(ds[1,]$HD, "%d %B %Y"), " ) ",
+                        tr$nochange[cni])
+      } else {
         rec <- paste0(recP, recH, recR)
       }
 
@@ -264,22 +161,9 @@ getSPrecText <- function(ds, country, PD, HD) {
 #' @export
 #'
 #' @examples
-getSPrecommendations <- function(areaHa,
-                                 country,
-                                 lat,
-                                 lon,
-                                 PD,
-                                 HD,
-                                 PD_window,
-                                 HD_window,
-                                 saleSF,
-                                 nameSF,
-                                 FCY,
-                                 rootUP,
-                                 rootUP_m1,
-                                 rootUP_m2,
-                                 rootUP_p1,
-                                 rootUP_p2) {
+getSPrecommendations <- function(areaHa, country, lat, lon,
+			PD, HD, PD_window, HD_window, saleSF, nameSF, FCY, 
+			rootUP, rootUP_m1, rootUP_m2, rootUP_p1, rootUP_p2) {
 
   #rounding lat and lon to centroid of 5x5km pixel
   latr <- as.factor(floor(lat * 10) / 10 + ifelse(lat - (floor(lat * 10) / 10) < 0.05, 0.025, 0.075))
@@ -318,10 +202,12 @@ getSPrecommendations <- function(areaHa,
   }
 
 
-  TRNS <- read.csv("./data/input/translations_TEST.csv", stringsAsFactors = FALSE)
-  frnotrec_ng <- gsub(pattern = "\"", replacement = "", TRNS$frnotrec[1]);
-  frnotrec_tz <- gsub(pattern = "\"", replacement = "", TRNS$frnotrec[2]);
-  frnotrec_rw <- gsub(pattern = "\"", replacement = "", TRNS$frnotrec[3])
+  #TRNS <- read.csv("./data/input/translations_TEST.csv", stringsAsFactors = FALSE)
+  #unquote <- function(x) gsub(pattern = "\"", replacement = "", x)
+  #TRNS <- data.frame(lapply(TRNS, unquote))
+  #frnotrec_[1] <- TRNS$frnotrec[1]);
+  #frnotrec_[2] <- TRNS$frnotrec[2]);
+  #frnotrec_[3] <- TRNS$frnotrec[3])
 
   if (is.null(WLY_CY)) {
     # if(!file.exists(flp)){
@@ -330,7 +216,7 @@ getSPrecommendations <- function(areaHa,
     ds <- NULL
     #return("No recommendations available for this location because your location is not within the recommendation domain of AKILIMO.")
 
-    if (country == "NG" | country == "GH") {
+    if (country %in% c("NG", "GH")) {
       return("We do not have fertilizer recommendation for your location because your location is out of the recommendation domain AKILIMO is currently serving.")
     }else if (country == "TZ") {
       return("Hatuna mapendekezo yoyote kwa eneo lako kwa sababu eneo lako liko nje la eneo ambalo AKILIMO linafanya kazi kwa sasa")

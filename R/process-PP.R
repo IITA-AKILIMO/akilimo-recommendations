@@ -105,7 +105,7 @@ getPPrecText <- function(ds, country = c("NG", "TZ", "RW")) {
   ds$method_ridging <- ifelse(country == "TZ" & ds$method_ridging == "tractor", "kwa trekta", ds$method_ridging)
   ds$method_ridging <- ifelse(country == "TZ" & ds$method_ridging == "manual", "kwa jembe la mkono", ds$method_ridging)
 	
-	cni <- ifele(country=="NG", 1, ifelse(country=="TZ", 2, 3))
+	cni <- ifelse(country=="NG", 1, ifelse(country=="TZ", 2, 3))
 
   if (ds[1,]$CP) {
       paste0(tr$optim[cni],
