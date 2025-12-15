@@ -1,5 +1,5 @@
 
-process_json_value <- function(field_name, body, default_value = "NA") {
+from_json <- function(field_name, body, default_value = "NA") {
   if (!is.null(body[[field_name]])) {
     value <- body[[field_name]]
     if (!is.null(value)) {
@@ -52,12 +52,12 @@ get_cassUPUW <- function(cassUP, cassUW, cassPD, country, saleSF, nameSF) {
 
 get_user <- function(body) {
 	list(
-		send_SMS = process_json_value("SMS", body, default_value = FALSE),
-		send_email = process_json_value("email", body, default_value = FALSE),
-		PhoneCC = process_json_value("userPhoneCC", body),
-		PhoneNr = process_json_value("userPhoneNr", body),
-		Name = process_json_value("userName", body),
-		Email = process_json_value("userEmail", body)
+		send_SMS = from_json("SMS", body, default_value = FALSE),
+		send_email = from_json("email", body, default_value = FALSE),
+		PhoneCC = from_json("userPhoneCC", body),
+		PhoneNr = from_json("userPhoneNr", body),
+		Name = from_json("userName", body),
+		Email = from_json("userEmail", body)
 	)
 }
 
@@ -70,43 +70,43 @@ run_akilimo <- function(json) {
     body <- tryCatch(jsonlite::fromJSON(json), error = function(e) NULL)
 
     # extract parameters from the JSON payload
-    country <- process_json_value("country", body)
-    lat <- process_json_value("lat", body)
-    lon <- process_json_value("lon", body)
-    area <- process_json_value("area", body)
-    areaUnits <- process_json_value("areaUnits", body)
+    country <- from_json("country", body)
+    lat <- from_json("lat", body)
+    lon <- from_json("lon", body)
+    area <- from_json("area", body)
+    areaUnits <- from_json("areaUnits", body)
 
-    IC <- process_json_value("IC", body, default_value = FALSE)
+    IC <- from_json("IC", body, default_value = FALSE)
     # not used?
-	#intercrop <- process_json_value("intercrop", body, default_value = FALSE)
-    FR <- process_json_value("FR", body, default_value = FALSE)
-    PP <- process_json_value("PP", body, default_value = FALSE)
-    SPP <- process_json_value("SPP", body, default_value = FALSE)
-    SPH <- process_json_value("SPH", body, default_value = FALSE)
-    PD <- process_json_value("PD", body, default_value = 0)
-    HD <- process_json_value("HD", body, default_value = 0)
+	#intercrop <- from_json("intercrop", body, default_value = FALSE)
+    FR <- from_json("FR", body, default_value = FALSE)
+    PP <- from_json("PP", body, default_value = FALSE)
+    SPP <- from_json("SPP", body, default_value = FALSE)
+    SPH <- from_json("SPH", body, default_value = FALSE)
+    PD <- from_json("PD", body, default_value = 0)
+    HD <- from_json("HD", body, default_value = 0)
 
-    PD_window <- process_json_value("PD_window", body, default_value = 0)
-    HD_window <- process_json_value("HD_window", body, default_value = 0)
-	cost_LMO_areaBasis <- process_json_value("cost_LMO_areaBasis", body, default_value = "areaUnit")
-    FCY <- process_json_value("FCY", body)
-    CMP <- process_json_value("CMP", body)
-    saleSF <- process_json_value("saleSF", body, default_value = FALSE)
-    nameSF <- process_json_value("nameSF", body, default_value = NA)
-    cassPD <- process_json_value("cassPD", body, default_value = "roots")
-    cassUW <- process_json_value("cassUW", body, default_value = 1000)
-    cassUP <- process_json_value("cassUP", body)
-    cassUP_m1 <- process_json_value("cassUP_m1", body)
-    cassUP_m2 <- process_json_value("cassUP_m2", body)
-    cassUP_p1 <- process_json_value("cassUP_p1", body)
-    cassUP_p2 <- process_json_value("cassUP_p2", body)
-    maxInv <- process_json_value("maxInv", body, default_value = NA)
+    PD_window <- from_json("PD_window", body, default_value = 0)
+    HD_window <- from_json("HD_window", body, default_value = 0)
+	cost_LMO_areaBasis <- from_json("cost_LMO_areaBasis", body, default_value = "areaUnit")
+    FCY <- from_json("FCY", body)
+    CMP <- from_json("CMP", body)
+    saleSF <- from_json("saleSF", body, default_value = FALSE)
+    nameSF <- from_json("nameSF", body, default_value = NA)
+    cassPD <- from_json("cassPD", body, default_value = "roots")
+    cassUW <- from_json("cassUW", body, default_value = 1000)
+    cassUP <- from_json("cassUP", body)
+    cassUP_m1 <- from_json("cassUP_m1", body)
+    cassUP_m2 <- from_json("cassUP_m2", body)
+    cassUP_p1 <- from_json("cassUP_p1", body)
+    cassUP_p2 <- from_json("cassUP_p2", body)
+    maxInv <- from_json("maxInv", body, default_value = NA)
 
     user <- get_user(body)
     
-	userField <- process_json_value("userField", body)
+	userField <- from_json("userField", body)
     
-	riskAtt <- process_json_value("riskAtt", body, default_value = 0)
+	riskAtt <- from_json("riskAtt", body, default_value = 0)
 
     if (country == "BI") {
 		country <- "BU" #use non standard country code for Burundi
@@ -191,34 +191,14 @@ run_akilimo <- function(json) {
     PPrecom <- FALSE
     SPrecom <- NULL
 
-    # Read the CSV file
-    TRNS <- read.csv("./data/input/translations_TEST.csv", stringsAsFactors = FALSE)
-
-    # Define a function to clean the data
-    clean_data <- function(column, index) {
-      gsub(pattern = "\"", replacement = "", column[index])
-    }
-
-    # Clean the required variables
-    #recloc_ng <- clean_data(TRNS$recloc, 1)
-    #recloc_tz <- clean_data(TRNS$recloc, 2)
-    #recloc_rw <- clean_data(TRNS$recloc, 3)
-    #spinfo_ng <- clean_data(TRNS$spinfo, 1)
-    #spinfo_rw <- clean_data(TRNS$spinfo, 3)
-    #spinfo_tz <- clean_data(TRNS$spinfo, 2)
 
     selected_key <- NULL
 
     if (FR) {
-		frnotrec_ng <- clean_data(TRNS$frnotrec, 1)
-		frnotrec_tz <- clean_data(TRNS$frnotrec, 2)
-		frnotrec_rw <- clean_data(TRNS$frnotrec, 3)
-
 
 		resFr <- process_FR(
 			FR, lat, lon, pd, pw, HD, had, maxInv, fertilizers, rootUP, areaHa, country, FCY, riskAtt,
-			user, userField, area, areaUnits, PD, 
-			cassPD, cassUW, recText, plumberRes, frnotrec_ng, frnotrec_tz, frnotrec_rw
+			user, userField, area, areaUnits, PD, cassPD, cassUW, recText, plumberRes
 		)
 
 		FRrecom <- resFr$FRrecom
@@ -229,12 +209,12 @@ run_akilimo <- function(json) {
 
     if (IC) {
 	
-		sweetPotatoPD <- process_json_value("sweetPotatoPD", body, default_value = "tubers")
-		sweetPotatoUW <- process_json_value("sweetPotatoUW", body, default_value = NA)
-		sweetPotatoUP <- process_json_value("sweetPotatoUP", body, default_value = NA)
-		maizePD <- process_json_value("maizePD", body, default_value = "fresh_cob")
-		maizeUW <- process_json_value("maizeUW", body, default_value = NA)
-		maizeUP <- process_json_value("maizeUP", body)
+		sweetPotatoPD <- from_json("sweetPotatoPD", body, default_value = "tubers")
+		sweetPotatoUW <- from_json("sweetPotatoUW", body, default_value = NA)
+		sweetPotatoUP <- from_json("sweetPotatoUP", body, default_value = NA)
+		maizePD <- from_json("maizePD", body, default_value = "fresh_cob")
+		maizeUW <- from_json("maizeUW", body, default_value = NA)
+		maizeUP <- from_json("maizeUP", body)
 		if (sweetPotatoUW == 0) sweetPotatoUW <- 1000 ## if it is not given default is a ton
 		if (maizeUW == 0) maizeUW <- NA
 
@@ -310,23 +290,23 @@ run_akilimo <- function(json) {
 
     if (PP) {
 
-		tractor_plough <- process_json_value("tractor_plough", body, default_value = FALSE)
-		tractor_harrow <- process_json_value("tractor_harrow", body, default_value = FALSE)
-		tractor_ridger <- process_json_value("tractor_ridger", body, default_value = FALSE)
-		cost_tractor_ploughing <- process_json_value("cost_tractor_ploughing", body, default_value = NA)
-		cost_tractor_harrowing <- process_json_value("cost_tractor_harrowing", body, default_value = NA)
-		cost_tractor_ridging <- process_json_value("cost_tractor_ridging", body, default_value = NA)
-		cost_manual_ploughing <- process_json_value("cost_manual_ploughing", body, default_value = NA)
-		cost_manual_harrowing <- process_json_value("cost_manual_harrowing", body, default_value = NA)
-		cost_manual_ridging <- process_json_value("cost_manual_ridging", body, default_value = NA)
-		cost_weeding1 <- process_json_value("cost_weeding1", body, default_value = NA)
-		cost_weeding2 <- process_json_value("cost_weeding2", body, default_value = NA)
-		ploughing <- process_json_value("ploughing", body, default_value = FALSE)
-		harrowing <- process_json_value("harrowing", body, default_value = FALSE)
-		ridging <- process_json_value("ridging", body, default_value = FALSE)
-		method_ploughing <- process_json_value("method_ploughing", body)
-		method_harrowing <- process_json_value("method_harrowing", body)
-		method_ridging <- process_json_value("method_ridging", body)
+		tractor_plough <- from_json("tractor_plough", body, default_value = FALSE)
+		tractor_harrow <- from_json("tractor_harrow", body, default_value = FALSE)
+		tractor_ridger <- from_json("tractor_ridger", body, default_value = FALSE)
+		cost_tractor_ploughing <- from_json("cost_tractor_ploughing", body, default_value = NA)
+		cost_tractor_harrowing <- from_json("cost_tractor_harrowing", body, default_value = NA)
+		cost_tractor_ridging <- from_json("cost_tractor_ridging", body, default_value = NA)
+		cost_manual_ploughing <- from_json("cost_manual_ploughing", body, default_value = NA)
+		cost_manual_harrowing <- from_json("cost_manual_harrowing", body, default_value = NA)
+		cost_manual_ridging <- from_json("cost_manual_ridging", body, default_value = NA)
+		cost_weeding1 <- from_json("cost_weeding1", body, default_value = NA)
+		cost_weeding2 <- from_json("cost_weeding2", body, default_value = NA)
+		ploughing <- from_json("ploughing", body, default_value = FALSE)
+		harrowing <- from_json("harrowing", body, default_value = FALSE)
+		ridging <- from_json("ridging", body, default_value = FALSE)
+		method_ploughing <- from_json("method_ploughing", body)
+		method_harrowing <- from_json("method_harrowing", body)
+		method_ridging <- from_json("method_ridging", body)
 		if (method_ploughing == "NA") method_ploughing <- "N/A"
 		if (method_ridging == "NA") method_ridging <- "N/A"
 		if (cost_manual_ploughing == 0) cost_manual_ploughing <- NA
@@ -457,10 +437,10 @@ run_akilimo <- function(json) {
     }
 
 # for getWMrecommendations 
-#		fallowType <- process_json_value("fallowType", body, default_value = "none")
-#		fallowHeight <- process_json_value("fallowHeight", body, default_value = NA)
-#		fallowGreen <- process_json_value("fallowGreen", body, default_value = FALSE)
-#		problemWeeds <- process_json_value("problemWeeds", body, default_value = FALSE)
+#		fallowType <- from_json("fallowType", body, default_value = "none")
+#		fallowHeight <- from_json("fallowHeight", body, default_value = NA)
+#		fallowGreen <- from_json("fallowGreen", body, default_value = FALSE)
+#		problemWeeds <- from_json("problemWeeds", body, default_value = FALSE)
 
 
     #=============================================================================
@@ -470,7 +450,7 @@ run_akilimo <- function(json) {
     )
 
 
-    request_token <- process_json_value("request_token", body)
+    request_token <- from_json("request_token", body)
 
     if (is.null(selected_key)) {
       res$status <- 404

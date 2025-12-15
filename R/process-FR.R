@@ -11,10 +11,7 @@
 #' @examples
 getFRrecText <- function(ds, country, fertilizers, rootUP) {
   
-	TRNS <- read.csv("./data/input/translations_TEST.csv", stringsAsFactors = FALSE)
-	
-	unquote <- function(x) gsub(pattern = "\"", replacement = "", x)
-	TRNS <- data.frame(lapply(TRNS, unquote))
+	tr <- get_TRNS()
 
 	rec <- ds$rec
 	frate <- ds$fertilizer_rates
@@ -23,9 +20,9 @@ getFRrecText <- function(ds, country, fertilizers, rootUP) {
 			ifelse(country == "TZ", 2, 3)) #RW = 3
 
 	if (is.null(rec)) {
-		TRNS$norecom[ci]
+		tr$norecom[ci]
 	} else if (rec$TC == 0) {
-        TRNS$notapply[ci]
+        tr$notapply[ci]
 
       #TODO: This does not provide details on the reasons why we do not recommend to apply fertilizer.
       #This might either be due to
@@ -68,18 +65,18 @@ getFRrecText <- function(ds, country, fertilizers, rootUP) {
       DY <- signif(rec$TargetY - rec$CurrentY, digits = 2)
 
 		add_more <- function(x, i) {
-             paste0(x, TRNS$area[i], "\n",
-               TRNS$willc[i], currency, " ", TC, ".\n",
-               TRNS$extrap[i], DY, TRNS$tonof[1],
-               TRNS$netincr[i], currency, " ", NR, ".")
+             paste0(x, tr$area[i], "\n",
+               tr$willc[i], currency, " ", TC, ".\n",
+               tr$extrap[i], DY, tr$tonof[1],
+               tr$netincr[i], currency, " ", NR, ".")
 		}
 
       recom <- if (ci == 1) {
-				add_more(paste0(TRNS$werec[1], "\n", fertilizerRates, TRNS$kgof[1], 
+				add_more(paste0(tr$werec[1], "\n", fertilizerRates, tr$kgof[1], 
 					fertilizerTypes, collapse = "\n"), ci)
 			} else {
-				add_more(paste0(TRNS$werec[2], " ", "\n", TRNS$kgof[2], 
-					fertilizerRates, TRNS$of[2], fertilizerTypes, collapse = "\n"), ci)
+				add_more(paste0(tr$werec[2], " ", "\n", tr$kgof[2], 
+					fertilizerRates, tr$of[2], fertilizerTypes, collapse = "\n"), ci)
 			}
 
 
@@ -340,9 +337,17 @@ getFRrecommendations <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers,
 
 
 
-process_FR <- function(FR, lat, lon, pd, pw, HD, had, maxInv, fertilizers, rootUP, areaHa, country, FCY, riskAtt,
-                       user, userField, area, areaUnits, PD,
-                       cassPD, cassUW, recText, plumberRes, frnotrec_ng, frnotrec_tz, frnotrec_rw) {
+process_FR <- function(FR, lat, lon, pd, pw, HD, had, maxInv, fertilizers, rootUP, areaHa, country, 
+						FCY, riskAtt, user, userField, area, areaUnits, PD,
+                       cassPD, cassUW, recText, plumberRes) {
+					   
+					   #, frnotrec_ng, frnotrec_tz, frnotrec_rw) {
+
+
+	tr <- get_TRNS()
+	frnotrec_ng <- tr$frnotrec[1]
+	frnotrec_tz <- tr$frnotrec[2]
+	frnotrec_rw <- tr$frnotrec[3]
 
   no_fr_recommendation_countries <- c("NG", "GH", "TZ", "RW")
   no_recommendation_msg <- "We do not have fertilizer recommendation for your location because your location is out of the recommendation domain AKILIMO is currently serving."

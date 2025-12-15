@@ -93,9 +93,7 @@ getPPrecommendations <- function(areaHa,
 #' @examples
 getPPrecText <- function(ds, country = c("NG", "TZ", "RW")) {
 
-  TRNS <- read.csv("./data/input/translations_TEST.csv", stringsAsFactors = FALSE)
-  unquote <- function(x) gsub(pattern = "\"", replacement = "", x)
-  tr <- data.frame(lapply(TRNS, unquote))
+	tr <- get_TRNS()
   
   ds$method_ploughing <- as.character(ds$method_ploughing)
   ds$method_ridging <- as.character(ds$method_ridging)

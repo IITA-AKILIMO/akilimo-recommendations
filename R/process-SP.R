@@ -12,9 +12,7 @@
 #' @examples
 getSPrecText <- function(ds, country, PD, HD) {
 
-	TRNS <- read.csv("./data/input/translations_TEST.csv", stringsAsFactors = FALSE)
-	unquote <- function(x) gsub(pattern = "\"", replacement = "", x)
-	tr <- data.frame(lapply(TRNS, unquote))
+	tr <- get_TRNS()
   
   
   	cni <- ifelse(country %in% c("GH", "NG"), 1, ifelse(country=="TZ", 2, 3))

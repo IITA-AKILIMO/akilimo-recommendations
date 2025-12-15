@@ -1,4 +1,10 @@
 
+get_TRNS <- function() {
+	TRNS <- read.csv("./data/input/translations_TEST.csv", stringsAsFactors = FALSE)
+	unquote <- function(x) gsub(pattern = "\"", replacement = "", x)
+	data.frame(lapply(TRNS, unquote))
+}
+
 # to replace plyr::ddply (and the need for the plyr package)
 dd_ply <- function(X, index, fun, ...) {
 	s <- split(X, X[index])
