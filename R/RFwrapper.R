@@ -1,13 +1,11 @@
 
 # now using precomputed data 
-Rfmodel_Wrapper <- function(FCY, lat, lon) { 
+Rfmodel_values <- function(FCY, lat, lon) { 
 #	cat(FCY, ", ", lat, ", ", lon, "\n")
 
 	CONc <- as.integer(cut(FCY, breaks = c(-Inf, 7.5, 15, 22.5, 30, Inf), right=FALSE))
 	p <- readRDS("./data/input/predicted_soil_properties.rds")
-	s <- p[p$CONclass == CONc & p$lon == lon & p$lat == lat, ]
-	data.frame(s, rec_N = 0.5, rec_P = 0.15, rec_K = 0.5, rel_N = 1)
-
+	p[p$CONclass == CONc & p$lon == lon & p$lat == lat, ]
 }
 
 

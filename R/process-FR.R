@@ -226,7 +226,7 @@ getFRrecommendations <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers,
     ## get soil NPK
     if (country %in% c("NG", "TZ")) {
 		# SoilData <- Rfmodel_Wrapper(FCY = FCY, country = country, lat = lat2, lon = lon2)
-		SoilData <- Rfmodel_Wrapper(FCY=FCY, lat=lat2, lon=lon2)
+		SoilData <- Rfmodel_values(FCY=FCY, lat=lat2, lon=lon2)
     } else if (country == "RW") {
       fcyy <- ifelse(FCY < 7.5, "FCY1",
               ifelse(FCY >= 7.5 & FCY < 15, "FCY2",
@@ -240,9 +240,9 @@ getFRrecommendations <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers,
       SoilData <- SoilData[, c("location", "lat", "long", "soilN", "soilP", "soilK")]
     } else if (country == "GH") {
       fcyy <- ifelse(FCY < 7.5, "FCY1",
-                     ifelse(FCY >= 7.5 & FCY < 15, "FCY2",
-                            ifelse(FCY >= 15 & FCY < 22.5, "FCY3",
-                                   ifelse(FCY >= 22.5 & FCY < 30, "FCY4", "FCY5"))))
+              ifelse(FCY >= 7.5 & FCY < 15, "FCY2",
+              ifelse(FCY >= 15 & FCY < 22.5, "FCY3",
+              ifelse(FCY >= 22.5 & FCY < 30, "FCY4", "FCY5"))))
       SoilData <- readRDS(paste("./data/input/GH_", fcyy, "_soilNPK.RDS", sep = ""))
       SoilData$location <- paste(SoilData$lat, SoilData$lon, sep = "_")
       SoilData <- SoilData[SoilData$location == wlydata$location,]
@@ -251,9 +251,9 @@ getFRrecommendations <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers,
       SoilData <- SoilData[, c("location", "lat", "long", "soilN", "soilP", "soilK")]
     } else if (country == "BU") {
       fcyy <- ifelse(FCY < 7.5, "FCY1",
-                     ifelse(FCY >= 7.5 & FCY < 15, "FCY2",
-                            ifelse(FCY >= 15 & FCY < 22.5, "FCY3",
-                                   ifelse(FCY >= 22.5 & FCY < 30, "FCY4", "FCY5"))))
+              ifelse(FCY >= 7.5 & FCY < 15, "FCY2",
+              ifelse(FCY >= 15 & FCY < 22.5, "FCY3",
+              ifelse(FCY >= 22.5 & FCY < 30, "FCY4", "FCY5"))))
       SoilData <- readRDS(paste("./data/input/BU_", fcyy, "_soilNPK.RDS", sep = ""))
       SoilData$location <- paste(SoilData$lat, SoilData$lon, sep = "_")
       SoilData <- SoilData[SoilData$location == wlydata$location,]
