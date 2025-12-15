@@ -93,7 +93,7 @@ getPPrecommendations <- function(areaHa,
 #' @examples
 getPPrecText <- function(ds, country = c("NG", "TZ", "RW")) {
 
-	tr <- get_TRNS()
+	tr <- get_data("TRNS")
   
   ds$method_ploughing <- as.character(ds$method_ploughing)
   ds$method_ridging <- as.character(ds$method_ridging)

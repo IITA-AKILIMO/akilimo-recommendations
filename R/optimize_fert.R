@@ -26,7 +26,7 @@ run_Optim_NG2 <- function(rootUP, QID, fertilizer, invest, plDate, WLYData, lat,
   WLY_user <- ((getRFY(HD = HD, RDY = WLY, country = "NG")) / 1000) * areaHa
 
 ### avoid calling getRFY in each step of the optimization
-  fd <- read.csv("./data/input/fd2.csv") 
+  fd <- get_data("dry_matter")
   d <- as.integer(format(as.Date(HD), "%j"))
   DC <- fd[(fd$dayNr == d) & (fd$country == "NG"), "DMCont"] * 10
 ### 

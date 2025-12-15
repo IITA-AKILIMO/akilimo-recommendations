@@ -1,17 +1,9 @@
 
-#####################################################################################################################
-## R markdown
-#####################################################################################################################
+### R markdown
 
 
 
-#'function to put data used in the markdown .rmd. It selects the number of bags of fertilizerm the color, the money stubs for cost, sale and profit
-#'It reads the FR_MarkdownText, SP_MarkdownText, IC_MarkdownText, BPP_MarkdownText saved output which brings together the user info and based on
-#' the recommendation the fertilizer types, amount, bag colur, cost and profit
-fertilizerAdviseTable <- function(FR, IC, country, areaUnits) {
- 
-	suppressWarnings(file.remove(paste0("./temp/datall", 1:6, ".csv")))
-
+get_markdown_text <- function(FR, IC, country) {
 	if (FR & !IC) {
 		acairm <- read.csv("./temp/FR_MarkDownText.csv")
 	} else if (IC & !FR) {
@@ -23,10 +15,21 @@ fertilizerAdviseTable <- function(FR, IC, country, areaUnits) {
 	} else {
 		stop("FR and IC can not both be TRUE")
 	}
-
 	acairm$currency <- ifelse(acairm$country == "NG", "NGN",
                         ifelse(acairm$country == "TZ", "TZS", 
 						ifelse(acairm$country == "BU", "BIF", "GHS")))
+	acairm
+}
+
+
+#'function to put data used in the markdown .rmd. It selects the number of bags of fertilizerm the color, the money stubs for cost, sale and profit
+#'It reads the FR_MarkdownText, SP_MarkdownText, IC_MarkdownText, BPP_MarkdownText saved output which brings together the user info and based on
+#' the recommendation the fertilizer types, amount, bag colur, cost and profit
+fertilizerAdviseTable <- function(FR, IC, country, areaUnits) {
+ 
+	suppressWarnings(file.remove(paste0("./temp/datall", 1:6, ".csv")))
+
+	acairm <- get_markdown_text(FR, IC, country)
 
   ## Loop
   Nrfert <- length(grep("fertilizer", colnames(acairm)))
@@ -97,13 +100,12 @@ fertilizerAdviseTable <- function(FR, IC, country, areaUnits) {
 
   if (min(acairm$sum_total, acairm$revenue) == acairm$sum_total) {
     ratioFertCost <- 1
-    ratioTotalSale <- round(acairm$totalSalePrice / acairm$sum_total, digits = 0)
-    ratioRevenue <- round(acairm$revenue / acairm$sum_total, digits = 0)
+    ratioTotalSale <- round(acairm$totalSalePrice / acairm$sum_total)
+    ratioRevenue <- round(acairm$revenue / acairm$sum_total)
   }else {
     ratioRevenue <- 1
-    ratioFertCost <- round(acairm$sum_total / acairm$revenue, digits = 0)
-    ratioTotalSale <- round(acairm$totalSalePrice / acairm$revenue, digits = 0)
-
+    ratioFertCost <- round(acairm$sum_total / acairm$revenue)
+    ratioTotalSale <- round(acairm$totalSalePrice / acairm$revenue)
   }
 
   acairm$revenue <- formatC(acairm$revenue, format = "f", big.mark = ",", digits = 0)
@@ -111,10 +113,9 @@ fertilizerAdviseTable <- function(FR, IC, country, areaUnits) {
   acairm$sum_total <- formatC(acairm$sum_total, format = "f", big.mark = ",", digits = 0)
   # acairm$sum_total <- formatC(signif(acairm$sum_total, digits=3), format="f", big.mark=",", digits=0)
 
-
-  totalCostmoney <- data.frame(title = paste(acairm$sum_total, acairm$currency, sep = " "))
-  totalSalemoney <- data.frame(title = paste(acairm$totalSalePrice, acairm$currency, sep = " "))
-  totalRevenuemoney <- data.frame(title = paste(acairm$revenue, acairm$currency, sep = " "))
+  totalCostmoney <- data.frame(title = paste(acairm$sum_total, acairm$currency))
+  totalSalemoney <- data.frame(title = paste(acairm$totalSalePrice, acairm$currency))
+  totalRevenuemoney <- data.frame(title = paste(acairm$revenue, acairm$currency))
 
 	totalCostmoney$moneypack <- paste0('![](net/cash/Picture', ratioFertCost, '.png)')
 	write.csv(totalCostmoney, "./temp/totalCostmoney.csv", row.names = FALSE)
@@ -122,7 +123,6 @@ fertilizerAdviseTable <- function(FR, IC, country, areaUnits) {
 	write.csv(totalSalemoney, "./temp/totalSalemoney.csv", row.names = FALSE)
     totalRevenuemoney$moneypack <- paste0('![](net/cash/Picture', ratioRevenue, '.png)')
 	write.csv(totalRevenuemoney, "./temp/totalRevenuemoney.csv", row.names = FALSE)
-
 
   #return(acairm)
 }

@@ -11,7 +11,7 @@
 #' @examples
 getFRrecText <- function(ds, country, fertilizers, rootUP) {
   
-	tr <- get_TRNS()
+	tr <- get_data("TRNS")
 
 	rec <- ds$rec
 	frate <- ds$fertilizer_rates
@@ -165,28 +165,7 @@ getFRrecommendations <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers,
   latlon <- paste(lat2, lon2, sep = "_")
 
   ## get WLY:get PDand HD to the closest daes fr which we have WLY
-  if (country == "NG") {
-    WLY_365 <- readRDS("./data/input/Nigeria_WLY_LINTUL_2020.RDS")
-  }else if (country == "TZ") {
-    WLY_365 <- readRDS("./data/input/Tanzania_WLY_LINTUL_2020.RDS")
-  }else if (country == "RW") {
-    WLY_365 <- readRDS("./data/input/Rwanda_WLY_LINTUL.RDS")
-    WLY_365$pl_Date <- WLY_365$plantingDate
-    WLY_365$PlweekNr <- WLY_365$weekNr
-    colnames(WLY_365) <- gsub("WLY_", "", colnames(WLY_365))
-  }else if (country == "GH") {
-    WLY_365 <- readRDS("./data/input/Ghana_WLY_LINTUL.RDS")
-    WLY_365$pl_Date <- WLY_365$plantingDate
-    WLY_365$PlweekNr <- WLY_365$weekNr
-    colnames(WLY_365) <- gsub("WLY_", "", colnames(WLY_365))
-  }else if (country == "BU") {
-    WLY_365 <- readRDS("./data/input/Burundi_WLY_LINTUL.RDS")
-    WLY_365$pl_Date <- WLY_365$plantingDate
-    WLY_365$PlweekNr <- WLY_365$weekNr
-    colnames(WLY_365) <- gsub("WLY_", "", colnames(WLY_365))
-    WLY_365$location <- paste(WLY_365$lat, WLY_365$long, sep = "_")
-  }
-
+  WLY_365 <- get_data("WLY_365", country)
 
   pdates <- data.frame(wlyPD = unique(WLY_365$pl_Date))
   pdates$diff <- pd - pdates$wlyPD
@@ -224,48 +203,10 @@ getFRrecommendations <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers,
     if (country %in% c("NG", "TZ")) {
 		# SoilData <- Rfmodel_Wrapper(FCY = FCY, country = country, lat = lat2, lon = lon2)
 		SoilData <- Rfmodel_values(FCY=FCY, lat=lat2, lon=lon2)
-    } else if (country == "RW") {
-      fcyy <- ifelse(FCY < 7.5, "FCY1",
-              ifelse(FCY >= 7.5 & FCY < 15, "FCY2",
-              ifelse(FCY >= 15 & FCY < 22.5, "FCY3",
-              ifelse(FCY >= 22.5 & FCY < 30, "FCY4", "FCY5"))))
-      SoilData <- readRDS(paste("./data/input/RW_", fcyy, "_soilNPK.RDS", sep = ""))
-      SoilData$location <- paste(SoilData$lat, SoilData$lon, sep = "_")
-      SoilData <- SoilData[SoilData$location == wlydata$location,]
-      #SoilData$Zone <- "RW"
-      SoilData$long <- SoilData$lon
-      SoilData <- SoilData[, c("location", "lat", "long", "soilN", "soilP", "soilK")]
-    } else if (country == "GH") {
-      fcyy <- ifelse(FCY < 7.5, "FCY1",
-              ifelse(FCY >= 7.5 & FCY < 15, "FCY2",
-              ifelse(FCY >= 15 & FCY < 22.5, "FCY3",
-              ifelse(FCY >= 22.5 & FCY < 30, "FCY4", "FCY5"))))
-      SoilData <- readRDS(paste("./data/input/GH_", fcyy, "_soilNPK.RDS", sep = ""))
-      SoilData$location <- paste(SoilData$lat, SoilData$lon, sep = "_")
-      SoilData <- SoilData[SoilData$location == wlydata$location,]
-      #SoilData$Zone <- "RW"
-      SoilData$long <- SoilData$lon
-      SoilData <- SoilData[, c("location", "lat", "long", "soilN", "soilP", "soilK")]
-    } else if (country == "BU") {
-      fcyy <- ifelse(FCY < 7.5, "FCY1",
-              ifelse(FCY >= 7.5 & FCY < 15, "FCY2",
-              ifelse(FCY >= 15 & FCY < 22.5, "FCY3",
-              ifelse(FCY >= 22.5 & FCY < 30, "FCY4", "FCY5"))))
-      SoilData <- readRDS(paste("./data/input/BU_", fcyy, "_soilNPK.RDS", sep = ""))
-      SoilData$location <- paste(SoilData$lat, SoilData$lon, sep = "_")
-      SoilData <- SoilData[SoilData$location == wlydata$location,]
-      #SoilData$Zone <- "BU"
-      SoilData$long <- SoilData$lon
-      SoilData <- SoilData[, c("location", "lat", "long", "soilN", "soilP", "soilK")]
+    } else {
+		SoilData <- get_data("soil_NPK", country, FCY)
+		SoilData <- SoilData[SoilData$location == wlydata$location,]
     }
-
-
-      SoilData$rec_N <- 0.5
-      SoilData$rec_P <- 0.15
-      SoilData$rec_K <- 0.5
-      SoilData$rel_N <- 1
-      SoilData$rel_P <- SoilData$soilP / SoilData$soilN
-      SoilData$rel_K <- SoilData$soilK / SoilData$soilN
 
     ## get CY
     wlydata$Current_Yield <- QUEFTS_WLY_CY(SoilData = SoilData, country = country, wlyd = wlydata)
@@ -344,7 +285,7 @@ process_FR <- function(FR, lat, lon, pd, pw, HD, had, maxInv, fertilizers, rootU
 					   #, frnotrec_ng, frnotrec_tz, frnotrec_rw) {
 
 
-	tr <- get_TRNS()
+	tr <- get_data("TRNS")
 	frnotrec_ng <- tr$frnotrec[1]
 	frnotrec_tz <- tr$frnotrec[2]
 	frnotrec_rw <- tr$frnotrec[3]

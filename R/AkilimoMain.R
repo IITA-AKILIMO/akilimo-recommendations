@@ -13,7 +13,7 @@ from_json <- function(field_name, body, default_value = "NA") {
 get_cassUPUW <- function(cassUP, cassUW, cassPD, country, saleSF, nameSF) {
 
     if (saleSF) {
-		SF <- read.csv("./data/input/starchPrices.csv")
+		SF <- get_data("starch_prices")
 		SF <- SF[SF$starchFactory == nameSF,]
 		cassUP <- max(SF$price)
 		cassUW <- 1000

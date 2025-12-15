@@ -1,10 +1,4 @@
 
-get_TRNS <- function() {
-	TRNS <- read.csv("./data/input/translations_TEST.csv", stringsAsFactors = FALSE)
-	unquote <- function(x) gsub(pattern = "\"", replacement = "", x)
-	data.frame(lapply(TRNS, unquote))
-}
-
 # to replace plyr::ddply (and the need for the plyr package)
 dd_ply <- function(X, index, fun, ...) {
 	s <- split(X, X[index])
@@ -30,7 +24,8 @@ dd_ply <- function(X, index, fun, ...) {
 getRFY <- function(HD, RDY, country) {
 
   d <- as.numeric(strftime(HD, format = "%j"))
-  fd <- read.csv("./data/input/fd2.csv") #data.frame with day of the year (dayNr = [1..366]) and %DM (DMCont = [0..100], by country)
+  #data.frame with day of the year (dayNr = [1..366]) and %DM (DMCont = [0..100], by country)
+  fd <- get_data("dry_matter")
   DC <- merge(data.frame(dayNr = d), fd[fd$country == "NG",], sort = FALSE)$DMCont
   RFY <- RDY / DC * 100
   return(RFY)
@@ -49,11 +44,10 @@ getRDY <- function(HD, RFY, country) {
   if (HD > 366) {
     HD <- HD - 366
   }
-  fd <- read.csv("./data/input/fd2.csv")
+  fd <- get_data("dry_matter")
   DC <- merge(data.frame(dayNr = HD), fd[fd$country == country,], sort = FALSE)$DMCont
   RDY <- (RFY * DC) / 100
   return(RDY)
-
 }
 
 

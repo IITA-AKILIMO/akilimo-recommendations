@@ -12,8 +12,7 @@
 #' @examples
 getSPrecText <- function(ds, country, PD, HD) {
 
-	tr <- get_TRNS()
-  
+	tr <- get_data("TRNS")
   
   	cni <- ifelse(country %in% c("GH", "NG"), 1, ifelse(country=="TZ", 2, 3))
 
@@ -170,18 +169,11 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
   lonr <- as.numeric(levels(lonr))
 
 
-  SoilData_fcy1 <- readRDS("./data/input/SoilData_4Country.RDS")
+  SoilData_fcy1 <- get_data("soil_NPK-4")
   SoilData <- SoilData_fcy1[SoilData_fcy1$long == lonr & SoilData_fcy1$lat == latr,]
+	
 
-
-  if (country == "NG") {
-    WLY_15M <- readRDS("./data/input/Nigeria_WLY_LINTUL_2020_Server.RDS")
-  } else if (country == "TZ") {
-    WLY_15M <- readRDS("./data/input/Tanzania_WLY_LINTUL_2020_Server.RDS")
-  } else if (country == "GH") {
-    WLY_15M <- readRDS("./data/input/Ghana_WLY_LINTUL_SP.RDS")
-  }
-
+	WLY_15M <- get_data("WLY_15M", country)
 
   latlon <- paste(latr, lonr, sep = "_")
 
@@ -263,7 +255,7 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
     if (saleSF) {
 
       ds$SC <- 0.75 * ds$WY / ds$RFWY * 100
-      SF <- read.csv("./data/input/starchPrices.csv")
+	  SF <- get_data("starch_prices")
       SF <- SF[SF$starchFactory == nameSF,]
       price <- NULL
       for (i in 1:nrow(ds)) {

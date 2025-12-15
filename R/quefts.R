@@ -1,6 +1,24 @@
 
+
 ## part f QUEFTS fucntion
 final_yield_tools <- function(Uptake_Yield) {
+
+	#' Yield calculated based on the combined uptake of 2 nutrients, while taking into account the availability of the third nutrient.
+	yield_nutrients_combined <- function(U1, d1, a1, Y2A, Y2D, Y3D, r1) {
+	  # Determine which nutrient limited yield is lowest.
+	  YxD = min(Y2D, Y3D)
+	  # If the uptake of one of the nutrients, and therefore the yield associated with that
+	  # nutrient, is zero the overall yield is also zero.
+	  if (U1 == 0 || YxD == 0) {
+		0
+	  } else {
+		Y2A + (2 * (YxD - Y2A) * (U1 - r1 - Y2A / d1)) / (YxD / a1 - Y2A / d1) -
+		  (YxD - Y2A) * (U1 - r1 - Y2A / d1)^2 / (YxD / a1 - Y2A / d1)^2
+	  }
+	  # Return the calculated yield based on the uptake of nutrients 1 and 2
+	}
+
+
   with(Uptake_Yield,
   {
     YNP <- yield_nutrients_combined(U1 = UN, d1 = dN, a1 = aN, Y2A = YPA, Y2D = YPD, Y3D = YKD, r1 = rN)
@@ -25,40 +43,6 @@ final_yield_tools <- function(Uptake_Yield) {
   })
 }
 
-
-#' Yield calculated based on the combined uptake of 2 nutrients, while taking into account the availability of the third nutrient.
-yield_nutrients_combined <- function(U1 = NA, d1 = NA, a1 = NA, Y2A = NA, Y2D = NA, Y3D = NA, r1 = NA) {
-  # Determine which nutrient limited yield is lowest.
-  YxD = min(Y2D, Y3D)
-  # If the uptake of one of the nutrients, and therefore the yield associated with that
-  # nutrient, is zero the overall yield is also zero.
-  if (U1 == 0 || YxD == 0) {
-    Y12 = 0
-  }else {
-    Y12 = Y2A + (2 * (YxD - Y2A) * (U1 - r1 - Y2A / d1)) / (YxD / a1 - Y2A / d1) -
-      (YxD - Y2A) * (U1 - r1 - Y2A / d1)^2 / (YxD / a1 - Y2A / d1)^2
-  }
-  # Return the calculated yield based on the uptake of nutrients 1 and 2
-  return(Y12)
-}
-
-
-NUE <- function(HI, CmaxNroots = 6.6, CminNroots = 2.5, CmaxNtops = 17.9, CminNtops = 7.9, CmaxProots = 1.5, CminProots = 0.8, CmaxPtops = 2.8, CminPtops = 0.9,
-                CmaxKroots = 11, CminKroots = 2.8, CmaxKtops = 18.8, CminKtops = 3.4) {
-  aN = round(1000 * HI / (HI * CmaxNroots + (1 - HI) * CmaxNtops), digits = 0)
-  dN = round(1000 * HI / (HI * CminNroots + (1 - HI) * CminNtops), digits = 0)
-
-  aP = round(1000 * HI / (HI * CmaxProots + (1 - HI) * CmaxPtops), digits = 0)
-  dP = round(1000 * HI / (HI * CminProots + (1 - HI) * CminPtops), digits = 0)
-
-  aK = round(1000 * HI / (HI * CmaxKroots + (1 - HI) * CmaxKtops), digits = 0)
-  dK = round(1000 * HI / (HI * CminKroots + (1 - HI) * CminKtops), digits = 0)
-
-  return(data.frame(aN = aN, dN = dN, aP = aP, dP = dP, aK = aK, dK = dK))
-
-}
-
-
 #' Used within QUEFTS1_Pedotransfer function
 #' using the output of function "NPK_TargetYield_forinput" and a data frame per lon and lat for intended NPK input
 #' this function calculates the yield that can be obtained for intended NPK rate.
@@ -69,6 +53,9 @@ NUE <- function(HI, CmaxNroots = 6.6, CminNroots = 2.5, CmaxNtops = 17.9, CminNt
 #' @author Meklit
 #' @export
 NPK_TargetYield_forOutput <- function(NutrUse_soilNPK, N_rate, P_rate, K_rate) {
+
+  stopifnot(nrow(NutrUse_soilNPK) == 1)
+
   NutrUse_soilNPK$N_rate <- N_rate
   NutrUse_soilNPK$P_rate <- P_rate
   NutrUse_soilNPK$K_rate <- K_rate
@@ -124,8 +111,48 @@ QUEFTS1_Pedotransfer <- function(QID, rec) {
 
 
 
+NUE <- function(HI, CmaxNroots = 6.6, CminNroots = 2.5, CmaxNtops = 17.9, CminNtops = 7.9, CmaxProots = 1.5, CminProots = 0.8, CmaxPtops = 2.8, CminPtops = 0.9,
+                CmaxKroots = 11, CminKroots = 2.8, CmaxKtops = 18.8, CminKtops = 3.4) {
+  aN = round(1000 * HI / (HI * CmaxNroots + (1 - HI) * CmaxNtops), digits = 0)
+  dN = round(1000 * HI / (HI * CminNroots + (1 - HI) * CminNtops), digits = 0)
+  aP = round(1000 * HI / (HI * CmaxProots + (1 - HI) * CmaxPtops), digits = 0)
+  dP = round(1000 * HI / (HI * CminProots + (1 - HI) * CminPtops), digits = 0)
+  aK = round(1000 * HI / (HI * CmaxKroots + (1 - HI) * CmaxKtops), digits = 0)
+  dK = round(1000 * HI / (HI * CminKroots + (1 - HI) * CminKtops), digits = 0)
+
+  return(data.frame(aN = aN, dN = dN, aP = aP, dP = dP, aK = aK, dK = dK))
+
+}
+
+
 ## part of QUEFTS model
 actual_uptake_tool <- function(ds_supply) {
+
+	#' Nutrient uptake depends on the soil supply of the nutrient and the supply of other nutrients
+	nutrient_uptake <- function(S1, S2, d1, a1, d2, a2, r1, r2) {
+	  # N, P and K uptakes based on QUEFTS
+		if (S1 < (r1 + ((S2 - r2) * a2 / d1))) {
+			S1
+		} else if (S1 > (r1 + ((S2 - r2) * (2 * d2 / a1 - a2 / d1)))) {
+			r1 + (S2 - r2) * (d2 / a1)
+		} else {
+			S1 - 0.25 * (S1 - r1 - (S2 - r2) * (a2 / d1))^2 / ((S2 - r2) * (d2 / a1 - a2 / d1))
+		}
+	}
+
+
+	## part of QUEFTS model
+	water_dependent_nutrient_uptake <- function(S1, WLY, d1, a1, r1) {
+		if (S1 < r1 + WLY / d1) {
+			S1
+		} else if (S1 > r1 + 2 * WLY / a1 - WLY / d1) {
+			WLY / a1
+		} else {
+			S1 - 0.25 * (S1 - r1 - WLY / d1)^2 / (WLY / a1 - WLY / d1)
+		}
+	}
+
+
   with(ds_supply,
   {
     UNP <- nutrient_uptake(S1 = SN, S2 = SP, d1 = dN, a1 = aN, d2 = dP, a2 = aP, r1 = rN, r2 = rP)
@@ -150,33 +177,6 @@ actual_uptake_tool <- function(ds_supply) {
   })
 }
 
-
-#' Nutrient uptake depends on the soil supply of the nutrient and the supply of other nutrients
-nutrient_uptake <- function(S1 = NA, S2 = NA, d1 = NA, a1 = NA, d2 = NA, a2 = NA, r1 = NA, r2 = NA) {
-  # N, P and K uptakes based on QUEFTS
-  if (S1 < r1 + ((S2 - r2) * a2 / d1)) {
-    uptakeX_givenY = S1
-  } else if (S1 > r1 + ((S2 - r2) * (2 * d2 / a1 - a2 / d1))) {
-    uptakeX_givenY = r1 + (S2 - r2) * (d2 / a1)
-  } else {
-    uptakeX_givenY = S1 - 0.25 * (S1 - r1 - (S2 - r2) * (a2 / d1))^2 / ((S2 - r2) * (d2 / a1 - a2 / d1))
-  }
-  # Nutrient uptake given availability of other nutrient
-  return(uptakeX_givenY)
-}
-
-
-## part of QUEFTS model
-water_dependent_nutrient_uptake <- function(S1 = NA, WLY = NA, d1 = NA, a1 = NA, r1 = NA) {
-  if (S1 < r1 + WLY / d1) {
-    uptakeX_givenWater = S1
-  } else if (S1 > r1 + 2 * WLY / a1 - WLY / d1) {
-    uptakeX_givenWater = WLY / a1
-  } else {
-    uptakeX_givenWater = S1 - 0.25 * (S1 - r1 - WLY / d1)^2 / (WLY / a1 - WLY / d1)
-  }
-  return(uptakeX_givenWater)
-}
 
 
 ## part of QUEFTS
@@ -229,6 +229,7 @@ quefts_tools <- function(supply_wly) {
 
 
 QUEFTS_WLY_CY <- function(SoilData, country, wlyd) {
+
 
 	getsupply <- function(dss) {
 	  data.frame(lat = dss$lat, long = dss$long, 

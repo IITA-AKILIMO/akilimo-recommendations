@@ -2,9 +2,8 @@
 # now using precomputed data 
 Rfmodel_values <- function(FCY, lat, lon) { 
 #	cat(FCY, ", ", lat, ", ", lon, "\n")
-
 	CONc <- as.integer(cut(FCY, breaks = c(-Inf, 7.5, 15, 22.5, 30, Inf), right=FALSE))
-	p <- readRDS("./data/input/predicted_soil_properties.rds")
+	p <- get_data("predicted_soil_properties")
 	p[p$CONclass == CONc & p$lon == lon & p$lat == lat, ]
 }
 
