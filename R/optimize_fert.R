@@ -28,9 +28,7 @@ run_Optim_NG2 <- function(rootUP, QID, fertilizer, invest, plDate, WLYData, lat,
 ### avoid calling getRFY in each step of the optimization
   fd <- read.csv("./data/input/fd2.csv") 
   d <- as.integer(format(as.Date(HD), "%j"))
-  print(d)
   DC <- fd[(fd$dayNr == d) & (fd$country == "NG"), "DMCont"] * 10
-  print(DC)
 ### 
 	
   ## this is where the optimization is done, and thereuslt is the NPK rate that gives max profit
