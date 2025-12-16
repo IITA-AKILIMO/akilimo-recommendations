@@ -1,0 +1,665 @@
+---
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+---
+  
+  <style>
+
+body {
+  padding-top:0px;
+  padding-left:15px;
+  padding-right:15px;
+}
+
+.navbar{
+  visibility: hidden;
+}
+}
+
+</style> 
+
+ <style type="text/css">
+
+.chart-title {  /* chart_title  */
+   font-size: 30px;
+   font-family: Helvetica;
+
+</style>
+
+<style>
+/* Whole document: */
+body{
+  font-family: Helvetica;
+  font-size: 20px;
+}
+
+<style>
+#What-you-told-us{
+  background-color: blue;
+  color: white;
+}
+
+
+</style>
+
+```{r "setup", include=FALSE}
+show_text <- FALSE
+
+source("AkilimoFunctions_dev.R")
+```
+
+
+```{r, echo=FALSE, fig.width=2, fig.height=10, fig.align="right", out.width='99%'}
+#fertilizerAdviseTable()
+#out.width = "40500px",
+
+#knitr::include_graphics("/home/akilimo/projects/akilimo_recommendation/net/Akilimo Dashboard IC.png")
+knitr::include_graphics("Akilimo Dashboard CIS.png")
+```
+
+
+-------------------------------------  
+ <div class = "row">
+ <div class = "col-md-5">
+ 
+### Ulichotuambia
+
+```{r include=FALSE}
+library(lubridate)
+#library(kableExtra)
+#rmarkdown::html_document
+knitr::opts_chunk$set(echo = TRUE)
+options(knitr.kable.NA = '')
+
+
+#personalized_info <- read.csv("/home/akilimo/projects/akilimo_recommendation/personalized_info.csv")
+personalized_info <- read.csv("personalized_info.csv")
+
+#personalized_info$current_yield <- round(personalized_info$current_yield, digits=0)
+ 
+# personalized_info$actualmn <- lubridate::month(ymd(personalized_info$plant_date))
+# personalized_info$month  <- month.abb[personalized_info$actualmn]
+# personalized_info$actuald <- lubridate::day(ymd(personalized_info$plant_date))
+# personalized_info$actualday <- lubridate::wday(ymd(personalized_info$plant_date))
+# personalized_info$actualYR <- lubridate::year(ymd(personalized_info$plant_date))
+# personalized_info$plant_date2 <- paste(personalized_info$actuald, personalized_info$month, personalized_info$actualYR, sep = "-")
+#  	
+# personalized_info$actualmn <- lubridate::month(ymd(personalized_info$hvst_date))
+# personalized_info$month  <- month.abb[personalized_info$actualmn]
+# personalized_info$actuald <- lubridate::day(ymd(personalized_info$hvst_date))
+# personalized_info$actualday <- lubridate::wday(ymd(personalized_info$hvst_date))
+# personalized_info$actualYR <- lubridate::year(ymd(personalized_info$hvst_date))
+# personalized_info$hvst_date2 <- paste(personalized_info$actuald, personalized_info$month, personalized_info$actualYR, sep = "-")
+
+
+personalized_info$actualmn <- lubridate::month(ymd(as.Date(personalized_info$plant_date)))
+personalized_info$month  <- month.abb[personalized_info$actualmn]
+personalized_info$actuald <- lubridate::day(ymd(as.Date(personalized_info$plant_date)))
+personalized_info$actualday <- lubridate::wday(ymd(as.Date(personalized_info$plant_date)))
+personalized_info$actualYR <- lubridate::year(ymd(as.Date(personalized_info$plant_date)))
+personalized_info$plant_date2 <- paste(personalized_info$actuald, personalized_info$month, personalized_info$actualYR, sep = "-")
+
+personalized_info$actualmn <- lubridate::month(ymd(as.Date(personalized_info$hvst_date)))
+personalized_info$month  <- month.abb[personalized_info$actualmn]
+personalized_info$actuald <- lubridate::day(ymd(as.Date(personalized_info$hvst_date)))
+personalized_info$actualday <- lubridate::wday(ymd(as.Date(personalized_info$hvst_date)))
+personalized_info$actualYR <- lubridate::year(ymd(as.Date(personalized_info$hvst_date)))
+personalized_info$hvst_date2 <- paste(personalized_info$actuald, personalized_info$month, personalized_info$actualYR, sep = "-")
+# totalRevenuemoney <-read.csv("/home/akilimo/projects/akilimo_recommendation/totalRevenuemoney.csv")
+# totalSalemoney <-read.csv("/home/akilimo/projects/akilimo_recommendation/totalSalemoney.csv")
+# totalCostmoney <-read.csv("/home/akilimo/projects/akilimo_recommendation/totalCostmoney.csv")
+
+totalRevenuemoney <-read.csv("totalRevenuemoney.csv")
+totalSalemoney <-read.csv("totalSalemoney.csv")
+totalCostmoney <-read.csv("totalCostmoney.csv")
+
+
+# for (i in 1:nrow(personalized_info)){
+# # 
+ name <- personalized_info$name
+ phone <-  personalized_info$phone
+ field <- personalized_info$field
+ field_area <- personalized_info$field_area
+ plant_date <- personalized_info$plant_date2
+ hvst_date <- personalized_info$hvst_date2
+ 
+ #tuberUP <- personalized_info$tuberUP
+ unittz <-  paste("kwa kilo", formatC(personalized_info$sweetPotatoUW, format="f", big.mark=",", digits=0) )
+tuberUP<- formatC(personalized_info$tuberUP, format="f", big.mark=",", digits=0)
+ #current_yield<- personalized_info$current_yield
+
+ unit_field <- personalized_info$unit_field
+
+ costcassava <- personalized_info$costcassava
+
+
+  currency <- personalized_info$currency
+#	unit <-  paste("kwa kilo", personalized_info$sweetPotatoUW)
+	
+```
+
+
+ <font size="4">Jina lako: **`r sprintf("<span class='custom-inline'>%s</span>", name)`**
+ <br>
+
+  Namba ya simu: + **`r sprintf("<span class='custom-inline'>%s</span>", phone)`**
+
+  
+  Shamba lako: **`r sprintf("<span class='custom-inline'>%s</span>", field)`** 
+  <br>
+  
+   Ukubwa wa shamba: Ekari **`r sprintf("<span class='custom-inline'>%s</span>", field_area)` **
+ <br>
+
+  Tarehe ya kupanda: **`r sprintf("<span class='custom-inline'>%s</span>", plant_date)`**
+  <br>
+  
+  Tarehe ya kuvuna: **`r sprintf("<span class='custom-inline'>%s</span>", hvst_date)`**
+  
+
+ </font>
+ 
+<br>
+
+### Bei ya mbolea
+```{r include=FALSE}
+library(kableExtra)
+ options(knitr.table.format = 'markdown')
+library(dplyr)
+
+personalized_info <- read.csv("CIS_MarkDownText.csv")
+
+dds <- NULL
+if (file.exists("datall1.csv")) {
+  da1 <-read.csv("datall1.csv", stringsAsFactors = FALSE)
+  costt <- formatC(da1$total_cost1, format="f", big.mark=",", digits=0)
+  #costt <- formatC(signif(da1$total_cost1, digits=3), format="f", big.mark=",", digits=0)
+  da1$unit <- gsub(" bag", "", da1$unit1)
+  da1$kgs1 <- round(da1$kgs1, digits=0)
+  da1title1 <-  paste(da1$fertilizer1, ": kilo ", da1$kgs1, " kwa ekari", " ", da1$field_area, " ",  " (~", " mifuko ", " ", da1$bags1, " ", "ya kilo",  " ", da1$unit, ")"," = ",
+                      costt, " ", da1$currency, sep="")
+  da1bag <- da1[,c("rep")]
+  
+  dds <- data.frame(type = as.character(da1$fertilizer1), cost=round(da1$costPerBag1, digits = 0),
+                    units = as.character(da1$unit1), currency=as.character(da1$currency))
+  dds$units <- ifelse(dds$units == "50kg bag", "mfuko wa kilo hamsini", as.character(dds$units))
+}else{
+  da1 <- NULL
+}
+
+
+if (file.exists("datall2.csv")){
+  da2 <-read.csv("datall2.csv", stringsAsFactors = FALSE)
+  #cost2 <- formatC(signif(da2$total_cost2, digits=3), format="f", big.mark=",", digits=0)
+  cost2 <- formatC(da2$total_cost2, format="f", big.mark=",", digits=0)
+  da2$unit <- gsub(" bag", "", da2$unit2)
+  da2$kgs2 <- round(da2$kgs2, digits=0)
+  da2title1 <-  paste(da2$fertilizer2, ": kilo ", da2$kgs2, " kwa ekari", " ", da2$field_area, " ",  " (~", " mifuko ", " ", da2$bags2, " ", "ya kilo",  " ", da2$unit, ")"," = ",
+                      cost2, " ", da2$currency, sep="")
+  da2bag <-da2[,c("rep")]
+  
+  dds <- rbind(dds, data.frame(type = as.character(da2$fertilizer2), cost=round(da2$costPerBag2, digits = 0),
+                               units = as.character(da2$unit2), currency=as.character(da2$currency)))
+   dds$units <- ifelse(dds$units == "50kg bag", "mfuko wa kilo hamsini", as.character(dds$units))
+  
+} else{
+  da2 <- NULL
+}
+
+if (file.exists("datall3.csv")){
+  da3 <-read.csv("datall3.csv", stringsAsFactors = FALSE)
+  #cost3 <- formatC(signif(da3$total_cost3, digits=3), format="f", big.mark=",", digits=0)
+  cost3 <- formatC(da3$total_cost3, format="f", big.mark=",", digits=0)
+  da3$unit <- gsub(" bag", "", da3$unit3)
+  da3$kgs3 <- round(da3$kgs3, digits=0)
+  da3title1 <-  paste(da3$fertilizer3, ": kilo ", da3$kgs3, " kwa ekari", " ", da3$field_area, " ",  " (~", " mifuko ", " ", da3$bags3, " ", "ya kilo",  " ", da3$unit, ")"," = ",
+                      cost3, " ", da3$currency, sep="")
+  da3bag <- da3[,c("rep")]
+  
+  dds <- rbind(dds, data.frame(type = as.character(da3$fertilizer3), cost=round(da3$costPerBag3, digits = 0),
+                               units = as.character(da3$unit3), currency=as.character(da3$currency)))
+   dds$units <- ifelse(dds$units == "50kg bag", "mfuko wa kilo hamsini", as.character(dds$units))
+} else{
+  da3 <- NULL
+}
+
+
+if (file.exists("datall4.csv")){
+  da4 <-read.csv("datall4.csv", stringsAsFactors = FALSE)
+  #cost4 <- formatC(signif(da4$total_cost4, digits=3), format="f", big.mark=",", digits=0)
+  cost4 <- formatC(da4$total_cost4, format="f", big.mark=",", digits=0)
+  da4$unit <- gsub(" bag", "", da4$unit4)
+  da4$kgs1 <- round(da4$kgs4, digits=0)
+  da4title1 <-  paste(da4$fertilizer4, ": kilo ", da4$kgs4, " kwa ekari", " ", da4$field_area, " ",  " (~", " mifuko ", " ", da4$bags4, " ", "ya kilo",  " ", da5$unit, ")"," = ",
+                      cost4, " ", da4$currency, sep="")
+  da4bag <- da4[,c("rep")]
+  
+  dds <- rbind(dds, data.frame(type = as.character(da4$fertilizer4), cost=round(da4$costPerBag4, digits = 0),
+                               units = as.character(da4$unit4), currency=as.character(da4$currency)))
+   dds$units <- ifelse(dds$units == "50kg bag", "mfuko wa kilo hamsini", as.character(dds$units))
+} else{
+  da4 <- NULL
+}
+
+if (file.exists("datall5.csv")){
+  da5 <-read.csv("datall5.csv", stringsAsFactors = FALSE)
+  #cost5 <- formatC(signif(da5$total_cost5, digits=3), format="f", big.mark=",", digits=0)
+  cost5 <- formatC(da5$total_cost5, format="f", big.mark=",", digits=0)
+  da5$kgs51 <- round(da5$kgs5, digits=0)
+  da5$unit <- gsub(" bag", "", da5$unit5)
+  da5title1 <-  paste(da5$fertilizer5, ": kilo ", da5$kgs5, " kwa ekari", " ", da5$field_area, " ",  " (~", " mifuko ", " ", da5$bags5, " ", "ya kilo",  " ", da5$unit, ")"," = ",
+                      cost5, " ", da5$currency, sep="")
+  da5bag <- da5[,c("rep")]
+  dds <- rbind(dds, data.frame(type = as.character(da5$fertilizer5), cost=round(da5$costPerBag5, digits = 0),
+                               units = as.character(da5$unit5), currency=as.character(da5$currency)))
+   dds$units <- ifelse(dds$units == "50kg bag", "mfuko wa kilo hamsini", as.character(dds$units))
+} else{
+  da5 <- NULL
+}
+ 
+#  priceinfo <- NULL
+#  if(is.null(dds)){
+#    a <- "Kilimo cha mchanganyiko haupendekezwi"
+#  }else{
+#   
+#    priceinfo <- unique(dds)
+#   #priceinfo$type <- priceinfo$fertname
+#   #priceinfo$cost <- formatC(signif(priceinfo$cost, digits=3), format="f", big.mark=",", digits=0)
+# priceinfo$cost <- formatC(priceinfo$cost, format="f", big.mark=",", digits=0)
+# priceinfo$cost <- paste(" @", " ", priceinfo$cost, " ", priceinfo$currency, " ", "kwa", sep="")
+# priceinfo$unit <- priceinfo$unit
+# priceinfo$tts <- paste(priceinfo$cost, " ", priceinfo$unit, sep="")
+# priceinfo <-priceinfo[, c("type", "tts")] 
+# # x = kable(priceinfo, format="html") %>%
+# #   column_spec(1, bold = T) %>%
+# #     kable_styling(full_width = F)
+# # gsub("<thead>.*</thead>", "", x)
+# }
+
+ 
+ priceinfo <- unique(dds)
+#priceinfo$type <- priceinfo$fertname
+#priceinfo$cost <- formatC(signif(priceinfo$cost, digits=3), format="f", big.mark=",", digits=0)
+priceinfo$cost <- formatC(priceinfo$cost, format="f", big.mark=",", digits=0)
+priceinfo$cost <- paste(" @", " ", priceinfo$cost, " ", priceinfo$currency, " ", "kwa", sep="")
+priceinfo$unit <- priceinfo$unit
+priceinfo$tts <- paste(priceinfo$cost, " ", priceinfo$unit, sep="")
+priceinfo <-priceinfo[, c("type", "tts")] 
+# x = kable(priceinfo, format="html") %>%
+#   column_spec(1, bold = T) %>%
+#     kable_styling(full_width = F)
+# gsub("<thead>.*</thead>", "", x)
+
+
+
+costcassava <- personalized_info$costcassava
+
+unitcassava <- paste(" tani ya ", personalized_info$unitcassava, sep="") 
+maxinvest <- personalized_info$maxinvest
+area <- paste(personalized_info$field_area, personalized_info$unit_field, sep=" ")
+cas_unit <- personalized_info$unit_field 
+currency <- personalized_info$currency
+
+
+
+```
+
+
+
+ <font size="4"> 
+```{r message=FALSE, warning = FALSE, echo=FALSE}
+library(kableExtra)
+ #options(knitr.table.format = 'markdown')
+library(dplyr)
+ # options(knitr.table.format = 'markdown')
+ # 
+ # knitr::kable(priceinfo, align=rep('r'), col.names = NULL, row.names = F) 
+
+x = kable(priceinfo, format="html") %>%
+  column_spec(1, bold = T) %>%
+   kable_styling(bootstrap_options = "striped", full_width = F, position = "left")
+
+gsub("<thead>.*</thead>", "", x)
+
+```
+
+### Taarifa ya bei 
+```{r include=FALSE}
+library(lubridate)
+#library(kableExtra)
+#rmarkdown::html_document
+knitr::opts_chunk$set(echo = TRUE)
+options(knitr.kable.NA = '')
+
+
+#personalized_info <- read.csv("/home/akilimo/projects/akilimo_recommendation/personalized_info.csv")
+personalized_info <- read.csv("CIS_MarkDownText.csv")
+
+personalized_info$unitcassava <- ifelse(personalized_info$unitcassava == "roots", "mizizi", "unga")
+
+unitcassava <- if(personalized_info$sweetPotatoUW == 1000){
+  paste(" kwa kila tani ya ", personalized_info$unitcassava, sep="") 
+}else{
+  paste("kwa kilo", " ", formatC(personalized_info$sweetPotatoUW, format="f", big.mark=",", digits=0), " " , "ya", " ", personalized_info$unitcassava, sep="" ) 
+} 
+# 
+#  #tuberUP <- personalized_info$tuberUP
+# if (personalized_info$sweetPotatoUW == 1000){
+#    unittz <-  paste("kwa kila tani")
+# }else{
+#    unittz <-  paste("kwa kilo", formatC(personalized_info$sweetPotatoUW, "ya", personalized_info$unitcassava, format="f", big.mark=",", digits=0) )
+# }
+#  
+ 
+ 
+tuberUP<- formatC(personalized_info$tuberUP, format="f", big.mark=",", digits=0)
+ #current_yield<- personalized_info$current_yield
+
+unit_field <- personalized_info$unit_field
+
+costcassava <- personalized_info$costcassava
+
+
+currency <- personalized_info$currency
+#	unit <-  paste("kwa kilo", personalized_info$sweetPotatoUW)
+	
+```
+
+
+ <font size="4"> 
+
+Bei ya viazi vitamu: **`r currency` `r tuberUP` `r unittz` ** 
+<br>
+
+Bei ya Muhogo   **`r currency`** **`r costcassava`** **`r unitcassava`** 
+
+</font>
+
+
+</div>
+
+
+### Eneo lilipo shamba lako
+ <div class = "col-md-6">  
+
+```{r conditional_block4, echo=FALSE, message=FALSE, fig.height=8, fig.width=13, warning = FALSE, results='hide', eval = show_text}
+
+#setwd("D:/ACAI_Wrapper/cloud_compute")
+personalized_info <- read.csv("personalized_info.csv")
+geodata <- personalized_info
+#setwd("D:/ACAI_Wrapper/fertilizer advice Rmd")
+
+# geodata <- read.csv("FR_MarkDownText.csv", stringsAsFactors = FALSE)
+# geodata <- unique(geodata)
+#geodata <- read.csv(file = "MarkDownTextD.csv", header = TRUE,  sep = "," )
+data <- subset(geodata[1,], select = c("name", "latitude", "longitude"))
+
+minLong=data$longitude - 0.05
+maxLong=data$longitude + 0.05
+minLat=data$latitude - 0.05
+maxLat=data$latitude + 0.05
+library(leaflet)
+library(mapview)
+my_map <- data %>%
+  
+  #leaflet(width = "10%") %>%
+  #leaflet(options= leafletOptions(minZoom = 3, maxZoom = 10)) %>%
+  leaflet(options= leafletOptions(minZoom = 8, maxZoom = 10)) %>%
+  addProviderTiles(providers$Esri.NatGeoWorldMap)%>%
+  #setView(lng = -95.7129, lat = 37.0902, zoom = 4) %>%
+  
+  # addMarkers(~longitude, ~latitude
+  #          )%>% 
+  #addRectangles(lat1 = minLat, lng1 = minLong, lat2 = maxLat, lng2 = maxLong)%>% 
+  addCircleMarkers(~longitude, ~latitude, color="white", fillColor = "transparent", weight = 10, radius = 30)%>% 
+  
+  addScaleBar()
+#addTiles()
+mm <- "my_map.png"
+if (file.exists(mm)) file.remove(mm)
+
+mapshot(my_map,  height=100, file="map.png")
+
+
+```
+![](map.png)
+
+ </div>
+  </div>
+  
+  
+   <div class = "row">
+ <div class = "col-md-6">
+ 
+### Mapendekezo yametolewa tarehe  `r format(Sys.Date(), "%d %B, %Y")`
+
+---------------------------------------------------------
+
+ <font size="4">
+<div style="margin-bottom:4px;">
+```{r message=FALSE, warning = FALSE, echo=FALSE}
+ options(knitr.table.format = 'markdown')
+
+ if(!is.null(da1)){
+   knitr::kable(da1title1, col.names = NULL, row.names = F) 
+ }
+
+```
+</div>
+
+
+<div style="margin-bottom:0px;">
+```{r message=FALSE, warning = FALSE, echo=FALSE}
+ options(knitr.table.format = 'markdown')
+
+ if(!is.null(da1)){
+   knitr::kable(da1bag, col.names = NULL, row.names = F) 
+ }
+
+```
+</div>
+
+
+<div style="margin-bottom:15px;">
+```{r message=FALSE, warning = FALSE, echo=FALSE}
+ options(knitr.table.format = 'markdown')
+
+ if(!is.null(da2)){
+   knitr::kable(da2title1, col.names = NULL, row.names = F) 
+ }
+
+
+```
+</div>
+
+<div style="margin-bottom:0px;">
+```{r message=FALSE, warning = FALSE, echo=FALSE}
+ options(knitr.table.format = 'markdown')
+
+ if(!is.null(da2)){
+   knitr::kable(da2bag, col.names = NULL, row.names = F) 
+ }
+
+```
+</div>
+
+<div style="margin-bottom:4px;">
+```{r message=FALSE, warning = FALSE, echo=FALSE}
+ options(knitr.table.format = 'markdown')
+
+ if(!is.null(da3)){
+   knitr::kable(da3title1, col.names = NULL, row.names = F) 
+ }
+
+```
+</div>
+
+<div style="margin-bottom:15px;">
+```{r message=FALSE, warning = FALSE, echo=FALSE}
+ options(knitr.table.format = 'markdown')
+
+ if(!is.null(da3)){
+   knitr::kable(da3bag, col.names = NULL, row.names = F) 
+ }
+
+```
+</div>
+
+
+<div style="margin-bottom:4px;">
+```{r message=FALSE, warning = FALSE, echo=FALSE}
+ options(knitr.table.format = 'markdown')
+
+ if(!is.null(da4)){
+   knitr::kable(da4title1, col.names = NULL, row.names = F) 
+ }
+
+```
+</div>
+
+<div style="margin-bottom:15px;">
+```{r message=FALSE, warning = FALSE, echo=FALSE}
+ options(knitr.table.format = 'markdown')
+
+ if(!is.null(da4)){
+   knitr::kable(da4bag, col.names = NULL, row.names = F) 
+ }
+
+```
+</div>
+
+
+<div style="margin-bottom:4px;">
+```{r message=FALSE, warning = FALSE, echo=FALSE}
+ options(knitr.table.format = 'markdown')
+
+ if(!is.null(da5)){
+   knitr::kable(da5title1, col.names = NULL, row.names = F) 
+ }
+
+```
+</div>
+
+<div style="margin-bottom:15px;">
+```{r message=FALSE, warning = FALSE, echo=FALSE}
+ options(knitr.table.format = 'markdown')
+
+ if(!is.null(da5)){
+   knitr::kable(da5bag, col.names = NULL, row.names = F) 
+ }
+
+```
+
+</div>
+</div>
+
+ <div class = "col-md-6">
+
+### Mchanganuo wa gharama na faida
+
+---------------------------------------------------------
+
+```{r echo=FALSE}
+
+#setwd("D:/ACAI_Wrapper/cloud_compute")
+personalized_info <- read.csv("personalized_info.csv")
+totalCostmoney <- read.csv("totalCostmoney.csv")
+totalSalemoney <- read.csv("totalSalemoney.csv")
+totalRevenuemoney <- read.csv("totalRevenuemoney.csv")
+dMP <- personalized_info$dMP
+currency<- personalized_info$currency
+bags_total100<- (personalized_info$bags_total)*10
+bags_total <- personalized_info$bags_total
+product <- personalized_info$product
+unitcassava <- personalized_info$unitcassava
+final_cost<- personalized_info$totalSalePrice
+revenue <- personalized_info$revenue
+#`r if(TRUE){"#Header\nIs this under the header\n\n##subheader\nis this undersub?"}`
+```
+
+<br>
+
+
+
+ <font size="4">
+Jumla ya gharama:  **`r totalCostmoney`**
+<br>
+
+Jumla ya mapato yaliyokokotolewa: **`r totalSalemoney`**
+<br>
+
+Jumla ya mapato yaliyotarajiwa: **`r totalRevenuemoney`**
+
+
+</font>
+<br>
+
+```{r conditional_block2, eval=show_text, echo=FALSE}
+
+personalized_info <- read.csv("personalized_info.csv")
+	# # calculating cobUP based on maizeUP, maizeUW and conversion from grain to cobs if maizePD == "grain"
+	# if(is.na(personalized_info$maizeUP) & personalized_info$maizePD == "fresh_cob") personalized_info$maizeUP <- 50 #default price for 1 large fresh cob
+	# if(is.na(personalized_info$maizeUP) & personalized_info$maizePD == "grain") {
+	#   personalized_info$maizeUP <- 230 #default price for 1 kg of maize grain
+	#   personalized_info$maizeUW <- 1  
+	# }
+	# 
+	# currency <- personalized_info$currency
+	# cobUP <- ifelse(personalized_info$maizePD == "fresh_cob", personalized_info$maizeUP, personalized_info$maizeUP / personalized_info$maizeUW / 7.64) #1 kg of grain ~ 7.64 cobs
+	# cobUP <- round(cobUP, digits = 0)
+	# unit <-  ifelse(personalized_info$maizePD == "grain", paste("per Kg of", personalized_info$maizePD), paste("per", personalized_info$maizePD))
+	# 
+	# 
+
+# calculating tuberUP based on sweetPotatoUP, sweetPotatoUW and conversion factor for sweetPotato product sold
+    tuberConv <- data.frame(sweetPotatoPD = c("tubers", "flour"),
+    conversion = c(1, 3.2))
+    if (is.na(sweetPotatoUP) &
+        sweetPotatoPD == "tubers" &
+        country == "TZ") {sweetPotatoUP = 120000; sweetPotatoUW = 1000}
+    if (is.na(sweetPotatoUP) &
+        sweetPotatoPD == "flour" &
+        country == "TZ") {sweetPotatoUP = 384000; sweetPotatoUW = 1000}
+
+    tuberUP <- sweetPotatoUP /
+        sweetPotatoUW /
+        tuberConv[tuberConv$sweetPotatoPD == sweetPotatoPD,]$conversion * 1000
+    #
+
+
+  currency <- personalized_info$currency
+	unit <-  paste("kwa kilo", personalized_info$sweetPotatoUW)
+	
+
+```
+
+
+
+</div>
+
+ </div>
+
+
+
+</font>
+
+
+
+<p>
+</p>
+
+ <div class = "row">
+<div class = "col-md-12 text-left">
+#### Mapendekezo
+
+---------------------------------------------------------
+
+```{r echo=FALSE}
+recommendation_IC <- read.csv("CIS_recText.csv", stringsAsFactors = FALSE)
+```
+  <font size="4">
+`r recommendation_IC`
+</font>
+</div>
+</div>
