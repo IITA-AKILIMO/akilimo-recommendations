@@ -25,15 +25,21 @@ run_Optim_NG2 <- function(rootUP, QID, fertilizer, invest, plDate, WLYData, lat,
   CY_user <- ((getRFY(HD = HD, RDY = DCY, country = "NG")) / 1000) * areaHa ## TZ model is extrememly high
   WLY_user <- ((getRFY(HD = HD, RDY = WLY, country = "NG")) / 1000) * areaHa
 
+### avoid calling getRFY in each step of the optimization
+  fd <- get_data("dry_matter")
+  d <- as.integer(format(as.Date(HD), "%j"))
+  DC <- fd[(fd$dayNr == d) & (fd$country == "NG"), "DMCont"] * 10
+### 
+	
   ## this is where the optimization is done, and thereuslt is the NPK rate that gives max profit
-  FR <- optim(par = initial, fn = optim_NR, lower = lowerST, method = "L-BFGS-B", control = list(fnscale = -1), rootUP = rootUP,
-              QID = QID, CY = DCY, fertilizer = fertilizer, invest = invest, HD = HD, country = country)$par
-
+  FR <- optim(par = initial, fn = optim_NR, lower = lowerST, method = "L-BFGS-B", 
+		control = list(fnscale = -1, ndeps=rep(1, length(initial))),
+		rootUP = rootUP, QID = QID, CY = DCY, fertilizer = fertilizer, 
+		invest = invest, HD = HD, country = country, DC=DC)$par
 
   if (all(FR == 0)) {
-    return(data.frame(lat = lat, lon = lon, plDate, N = 0, P = 0, K = 0, WLY = WLY_user, CurrentY = CY_user, TargetY = CY_user, TC = 0, NR = 0))
-  }else {
-
+    return(data.frame(lat = lat, lon = lon, plDate, N = 0, P = 0, K = 0, WLY = WLY_user, CurrentY = CY_user, TargetY = 	CY_user, TC = 0, NR = 0))
+  } else {
     fertilizer$FR <- FR
 
     ## NPK rate for ha of land
@@ -99,26 +105,32 @@ run_Optim_NG2 <- function(rootUP, QID, fertilizer, invest, plDate, WLYData, lat,
 #' @param invest investment capacity
 #' @param HD harvest date
 #' @param country
-optim_NR <- function(fertRate, rootUP, QID, CY, fertilizer, invest, HD, country) {
-  f_price <- fertilizer$price
-  TC <- sum(fertRate * f_price)
+
+
+optim_NR <- function(fertRate, rootUP, QID, CY, fertilizer, invest, HD, country, DC) {
+
+  TC <- sum(round(fertRate) * fertilizer$price)
 
   ## Kg of Urea, Kg of NPK151515, Kg of NPK201010, Kg of MOP
+	
+	rec <- c(
+		as.vector(fertRate %*% fertilizer$N_cont),
+		as.vector(fertRate %*% fertilizer$P_cont),
+		as.vector(fertRate %*% fertilizer$K_cont)
+	)
 
-  N <- as.vector(fertRate %*% fertilizer$N_cont)
-  P <- as.vector(fertRate %*% fertilizer$P_cont)
-  K <- as.vector(fertRate %*% fertilizer$K_cont)
+	TotalYield <- QUEFTS1_Pedotransfer(QID, rec)
 
-  rec <- c(N, P, K)
-
-  TotalYield <- QUEFTS1_Pedotransfer(QID, rec)
-
-  AdditionalYield <- (getRFY(HD = HD, RDY = (TotalYield - CY), country = country)) / 1000 ## DM is converted to FW and then from KG/ha to ton/ha
+ ## DM is converted to FW and then from KG/ha to ton/ha
+	AdditionalYield <- (TotalYield - CY) / DC
+#	AdditionalYield <- (getRFY(HD = HD, RDY = (TotalYield - CY), country = country)) / 1000
   #AdditionalYield <- (TotalYield - CY)*0.003
-  PriceYield <- AdditionalYield * rootUP
-  NetRev <- PriceYield - TC
-  if (!is.na(invest) & TC > invest) { NetRev <- NetRev - (invest - TC)^2 } #penalize NR if costs exceed investment cap
-  return(NetRev)
+	NetRev <- AdditionalYield * rootUP - TC
+	if (!is.na(invest) & TC > invest) { 
+	#penalize NR if costs exceed investment cap
+		NetRev <- NetRev - (invest - TC)^2 
+	} 
+  NetRev
 }
 
 

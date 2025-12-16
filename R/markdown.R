@@ -1,39 +1,35 @@
 
-#####################################################################################################################
-## R markdown
-#####################################################################################################################
+### R markdown
 
+
+
+get_markdown_text <- function(FR, IC, country) {
+	if (FR & !IC) {
+		acairm <- read.csv("./temp/FR_MarkDownText.csv")
+	} else if (IC & !FR) {
+		if (country == "TZ") {
+			acairm <- read.csv("./temp/CIS_MarkDownText.csv")
+		} else if (country == "NG") {
+			acairm <- read.csv("./temp/IC_MarkDownText.csv")
+		}
+	} else {
+		stop("FR and IC can not both be TRUE")
+	}
+	acairm$currency <- ifelse(acairm$country == "NG", "NGN",
+                        ifelse(acairm$country == "TZ", "TZS", 
+						ifelse(acairm$country == "BU", "BIF", "GHS")))
+	acairm
+}
 
 
 #'function to put data used in the markdown .rmd. It selects the number of bags of fertilizerm the color, the money stubs for cost, sale and profit
 #'It reads the FR_MarkdownText, SP_MarkdownText, IC_MarkdownText, BPP_MarkdownText saved output which brings together the user info and based on
 #' the recommendation the fertilizer types, amount, bag colur, cost and profit
 fertilizerAdviseTable <- function(FR, IC, country, areaUnits) {
+ 
+	suppressWarnings(file.remove(paste0("./temp/datall", 1:6, ".csv")))
 
-
-  suppressWarnings(if (file.exists("datall1.csv")) file.remove("datall1.csv"))
-  suppressWarnings(if (file.exists("datall2.csv")) file.remove("datall2.csv"))
-  suppressWarnings(if (file.exists("datall3.csv")) file.remove("datall3.csv"))
-  suppressWarnings(if (file.exists("datall4.csv")) file.remove("datall4.csv"))
-  suppressWarnings(if (file.exists("datall5.csv")) file.remove("datall5.csv"))
-  suppressWarnings(if (file.exists("datall6.csv")) file.remove("datall6.csv"))
-
-
-  if (FR == TRUE & IC == FALSE) {
-    acairm <- read.csv("FR_MarkDownText.csv")
-  }else if (IC == TRUE & FR == FALSE) {
-    if (country == "TZ") {
-      acairm <- read.csv("CIS_MarkDownText.csv")
-    }else if (country == "NG") {
-      acairm <- read.csv("IC_MarkDownText.csv")
-    }
-  }else {
-    return("FR and IC can not be true together")
-  }
-
-
-  acairm$currency <- ifelse(acairm$country == "NG", "NGN",
-                            ifelse(acairm$country == "TZ", "TZS", ifelse(acairm$country == "BU", "BIF", "GHS")))
+	acairm <- get_markdown_text(FR, IC, country)
 
   ## Loop
   Nrfert <- length(grep("fertilizer", colnames(acairm)))
@@ -75,48 +71,12 @@ fertilizerAdviseTable <- function(FR, IC, country, areaUnits) {
         dat[, 1] <- "FOMI-BAGARA"
       }
 
-
       if (dat$bag == 0.5) {
         dat$rep <- sprintf(paste('![](net/', fertColCode, '/half.png)', sep = ""))
-      }else if (dat$bag == 1) {
-        dat$rep <- sprintf(paste('![](net/', fertColCode, '/1.png)', sep = ""))
-      }else if (dat$bag == 1.5) {
-        dat$rep <- sprintf(paste('![](net/', fertColCode, '/1_5.png)', sep = ""))
-      }else if (dat$bag == 2) {
-        dat$rep <- sprintf(paste('![](net/', fertColCode, '/2.png)', sep = ""))
-      }else if (dat$bag == 2.5) {
-        dat$rep <- sprintf(paste('![](net/', fertColCode, '/2_5.png)', sep = ""))
-      }else if (dat$bag == 3) {
-        dat$rep <- sprintf(paste('![](net/', fertColCode, '/3.png)', sep = ""))
-      }else if (dat$bag == 3.5) {
-        dat$rep <- sprintf(paste('![](net/', fertColCode, '/3_5.png)', sep = ""))
-      }else if (dat$bag == 4) {
-        dat$rep <- sprintf(paste('![](net/', fertColCode, '/4.png)', sep = ""))
-      }else if (dat$bag == 4.5) {
-        dat$rep <- sprintf(paste('![](net/', fertColCode, '/4_5.png)', sep = ""))
-      }else if (dat$bag == 5) {
-        dat$rep <- sprintf(paste('![](net/', fertColCode, '/5.png)', sep = ""))
-      }else if (dat$bag == 5.5) {
-        dat$rep <- sprintf(paste('![](net/', fertColCode, '/5_5.png)', sep = ""))
-      }else if (dat$bag == 6) {
-        dat$rep <- sprintf(paste('![](net/', fertColCode, '/6.png)', sep = ""))
-      }else if (dat$bag == 6.5) {
-        dat$rep <- sprintf(paste('![](net/', fertColCode, '/6_5.png)', sep = ""))
-      }else if (dat$bag == 7) {
-        dat$rep <- sprintf(paste('![](net/', fertColCode, '/7.png)', sep = ""))
-      }else if (dat$bag == 7.5) {
-        dat$rep <- sprintf(paste('![](net/', fertColCode, '/7_5.png)', sep = ""))
-      }else if (dat$bag == 8) {
-        dat$rep <- sprintf(paste('![](net/', fertColCode, '/8.png)', sep = ""))
-      }else if (dat$bag == 8.5) {
-        dat$rep <- sprintf(paste('![](net/', fertColCode, '/8_5.png)', sep = ""))
-      }else if (dat$bag == 9) {
-        dat$rep <- sprintf(paste('![](net/', fertColCode, '/9.png)', sep = ""))
-      }else if (dat$bag == 9.5) {
-        dat$rep <- sprintf(paste('![](net/', fertColCode, '/9_5.png)', sep = ""))
-      }else if (dat$bag == 10) {
-        dat$rep <- sprintf(paste('![](net/', fertColCode, '/10.png)', sep = ""))
-      }
+      } else {
+		dat$rep <- paste0('![](net/', fertColCode, "/", gsub(".", "_", dat$bag), ".png)")
+	  }
+	  
       # colnames(dat) <-  gsub(j,"", colnames(dat))
       #datall <- rbind(datall, dat)
 
@@ -131,7 +91,7 @@ fertilizerAdviseTable <- function(FR, IC, country, areaUnits) {
       #   dat$unit_field <- "TZacre"
       # }
 
-      fn <- paste("datall", j, ".csv", sep = "")
+      fn <- paste("./temp/datall", j, ".csv", sep = "")
       write.csv(dat, fn, row.names = FALSE)
 
     }
@@ -140,13 +100,12 @@ fertilizerAdviseTable <- function(FR, IC, country, areaUnits) {
 
   if (min(acairm$sum_total, acairm$revenue) == acairm$sum_total) {
     ratioFertCost <- 1
-    ratioTotalSale <- round(acairm$totalSalePrice / acairm$sum_total, digits = 0)
-    ratioRevenue <- round(acairm$revenue / acairm$sum_total, digits = 0)
+    ratioTotalSale <- round(acairm$totalSalePrice / acairm$sum_total)
+    ratioRevenue <- round(acairm$revenue / acairm$sum_total)
   }else {
     ratioRevenue <- 1
-    ratioFertCost <- round(acairm$sum_total / acairm$revenue, digits = 0)
-    ratioTotalSale <- round(acairm$totalSalePrice / acairm$revenue, digits = 0)
-
+    ratioFertCost <- round(acairm$sum_total / acairm$revenue)
+    ratioTotalSale <- round(acairm$totalSalePrice / acairm$revenue)
   }
 
   acairm$revenue <- formatC(acairm$revenue, format = "f", big.mark = ",", digits = 0)
@@ -154,81 +113,16 @@ fertilizerAdviseTable <- function(FR, IC, country, areaUnits) {
   acairm$sum_total <- formatC(acairm$sum_total, format = "f", big.mark = ",", digits = 0)
   # acairm$sum_total <- formatC(signif(acairm$sum_total, digits=3), format="f", big.mark=",", digits=0)
 
+  totalCostmoney <- data.frame(title = paste(acairm$sum_total, acairm$currency))
+  totalSalemoney <- data.frame(title = paste(acairm$totalSalePrice, acairm$currency))
+  totalRevenuemoney <- data.frame(title = paste(acairm$revenue, acairm$currency))
 
-  totalCostmoney <- data.frame(title = paste(acairm$sum_total, acairm$currency, sep = " "))
-  totalSalemoney <- data.frame(title = paste(acairm$totalSalePrice, acairm$currency, sep = " "))
-  totalRevenuemoney <- data.frame(title = paste(acairm$revenue, acairm$currency, sep = " "))
-
-  if (ratioFertCost == 1) {
-    totalCostmoney$moneypack <- sprintf('![](net/cash/Picture1.png)')
-  } else if (ratioFertCost == 2) {
-    totalCostmoney$moneypack <- sprintf('![](net/cash/Picture2.png)')
-  }else if (ratioFertCost == 3) {
-    totalCostmoney$moneypack <- sprintf('![](net/cash/Picture3.png)')
-  }else if (ratioFertCost == 4) {
-    totalCostmoney$moneypack <- sprintf('![](net/cash/Picture4.png)')
-  }else if (ratioFertCost == 5) {
-    totalCostmoney$moneypack <- sprintf('![](net/cash/Picture5.png)')
-  }else if (ratioFertCost == 6) {
-    totalCostmoney$moneypack <- sprintf('![](net/cash/Picture6.png)')
-  }else if (ratioFertCost == 7) {
-    totalCostmoney$moneypack <- sprintf('![](net/cash/Picture7.png)')
-  }else if (ratioFertCost == 8) {
-    totalCostmoney$moneypack <- sprintf('![](net/cash/Picture8.png)')
-  }else if (ratioFertCost == 9) {
-    totalCostmoney$moneypack <- sprintf('![](net/cash/Picture9.png)')
-  }else if (ratioFertCost == 10) {
-    totalCostmoney$moneypack <- sprintf('![](net/cash/Picture10.png)')
-  }
-  write.csv(totalCostmoney, "totalCostmoney.csv", row.names = FALSE)
-
-  if (ratioTotalSale == 1) {
-    totalSalemoney$moneypack <- sprintf('![](net/cash/Picture1.png)')
-  } else if (ratioTotalSale == 2) {
-    totalSalemoney$moneypack <- sprintf('![](net/cash/Picture2.png)')
-  }else if (ratioTotalSale == 3) {
-    totalSalemoney$moneypack <- sprintf('![](net/cash/Picture3.png)')
-  }else if (ratioTotalSale == 4) {
-    totalSalemoney$moneypack <- sprintf('![](net/cash/Picture4.png)')
-  }else if (ratioTotalSale == 5) {
-    totalSalemoney$moneypack <- sprintf('![](net/cash/Picture5.png)')
-  }else if (ratioTotalSale == 6) {
-    totalSalemoney$moneypack <- sprintf('![](net/cash/Picture6.png)')
-  }else if (ratioTotalSale == 7) {
-    totalSalemoney$moneypack <- sprintf('![](net/cash/Picture7.png)')
-  }else if (ratioTotalSale == 8) {
-    totalSalemoney$moneypack <- sprintf('![](net/cash/Picture8.png)')
-  }else if (ratioTotalSale == 9) {
-    totalSalemoney$moneypack <- sprintf('![](net/cash/Picture9.png)')
-  }else if (ratioTotalSale == 10) {
-    totalSalemoney$moneypack <- sprintf('![](net/cash/Picture10.png)')
-  }
-  write.csv(totalSalemoney, "totalSalemoney.csv", row.names = FALSE)
-
-
-  if (ratioRevenue == 1) {
-    totalRevenuemoney$moneypack <- sprintf('![](net/cash/Picture1.png)')
-  } else if (ratioRevenue == 2) {
-    totalRevenuemoney$moneypack <- sprintf('![](net/cash/Picture2.png)')
-  }else if (ratioRevenue == 3) {
-    totalRevenuemoney$moneypack <- sprintf('![](net/cash/Picture3.png)')
-  }else if (ratioRevenue == 4) {
-    totalRevenuemoney$moneypack <- sprintf('![](net/cash/Picture4.png)')
-  }else if (ratioRevenue == 5) {
-    totalRevenuemoney$moneypack <- sprintf('![](net/cash/Picture5.png)')
-  }else if (ratioRevenue == 6) {
-    totalRevenuemoney$moneypack <- sprintf('![](net/cash/Picture6.png)')
-  }else if (ratioRevenue == 7) {
-    totalRevenuemoney$moneypack <- sprintf('![](net/cash/Picture7.png)')
-  }else if (ratioRevenue == 8) {
-    totalRevenuemoney$moneypack <- sprintf('![](net/cash/Picture8.png)')
-  }else if (ratioRevenue == 9) {
-    totalRevenuemoney$moneypack <- sprintf('![](net/cash/Picture9.png)')
-  }else if (ratioRevenue == 10) {
-    totalRevenuemoney$moneypack <- sprintf('![](net/cash/Picture10.png)')
-  }
-  write.csv(totalRevenuemoney, "totalRevenuemoney.csv", row.names = FALSE)
-
+	totalCostmoney$moneypack <- paste0('![](net/cash/Picture', ratioFertCost, '.png)')
+	write.csv(totalCostmoney, "./temp/totalCostmoney.csv", row.names = FALSE)
+    totalSalemoney$moneypack <- paste0('![](net/cash/Picture', ratioTotalSale, '.png)')
+	write.csv(totalSalemoney, "./temp/totalSalemoney.csv", row.names = FALSE)
+    totalRevenuemoney$moneypack <- paste0('![](net/cash/Picture', ratioRevenue, '.png)')
+	write.csv(totalRevenuemoney, "./temp/totalRevenuemoney.csv", row.names = FALSE)
 
   #return(acairm)
 }
@@ -297,7 +191,7 @@ getFRrecomMarkdown <- function(lat, lon, PD, HD, maxInv, fertilizers, GPS_fertRe
 
   T_csv <- cbind(T_csv, FA)
 
-  fnc <- "MarkDownTextD.csv"
+  fnc <- "./temp/MarkDownTextD.csv"
   if (file.exists(fnc)) file.remove(fnc)
   write.csv(T_csv, fnc, row.names = FALSE)
 
@@ -339,7 +233,7 @@ FR_MarkdownText <- function(rr, fertilizers, user, country, userField,
   MarkDownTextD$costcassava <- formatC(signif(MarkDownTextD$costcassava, digits = 4), format = "f", big.mark = ",", digits = 0)
   MarkDownTextD$maxinvest <- formatC(signif(MarkDownTextD$maxinvest, digits = 4), format = "f", big.mark = ",", digits = 0)
 
-  filename <- paste("personalized_info", user$PhoneNr, sep = "_")
+  filename <- paste("./temp/personalized_info", user$PhoneNr, sep = "_")
   filename <- paste0(filename, ".csv")
   write.csv(MarkDownTextD, filename, row.names = FALSE)
 
@@ -359,7 +253,6 @@ FR_MarkdownText <- function(rr, fertilizers, user, country, userField,
     MarkDownTextD$sum_total <- sum_total
     MarkDownTextD$revenue <- MarkDownTextD$totalSalePrice - sum_total
 
-    # write.csv(MarkDownTextD, "personalized_info.csv", row.names = FALSE)
     write.csv(MarkDownTextD, filename, row.names = FALSE)
 
 
@@ -381,7 +274,7 @@ FR_MarkdownText <- function(rr, fertilizers, user, country, userField,
       }
     }
     MarkDownTextD <- cbind(MarkDownTextD, ff)
-    write.csv(MarkDownTextD, "FR_MarkDownText.csv", row.names = FALSE)
+    write.csv(MarkDownTextD, "./temp/FR_MarkDownText.csv", row.names = FALSE)
   }
 }
 
@@ -436,7 +329,7 @@ IC_MarkdownText <- function(rr, fertilizers, user, country, userField,
                                        " kg of grain.", sep = "")
   }
 
-  filename <- paste("personalized_info", user$PhoneNr, sep = "_")
+  filename <- paste("./temp/personalized_info", user$PhoneNr, sep = "_")
   filename <- paste0(filename, ".csv")
   write.csv(MarkDownTextD, filename, row.names = FALSE)
 
@@ -476,7 +369,7 @@ IC_MarkdownText <- function(rr, fertilizers, user, country, userField,
     }
 
     MarkDownTextD <- cbind(MarkDownTextD, ff, rr$rec)
-    write.csv(MarkDownTextD, "IC_MarkDownText.csv", row.names = FALSE)
+    write.csv(MarkDownTextD, "./temp/IC_MarkDownText.csv", row.names = FALSE)
   }
 }
 
@@ -507,7 +400,7 @@ CIS_MarkdownText <- function(rr, fertilizers, user, country, userField, area, ar
   MarkDownTextD$maxinvest <- formatC(signif(MarkDownTextD$maxinvest, digits = 4), format = "f", big.mark = ",", digits = 0)
 
 
-  filename <- paste("personalized_info", user$PhoneNr, sep = "_")
+  filename <- paste("./temp/personalized_info", user$PhoneNr, sep = "_")
   filename <- paste0(filename, ".csv")
   write.csv(MarkDownTextD, filename, row.names = FALSE)
 
@@ -548,7 +441,7 @@ CIS_MarkdownText <- function(rr, fertilizers, user, country, userField, area, ar
     }
 
     MarkDownTextD <- cbind(MarkDownTextD, ff, rr$rec)
-    write.csv(MarkDownTextD, "CIS_MarkDownText.csv", row.names = FALSE)
+    write.csv(MarkDownTextD, "./temp/CIS_MarkDownText.csv", row.names = FALSE)
   }
 }
 
@@ -563,7 +456,7 @@ PPSP_MarkdownText <- function(rr, fname, user, country, userField, area, areaUni
         email = user$Email, latitude = lat, longitude = lon, costcassava = rootUP, unitcassava = cassPD,
         maxinvest = maxInv, cassUW = cassUW, product = cassPD, currency = currency)
 
-  filename <- paste("personalized_info", user$PhoneNr, sep = "_")
+  filename <- paste("./temp/personalized_info", user$PhoneNr, sep = "_")
   filename <- paste0(filename, ".csv")
   write.csv(MarkDownTextD, filename, row.names = FALSE)
 
@@ -584,7 +477,7 @@ PP_MarkdownText <- function(user, country, userField, area, areaUnits, PD, HD, l
         method_ploughing = method_ploughing, method_ridging = method_ridging, userPhoneCC = user$PhoneCC)
 
 
-	write.csv(MarkDownTextD, "PP_MarkDownText.csv", row.names = FALSE)
+	write.csv(MarkDownTextD, "./temp/PP_MarkDownText.csv", row.names = FALSE)
 }
 
 
@@ -603,7 +496,7 @@ SP_MarkdownText <- function(user, country, userField, area, areaUnits, PD, HD, l
         cassUW = cassUW, cassUP = cassUP, cassUP_m1 = cassUP_m1, cassUP_m2 = cassUP_m2,
         cassUP_p1 = cassUP_p1, cassUP_p2 = cassUP_p2, userPhoneCC = user$PhoneCC)
 		
-  write.csv(MarkDownTextD, "SP_MarkDownText.csv", row.names = FALSE)
+  write.csv(MarkDownTextD, "./temp/SP_MarkDownText.csv", row.names = FALSE)
 }
 
 #SHORT DEF:   Function to obtain recommendations on cassava-sweet potato intercropping.

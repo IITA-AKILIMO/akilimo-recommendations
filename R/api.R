@@ -1,6 +1,6 @@
 #!/usr/bin/Rscript --vanilla
 
-pks <- c("plumber", "limSolve", "tidyr", "randomForest", "webshot", "httr", "mailR")
+pks <- c("plumber", "limSolve", "tidyr", "webshot", "httr", "mailR")
 
 # perhaps: leaflet, mapview, flexdashboard, lubridate, grid, rJava
 
@@ -15,7 +15,7 @@ if(os != "windows"){
 
 pandoc <- Sys.getenv("RSTUDIO_PANDOC")
 
-for (f in grep("api", list.files("R", full=TRUE), invert=TRUE, value=TRUE)) source(f)
+for (f in grep("api", list.files(srcdir, pattern="\\.R$"), invert=TRUE, value=TRUE)) source(f)
 
 root <- Plumber$new()
 

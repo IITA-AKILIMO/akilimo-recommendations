@@ -1,4 +1,13 @@
 
+# now using precomputed data 
+Rfmodel_values <- function(FCY, lat, lon) { 
+#	cat(FCY, ", ", lat, ", ", lon, "\n")
+	CONc <- as.integer(cut(FCY, breaks = c(-Inf, 7.5, 15, 22.5, 30, Inf), right=FALSE))
+	p <- get_data("predicted_soil_properties")
+	p[p$CONclass == CONc & p$lon == lon & p$lat == lat, ]
+}
+
+
 # this new version of leaner and meaner. It uses all the data instead of sample (why would you?), but only 250 trees (100 is usually enough, 1000 is excessive). However, this leads to small differences with the original and the quefts optimization is very sensitive to that. So currently not being used. 
 
 # Also, predictions could be precomputed for the five con-classes. 
@@ -13,11 +22,11 @@ new_Rfmodel_Wrapper <- function(FCY, country, lat, lon) {
   }
     
   # NOT data
-  sINS <- read.csv("NOT_GIS_CON_2020.csv")
+  sINS <- read.csv("./data/input/NOT_GIS_CON_2020.csv")
   sINS$CON <- NULL 
   
   # Soil data for farmer's field
-  sISRIC <- readRDS("ISRIC_SoilData_2020.RDS")
+  sISRIC <- readRDS("./data/input/ISRIC_SoilData_2020.RDS")
   sISRIC <- sISRIC[sISRIC$lat == lat & sISRIC$long == lon, ]
   sISRIC$soilN <- sISRIC$soilP <- sISRIC$soilK <- 0
   sISRIC$CONclass <- class_from_con(FCY)
@@ -68,7 +77,7 @@ new_Rfmodel_Wrapper <- function(FCY, country, lat, lon) {
 # this new version was taken from the file on the test server that was not in github. 
 # I assume that Siya made these changes. The values are somewhat different than with the original 
 # function, but not by much. And this does introduce a number of good improvements.
-Rfmodel_Wrapper <- function(FCY, country, lat, lon) {
+old_Rfmodel_Wrapper <- function(FCY, country, lat, lon) {
   #library(randomForest)
   
   # Helper function to compute CON class
@@ -85,13 +94,13 @@ Rfmodel_Wrapper <- function(FCY, country, lat, lon) {
 #  )
   
   # Prepare GIS data
-  GIS_soilINS_modData2 <- read.csv("NOT_GIS_CON_2020.csv")
+  GIS_soilINS_modData2 <- read.csv("./data/input/NOT_GIS_CON_2020.csv")
   GIS_soilINS_modData2$ncluster = as.factor(GIS_soilINS_modData2$ncluster)
   GIS_soilINS_modData2$CONclass = class_from_con(GIS_soilINS_modData2$CON)
   GIS_soilINS_modData2$country = as.factor(GIS_soilINS_modData2$country)
 
   # Prepare point data
-  ISRIC_SoilData <- readRDS("ISRIC_SoilData_2020.RDS")
+  ISRIC_SoilData <- readRDS("./data/input/ISRIC_SoilData_2020.RDS")
   ISRIC_SoilData <- ISRIC_SoilData[ISRIC_SoilData$lat == lat & ISRIC_SoilData$long == lon, ]
   ISRIC_SoilData <- unique(ISRIC_SoilData) #? needed
 

@@ -1,0 +1,82 @@
+
+
+get_data <- function(x, country, FCY) {
+	
+	add_path <- function(f) file.path("./data/input", f)	
+	if (x == "TRNS") {
+		TRNS <- read.csv(add_path("translations_TEST.csv"), stringsAsFactors = FALSE)
+		unquote <- function(x) gsub(pattern = "\"", replacement = "", x)
+		data.frame(lapply(TRNS, unquote))
+	} else if (x == "default_prices") {
+		read.csv(add_path("Default_prices.csv"))
+	} else if (x == "starch_prices") {
+		read.csv(add_path("starchPrices.csv"))
+	} else if (x == "dry_matter") {
+		read.csv(add_path("fd2.csv"))
+	} else if (x == "soil_NPK-4") {
+		readRDS(add_path("SoilData_4Country.RDS"))
+	} else if (x == "soil_NPK") {
+		fcyy <- ifelse(FCY < 7.5, "FCY1",
+              ifelse(FCY >= 7.5 & FCY < 15, "FCY2",
+              ifelse(FCY >= 15 & FCY < 22.5, "FCY3",
+              ifelse(FCY >= 22.5 & FCY < 30, "FCY4", "FCY5"))))
+		f <- add_path(paste0(country, "_", fcyy, "_soilNPK.RDS"))
+		soil <- readRDS(f)
+		soil$location <- paste(soil$lat, soil$lon, sep = "_")
+		#soil$Zone <- country
+		soil <- soil[, c("location", "lat", "lon", "soilN", "soilP", "soilK")]
+		soil$rec_N <- 0.5
+		soil$rec_P <- 0.15
+		soil$rec_K <- 0.5
+		soil$rel_N <- 1
+		soil$rel_P <- soil$soilP / soil$soilN
+		soil$rel_K <- soil$soilK / soil$soilN
+		soil
+	} else if (x == "predicted_soil_properties") {
+		soil <- readRDS(add_path("predicted_soil_properties.rds"))
+		soil$rec_N <- 0.5
+		soil$rec_P <- 0.15
+		soil$rec_K <- 0.5
+		soil$rel_N <- 1
+		soil$rel_P <- soil$soilP / soil$soilN
+		soil$rel_K <- soil$soilK / soil$soilN
+		soil			
+	} else if (x == "WLY_365") {
+		if (country == "NG") {
+			WLY_365 <- readRDS(add_path("Nigeria_WLY_LINTUL_2020.RDS"))
+		} else if (country == "TZ") {
+			WLY_365 <- readRDS("./data/input/Tanzania_WLY_LINTUL_2020.RDS")
+		} else if (country == "RW") {
+			WLY_365 <- readRDS(add_path("Rwanda_WLY_LINTUL.RDS"))
+			WLY_365$pl_Date <- WLY_365$plantingDate
+			WLY_365$PlweekNr <- WLY_365$weekNr
+			colnames(WLY_365) <- gsub("WLY_", "", colnames(WLY_365))
+		} else if (country == "GH") {
+			WLY_365 <- readRDS(add_path("Ghana_WLY_LINTUL.RDS"))
+			WLY_365$pl_Date <- WLY_365$plantingDate
+			WLY_365$PlweekNr <- WLY_365$weekNr
+			colnames(WLY_365) <- gsub("WLY_", "", colnames(WLY_365))
+		} else if (country == "BU") {
+			WLY_365 <- readRDS(add_path("Burundi_WLY_LINTUL.RDS"))
+			WLY_365$pl_Date <- WLY_365$plantingDate
+			WLY_365$PlweekNr <- WLY_365$weekNr
+			colnames(WLY_365) <- gsub("WLY_", "", colnames(WLY_365))
+			WLY_365$location <- paste(WLY_365$lat, WLY_365$long, sep = "_")
+		} else {
+			stop(paste("WLY_365", "not available for", country))
+		}
+		WLY_365
+	} else if (x == "WLY_15M") {
+		if (country == "NG") {
+			readRDS(add_path("Nigeria_WLY_LINTUL_2020_Server.RDS"))
+		} else if (country == "TZ") {
+			readRDS(add_path("Tanzania_WLY_LINTUL_2020_Server.RDS"))
+		} else if (country == "GH") {
+			readRDS(add_path("Ghana_WLY_LINTUL_SP.RDS"))
+		} else {
+			stop(paste("WLY_15M", "not available for", country))
+		}
+	} else {
+		stop("no such data")
+	}
+}

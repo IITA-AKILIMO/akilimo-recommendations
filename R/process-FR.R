@@ -10,44 +10,19 @@
 #'
 #' @examples
 getFRrecText <- function(ds, country, fertilizers, rootUP) {
-  TRNS <- read.csv("translations_TEST.csv", stringsAsFactors = FALSE)
-  norecom_ng <- gsub(pattern = "\"", replacement = "", TRNS$norecom[1]); norecom_tz <- gsub(pattern = "\"", replacement = "", TRNS$norecom[2]); norecom_rw <- gsub(pattern = "\"", replacement = "", TRNS$norecom[3]);
-  notapply_ng <- gsub(pattern = "\"", replacement = "", TRNS$notapply[1]); notapply_tz <- gsub(pattern = "\"", replacement = "", TRNS$notapply[2]); notapply_rw <- gsub(pattern = "\"", replacement = "", TRNS$notapply[3])
+  
+	tr <- get_data("TRNS")
 
+	rec <- ds$rec
+	frate <- ds$fertilizer_rates
 
-  rec <- ds$rec
+	ci <- ifelse(country %in% c("NG", "GH", "BU"), 1, 
+			ifelse(country == "TZ", 2, 3)) #RW = 3
 
-  frate <- ds$fertilizer_rates
-
-  if (is.null(rec)) {
-
-    #trans
-    recom <- if (country == "NG" |
-      country == "GH" |
-      country == "BU") {
-      paste(norecom_ng)
-    }else if (country == "TZ") {
-      paste(norecom_tz)
-    }else {
-      paste(norecom_rw)
-    }
-
-
-  }else {
-
-    if (rec$TC == 0) {
-
-      #trans
-      recom <- if (country == "NG" |
-        country == "GH" |
-        country == "BU") {
-        paste(notapply_ng)
-      }else if (country == "TZ") {
-        paste(norecom_tz)
-      }else {
-        paste(notapply_rw)
-      }
-
+	if (is.null(rec)) {
+		tr$norecom[ci]
+	} else if (rec$TC == 0) {
+        tr$notapply[ci]
 
       #TODO: This does not provide details on the reasons why we do not recommend to apply fertilizer.
       #This might either be due to
@@ -55,16 +30,17 @@ getFRrecText <- function(ds, country, fertilizers, rootUP) {
       #2 low yield potential (unfavourable planting / harvest date and low WLY),
       #3. high soil fertility and low response (high FCY or high indigenous nutrient supply).
 
+    } else {
 
-    }else {
-
-
-      currency <- ifelse(country == "NG", "NGN", ifelse(country == "RW", "RWF", ifelse(country == "GH", "GHS", ifelse(country == "BU", "BIF", "TZS"))))
+      currency <- ifelse(country == "NG", "NGN", 
+					ifelse(country == "RW", "RWF", 
+					ifelse(country == "GH", "GHS", 
+					ifelse(country == "BU", "BIF", "TZS"))))
 
       fertilizerTypes <- frate$type
       fertilizerRates <- round(frate$rate, digits = 0)
 
-      bags <- round(fertilizerRates / 50, digits = 1)
+      bags <- round(fertilizerRates / 50, digits = 1)  # 50 hard coded
       Bagsfull <- trunc(bags)
       bagshalf <- bags - floor(bags)
       bagshalf <- ifelse(bagshalf >= 0.25 & bagshalf <= 0.75, 0.5, ifelse(bagshalf < 0.25, 0, 1))
@@ -88,42 +64,20 @@ getFRrecText <- function(ds, country, fertilizers, rootUP) {
       NR <- formatC(revenue, format = "f", big.mark = ",", digits = 0)
       DY <- signif(rec$TargetY - rec$CurrentY, digits = 2)
 
+		add_more <- function(x, i) {
+             paste0(x, tr$area[i], "\n",
+               tr$willc[i], currency, " ", TC, ".\n",
+               tr$extrap[i], DY, tr$tonof[1],
+               tr$netincr[i], currency, " ", NR, ".")
+		}
 
-      werec_ng <- gsub(pattern = "\"", replacement = "", TRNS$werec[1]); werec_tz <- gsub(pattern = "\"", replacement = "", TRNS$werec[2]); werec_rw <- gsub(pattern = "\"", replacement = "", TRNS$werec[3])
-      kgof_ng <- gsub(pattern = "\"", replacement = "", TRNS$kgof[1]); kgof_tz <- gsub(pattern = "\"", replacement = "", TRNS$kgof[2]); kgof_rw <- gsub(pattern = "\"", replacement = "", TRNS$kgof[3]); area_ng <- gsub(pattern = "\"", replacement = "", TRNS$area[1]); area_tz <- gsub(pattern = "\"", replacement = "", TRNS$area[2]);
-      area_rw <- gsub(pattern = "\"", replacement = "", TRNS$area[3])
-      willc_ng <- gsub(pattern = "\"", replacement = "", TRNS$willc[1]); willc_tz <- gsub(pattern = "\"", replacement = "", TRNS$willc[2]); willc_rw <- gsub(pattern = "\"", replacement = "", TRNS$willc[3]); extrap_ng <- gsub(pattern = "\"", replacement = "", TRNS$extrap[1]); extrap_tz <- gsub(pattern = "\"", replacement = "", TRNS$extrap[2]);
-      extrap_rw <- gsub(pattern = "\"", replacement = "", TRNS$extrap[3])
-      tonof_ng <- gsub(pattern = "\"", replacement = "", TRNS$tonof[1]); tonof_tz <- gsub(pattern = "\"", replacement = "", TRNS$tonof[2]); tonof_rw <- gsub(pattern = "\"", replacement = "", TRNS$tonof[3]); netincr_ng <- gsub(pattern = "\"", replacement = "", TRNS$netincr[1]); netincr_tz <- gsub(pattern = "\"", replacement = "", TRNS$netincr[2]);
-      netincr_rw <- gsub(pattern = "\"", replacement = "", TRNS$netincr[3])
-      of_tz <- gsub(pattern = "\"", replacement = "", TRNS$of[2]); of_rw <- gsub(pattern = "\"", replacement = "", TRNS$of[3]);
-
-      recom <- if (country == "NG" |
-        country == "GH" |
-        country == "BU") {
-        paste0(werec_ng, "\n",
-               paste0(fertilizerRates, kgof_ng, fertilizerTypes, collapse = "\n"),
-               area_ng, "\n",
-               willc_ng, currency, " ", TC, ".\n",
-               extrap_ng, DY, tonof_ng,
-               netincr_ng, currency, " ", NR, ".")
-      }else if (country == "TZ") {
-        paste0(werec_tz, " ", "\n",
-               paste0(kgof_tz, fertilizerRates, of_tz, fertilizerTypes, collapse = "\n"),
-               area_tz, "\n",
-               willc_tz, currency, " ", TC, ".\n",
-               extrap_tz, " ", DY, tonof_tz,
-               netincr_tz, " ", currency, " ", NR, ".")
-
-      }else if (country == "RW") {
-        paste0(werec_rw, " ", "\n",
-               paste0(kgof_rw, fertilizerRates, of_rw, fertilizerTypes, collapse = "\n"),
-               area_rw, "\n",
-               willc_rw, currency, " ", TC, ".\n",
-               extrap_rw, " ", DY, tonof_rw,
-               netincr_rw, " ", currency, " ", NR, ".")
-
-      }
+      recom <- if (ci == 1) {
+				add_more(paste0(tr$werec[1], "\n", fertilizerRates, tr$kgof[1], 
+					fertilizerTypes, collapse = "\n"), ci)
+			} else {
+				add_more(paste0(tr$werec[2], " ", "\n", tr$kgof[2], 
+					fertilizerRates, tr$of[2], fertilizerTypes, collapse = "\n"), ci)
+			}
 
 
       #TODO: This only provides the minimal information to return to the user. We may consider adding following information:
@@ -132,8 +86,6 @@ getFRrecText <- function(ds, country, fertilizers, rootUP) {
       #3. Possible better alternative fertilizers...
       #4. Importance of good agronomic practices
       #5. Possible issues with the input data - very high fertilizer prices or very low root price, very low or very high FCY, very low or very high WY,...
-
-    }
   }
 
   recom <- gsub("  ", " ", recom)
@@ -213,28 +165,7 @@ getFRrecommendations <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers,
   latlon <- paste(lat2, lon2, sep = "_")
 
   ## get WLY:get PDand HD to the closest daes fr which we have WLY
-  if (country == "NG") {
-    WLY_365 <- readRDS("Nigeria_WLY_LINTUL_2020.RDS")
-  }else if (country == "TZ") {
-    WLY_365 <- readRDS("Tanzania_WLY_LINTUL_2020.RDS")
-  }else if (country == "RW") {
-    WLY_365 <- readRDS("Rwanda_WLY_LINTUL.RDS")
-    WLY_365$pl_Date <- WLY_365$plantingDate
-    WLY_365$PlweekNr <- WLY_365$weekNr
-    colnames(WLY_365) <- gsub("WLY_", "", colnames(WLY_365))
-  }else if (country == "GH") {
-    WLY_365 <- readRDS("Ghana_WLY_LINTUL.RDS")
-    WLY_365$pl_Date <- WLY_365$plantingDate
-    WLY_365$PlweekNr <- WLY_365$weekNr
-    colnames(WLY_365) <- gsub("WLY_", "", colnames(WLY_365))
-  }else if (country == "BU") {
-    WLY_365 <- readRDS("Burundi_WLY_LINTUL.RDS")
-    WLY_365$pl_Date <- WLY_365$plantingDate
-    WLY_365$PlweekNr <- WLY_365$weekNr
-    colnames(WLY_365) <- gsub("WLY_", "", colnames(WLY_365))
-    WLY_365$location <- paste(WLY_365$lat, WLY_365$long, sep = "_")
-  }
-
+  WLY_365 <- get_data("WLY_365", country)
 
   pdates <- data.frame(wlyPD = unique(WLY_365$pl_Date))
   pdates$diff <- pd - pdates$wlyPD
@@ -269,63 +200,13 @@ getFRrecommendations <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers,
     wlydata <- wlydata[, c("lat", "lon", "water_limited_yield", "location", "pl_Date", "zone", "daysOnField")]
 
     ## get soil NPK
-    #ISRIC_SoilData_t <- getISRICData(lat=lat2, lon=lon2, country = country)
-    #SoilData <- Rfmodel_Wrapper(ISRIC_SoilData=ISRIC_SoilData_t, FCY=FCY, country=country)
     if (country %in% c("NG", "TZ")) {
-      SoilData <- Rfmodel_Wrapper(FCY = FCY, country = country, lat = lat2, lon = lon2)
-    } else if (country == "RW") {
-      fcyy <- ifelse(FCY < 7.5, "FCY1",
-                     ifelse(FCY >= 7.5 & FCY < 15, "FCY2",
-                            ifelse(FCY >= 15 & FCY < 22.5, "FCY3",
-                                   ifelse(FCY >= 22.5 & FCY < 30, "FCY4", "FCY5"))))
-      SoilData <- readRDS(paste("RW_", fcyy, "_soilNPK.RDS", sep = ""))
-      SoilData$location <- paste(SoilData$lat, SoilData$lon, sep = "_")
-      SoilData <- SoilData[SoilData$location == wlydata$location,]
-      SoilData$Zone <- "RW"
-      SoilData$rec_N <- 0.5
-      SoilData$rec_P <- 0.15
-      SoilData$rec_K <- 0.5
-      SoilData$rel_N <- 1
-      SoilData$rel_P <- SoilData$soilP / SoilData$soilN
-      SoilData$rel_K <- SoilData$soilK / SoilData$soilN
-      SoilData$long <- SoilData$lon
-      SoilData <- SoilData[, c("location", "lat", "long", "soilN", "soilP", "soilK", "Zone", "rec_N", "rec_P", "rec_K", "rel_N", "rel_P", "rel_K")]
-    } else if (country == "GH") {
-      fcyy <- ifelse(FCY < 7.5, "FCY1",
-                     ifelse(FCY >= 7.5 & FCY < 15, "FCY2",
-                            ifelse(FCY >= 15 & FCY < 22.5, "FCY3",
-                                   ifelse(FCY >= 22.5 & FCY < 30, "FCY4", "FCY5"))))
-      SoilData <- readRDS(paste("GH_", fcyy, "_soilNPK.RDS", sep = ""))
-      SoilData$location <- paste(SoilData$lat, SoilData$lon, sep = "_")
-      SoilData <- SoilData[SoilData$location == wlydata$location,]
-      SoilData$Zone <- "RW"
-      SoilData$rec_N <- 0.5
-      SoilData$rec_P <- 0.15
-      SoilData$rec_K <- 0.5
-      SoilData$rel_N <- 1
-      SoilData$rel_P <- SoilData$soilP / SoilData$soilN
-      SoilData$rel_K <- SoilData$soilK / SoilData$soilN
-      SoilData$long <- SoilData$lon
-      SoilData <- SoilData[, c("location", "lat", "long", "soilN", "soilP", "soilK", "Zone", "rec_N", "rec_P", "rec_K", "rel_N", "rel_P", "rel_K")]
-    } else if (country == "BU") {
-      fcyy <- ifelse(FCY < 7.5, "FCY1",
-                     ifelse(FCY >= 7.5 & FCY < 15, "FCY2",
-                            ifelse(FCY >= 15 & FCY < 22.5, "FCY3",
-                                   ifelse(FCY >= 22.5 & FCY < 30, "FCY4", "FCY5"))))
-      SoilData <- readRDS(paste("BU_", fcyy, "_soilNPK.RDS", sep = ""))
-      SoilData$location <- paste(SoilData$lat, SoilData$lon, sep = "_")
-      SoilData <- SoilData[SoilData$location == wlydata$location,]
-      SoilData$Zone <- "BU"
-      SoilData$rec_N <- 0.5
-      SoilData$rec_P <- 0.15
-      SoilData$rec_K <- 0.5
-      SoilData$rel_N <- 1
-      SoilData$rel_P <- SoilData$soilP / SoilData$soilN
-      SoilData$rel_K <- SoilData$soilK / SoilData$soilN
-      SoilData$long <- SoilData$lon
-      SoilData <- SoilData[, c("location", "lat", "long", "soilN", "soilP", "soilK", "Zone", "rec_N", "rec_P", "rec_K", "rel_N", "rel_P", "rel_K")]
+		# SoilData <- Rfmodel_Wrapper(FCY = FCY, country = country, lat = lat2, lon = lon2)
+		SoilData <- Rfmodel_values(FCY=FCY, lat=lat2, lon=lon2)
+    } else {
+		SoilData <- get_data("soil_NPK", country, FCY)
+		SoilData <- SoilData[SoilData$location == wlydata$location,]
     }
-
 
     ## get CY
     wlydata$Current_Yield <- QUEFTS_WLY_CY(SoilData = SoilData, country = country, wlyd = wlydata)
@@ -343,8 +224,9 @@ getFRrecommendations <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers,
 
 
     ## 3. optimize the fertilizer recommendation for maxInv in local currency and provide expected target yield in kg
-    fert_optim <- run_Optim_NG2(rootUP = rootUP, QID = SoilData, fertilizer = fertilizers, invest = InvestHa, plDate = WLYData$pl_Date,
-                                WLYData = WLYData, lat = lat, lon = lon, areaHa, HD = HD, DCY = DCY, WLY = WLY, country = country)
+    fert_optim <- run_Optim_NG2(rootUP = rootUP, QID = SoilData, fertilizer = fertilizers, 
+			invest = InvestHa, plDate = WLYData$pl_Date, WLYData = WLYData, 
+			lat = lat, lon = lon, areaHa=areaHa, HD = HD, DCY = DCY, WLY = WLY, country = country)
 
     if (fert_optim$NR == 0) { ## no fertilizer recommendation
       fertilizer_rates <- NULL
@@ -396,9 +278,17 @@ getFRrecommendations <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers,
 
 
 
-process_FR <- function(FR, lat, lon, pd, pw, HD, had, maxInv, fertilizers, rootUP, areaHa, country, FCY, riskAtt,
-                       user, userField, area, areaUnits, PD,
-                       cassPD, cassUW, recText, plumberRes, frnotrec_ng, frnotrec_tz, frnotrec_rw) {
+process_FR <- function(FR, lat, lon, pd, pw, HD, had, maxInv, fertilizers, rootUP, areaHa, country, 
+						FCY, riskAtt, user, userField, area, areaUnits, PD,
+                       cassPD, cassUW, recText, plumberRes) {
+					   
+					   #, frnotrec_ng, frnotrec_tz, frnotrec_rw) {
+
+
+	tr <- get_data("TRNS")
+	frnotrec_ng <- tr$frnotrec[1]
+	frnotrec_tz <- tr$frnotrec[2]
+	frnotrec_rw <- tr$frnotrec[3]
 
   no_fr_recommendation_countries <- c("NG", "GH", "TZ", "RW")
   no_recommendation_msg <- "We do not have fertilizer recommendation for your location because your location is out of the recommendation domain AKILIMO is currently serving."
@@ -419,13 +309,8 @@ process_FR <- function(FR, lat, lon, pd, pw, HD, had, maxInv, fertilizers, rootU
     } # else ? {}
   } else if (plumberRes[["FR"]]$rec$NR > 0) {
       FRrecom <- TRUE
-      recText[["FR"]] <- getFRrecText(
-        ds = plumberRes$FR,
-        country = country,
-        fertilizers = fertilizers,
-        rootUP = rootUP
-      )
-      write.csv(recText$FR, 'FR_recText.csv', row.names = FALSE)
+      recText[["FR"]] <- getFRrecText(ds = plumberRes$FR, country=country, fertilizers=fertilizers, rootUP=rootUP)
+      write.csv(recText$FR, './temp/FR_recText.csv', row.names = FALSE)
 
       FR_MarkdownText(
         rr = plumberRes$FR, fertilizers = fertilizers, user = user,

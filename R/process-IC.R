@@ -214,8 +214,8 @@ process_IC_NG <- function(
   if (nrow(res$IC[[2]]) > 0) {
     recText[["IC"]] <- getICrecText(ds = res$IC, maizePD)
 
-    write.csv(res$IC, 'IC_rec.csv', row.names = FALSE)
-    write.csv(recText$IC, 'IC_recText.csv', row.names = FALSE)
+    write.csv(res$IC, './temp/IC_rec.csv', row.names = FALSE)
+    write.csv(recText$IC, './temp/IC_recText.csv', row.names = FALSE)
 
     IC_MarkdownText(
       rr = res$IC,
@@ -282,7 +282,7 @@ process_IC_TZ <- function(
   if (nrow(res$IC[[2]]) > 0) {
     recText[["IC"]] <- getCISrecText(ds = res$IC)
 
-    write.csv(recText$IC, 'CIS_recText.csv', row.names = FALSE)
+    write.csv(recText$IC, './temp/CIS_recText.csv', row.names = FALSE)
 
     CIS_MarkdownText(
       rr = res$IC,
