@@ -11,3 +11,5 @@ ScriptPackage
 *.Rproj
 .Rhistory
 .env
+akilimo-api.service
+data/*
