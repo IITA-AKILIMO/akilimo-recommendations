@@ -24,7 +24,7 @@ test <- function(i, new) {
 		b <- tinytest::expect_equivalent(x$recommendations, y$recommendations, tolerance=0.1)
 		if (!b) print(b)
 	} 
-	cat("  +--- ", i, "\n")
+	cat(" ----- ", "\n")
 }
 
 run <- function(i) {
@@ -37,6 +37,9 @@ for (f in grep("api", list.files(srcdir, pattern="\\.R$"), invert=TRUE, value=TR
 
 
 out <- lapply(1:27, \(i) {r <- run(i); test(i, r); r})
+
+#out <- lapply(1:27, \(i) system.time(run(i)))
+
 
 ##saveRDS(out, file.path(testdir, "test_out4.rds"))
 

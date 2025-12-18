@@ -14,6 +14,21 @@ max_min_yields_tools <- function(dss) {
 }
 
 
+NUE <- function(HI, CmaxNroots = 6.6, CminNroots = 2.5, CmaxNtops = 17.9, CminNtops = 7.9, 
+				CmaxProots = 1.5, CminProots = 0.8, CmaxPtops = 2.8, CminPtops = 0.9,
+                CmaxKroots = 11, CminKroots = 2.8, CmaxKtops = 18.8, CminKtops = 3.4) {
+  
+  data.frame(
+	aN = round(1000 * HI / (HI * CmaxNroots + (1 - HI) * CmaxNtops)),
+	dN = round(1000 * HI / (HI * CminNroots + (1 - HI) * CminNtops)),
+	aP = round(1000 * HI / (HI * CmaxProots + (1 - HI) * CmaxPtops)),
+	dP = round(1000 * HI / (HI * CminProots + (1 - HI) * CminPtops)),
+	aK = round(1000 * HI / (HI * CmaxKroots + (1 - HI) * CmaxKtops)),
+	dK = round(1000 * HI / (HI * CminKroots + (1 - HI) * CminKtops))
+  )
+
+}
+
 ## part f QUEFTS fucntion
 final_yield_tools <- function(Uptake_Yield) {
 	#' Yield calculated based on the combined uptake of 2 nutrients, while taking into account the availability of the third nutrient.
@@ -139,26 +154,10 @@ QUEFTS1_Pedotransfer <- function(QID, rec) {
 	Quefts_Input <- Quefts_Input[, c("lat", "long", "WLY", "aN", "dN", "aP", "dP", "aK", "dK", "rN", "rP", "rK", "soilN", "soilP", "soilK", "max_yield", "tolerance")]
 
 #  N_rate <- rec[1]; P_rate <- rec[2]; K_rate <- rec[3]
-	TargetYield_from_NPK <- NPK_TargetYield_forOutput(NutrUse_soilNPK = Quefts_Input, rec[1], rec[2], rec[3])
-	TargetYield_from_NPK$TargetYield
+	NPK_TargetYield_forOutput(NutrUse_soilNPK = Quefts_Input, rec[1], rec[2], rec[3])$TargetYield
 }
 
 
-
-NUE <- function(HI, CmaxNroots = 6.6, CminNroots = 2.5, CmaxNtops = 17.9, CminNtops = 7.9, 
-				CmaxProots = 1.5, CminProots = 0.8, CmaxPtops = 2.8, CminPtops = 0.9,
-                CmaxKroots = 11, CminKroots = 2.8, CmaxKtops = 18.8, CminKtops = 3.4) {
-  
-  data.frame(
-	aN = round(1000 * HI / (HI * CmaxNroots + (1 - HI) * CmaxNtops)),
-	dN = round(1000 * HI / (HI * CminNroots + (1 - HI) * CminNtops)),
-	aP = round(1000 * HI / (HI * CmaxProots + (1 - HI) * CmaxPtops)),
-	dP = round(1000 * HI / (HI * CminProots + (1 - HI) * CminPtops)),
-	aK = round(1000 * HI / (HI * CmaxKroots + (1 - HI) * CmaxKtops)),
-	dK = round(1000 * HI / (HI * CminKroots + (1 - HI) * CminKtops))
-  )
-
-}
 
 
 ## part of QUEFTS model
@@ -244,7 +243,7 @@ QUEFTS_WLY_CY <- function(SoilData, country, wlyd) {
  ## 1. get soil nutrient supply
 	supply <- cbind(Quefts_Input_Data_wly, crop_param)
 	supply$WLY <- supply$water_limited_yield
-	supply$SN = supply$soilN; supply$SP = supply$soilP; supply$SK = supply$soilK
+	supply$SN <- supply$soilN; supply$SP = supply$soilP; supply$SK = supply$soilK
 
 	actualUptake <- cbind(supply, actual_uptake_tool(supply))
 	minmax_Yield <- cbind(actualUptake, max_min_yields_tools(actualUptake))
