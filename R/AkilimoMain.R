@@ -196,10 +196,11 @@ run_akilimo <- function(json) {
 
     if (FR) {
 
-		resFr <- process_FR(
-			FR, lat, lon, pd, pw, HD, had, maxInv, fertilizers, rootUP, areaHa, country, FCY, riskAtt,
-			user, userField, area, areaUnits, PD, cassPD, cassUW, recText, plumberRes
-		)
+		resFr <- process_FR(lat=lat, lon=lon, pd=pd, pw=pw, HD=HD, had=had, maxInv=maxInv, 
+				fertilizers=fertilizers, rootUP=rootUP, areaHa=areaHa, country=country, 
+				FCY=FCY, riskAtt=riskAtt, user=user, userField=userField, area=area, 
+				areaUnits=areaUnits, PD=PD, cassPD=cassPD, cassUW=cassUW, recText=recText, 
+				plumberRes=plumberRes)
 
 		FRrecom <- resFr$FRrecom
 		recText <- resFr$recText

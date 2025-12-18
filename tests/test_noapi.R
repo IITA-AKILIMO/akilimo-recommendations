@@ -10,22 +10,12 @@ setwd(akpath)
 srcdir <- file.path(akpath, "R")
 testdir <- file.path(akpath, "tests")
 
-for (f in grep("api", list.files(srcdir, pattern="\\.R$"), invert=TRUE, value=TRUE)) source(file.path(srcdir, f))
+cmp <- readRDS(file.path(testdir, "test_out4_lonlat.rds"))
 
-test <- function(i) {
-	cat("---+ ", i, " +---\n"); flush.console()
-	js <- readLines(paste0(testdir, gsub("xxx", i, "/input/in_xxx.json")))
-	run_akilimo(js)
-}
-
-out <- lapply(1:27, test)
-
-cmp <- readRDS(file.path(testdir, "test_out3.rds"))
-
-for (i in 1:27) {
-	cat(i, " ------\n")
+test <- function(i, new) {
 #	x <- jsonlite::fromJSON(cmp[[i]])$data
-	x <- out[[i]]$data
+#	x <- out[[i]]$data
+	x <- new$data
 	y <- cmp[[i]]$data
 #	a <- tinytest::expect_equal(x$recommendation, y$recommendation[1])
 	a <- tinytest::expect_equal(x$recommendation, y$recommendation)
@@ -34,7 +24,21 @@ for (i in 1:27) {
 		b <- tinytest::expect_equivalent(x$recommendations, y$recommendations, tolerance=0.1)
 		if (!b) print(b)
 	} 
+	cat("  +--- ", i, "\n")
 }
+
+run <- function(i) {
+	cat(i, " ---+\n"); flush.console()
+	js <- readLines(paste0(testdir, gsub("xxx", i, "/input/in_xxx.json")))
+	run_akilimo(js)
+}
+
+for (f in grep("api", list.files(srcdir, pattern="\\.R$"), invert=TRUE, value=TRUE)) source(file.path(srcdir, f))
+
+
+out <- lapply(1:27, \(i) {r <- run(i); test(i, r); r})
+
+##saveRDS(out, file.path(testdir, "test_out4.rds"))
 
 
 add_new <- function(js) {

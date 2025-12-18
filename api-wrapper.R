@@ -10,8 +10,7 @@
 function(req, res) {
   tryCatch({
 
-    json_input <- req$postBody
-	run_akilimo(json_input)	
+	run_akilimo(req$postBody)	
 
   }, error = function(e) {
     res$status <- 500

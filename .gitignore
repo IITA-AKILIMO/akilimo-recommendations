@@ -2,6 +2,8 @@ data/
 temp/
 *.csv
 *.RDS
+*.rds
+*.Rds
 *.html
 *.pdf
 *.log
