@@ -180,13 +180,14 @@ getFRrecommendations <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers,
 
   #  wlypd <- WLY_365[WLY_365$lon==lon2 & WLY_365$lat == lat2 & WLY_365$pl_Date == PD2, ]
   if (nrow(wlypd) == 0) {
-    if (country %in% c("NG", "GH", "BU", "RW")) {
-      return("We do not have fertilizer recommendation for your location because your location is out of the recommendation domain AKILIMO is currently serving.")
+   if (country %in% c("NG", "GH", "BU", "RW")) {
+		rec <- "We do not have fertilizer recommendation for your location because your location is out of the recommendation domain AKILIMO is currently serving."
     #} else if (country == "RW") {
 	#	return("kinyarwanda here")
     } else {
-		return("Hatuna mapendekezo yoyote  kwa eneo lako kwa sababu eneo lako liko nje la eneo ambalo AKILIMO linafanya kazi kwa sasa")
+		rec <- "Hatuna mapendekezo yoyote  kwa eneo lako kwa sababu eneo lako liko nje la eneo ambalo AKILIMO linafanya kazi kwa sasa"
     }
+	return(list(rec = rec, fertilizer_rates = NA, failed=TRUE))  
 
   } else {
 
@@ -296,14 +297,13 @@ process_FR <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers, rootUP, a
     FCY = FCY, riskAtt = riskAtt
   )
 
-  no_recommendation_msg <- "We do not have fertilizer recommendation for your location because your location is out of the recommendation domain AKILIMO is currently serving."
   FRrecom <- NULL
-  if (all(plumberRes$FR == no_recommendation_msg)) {
-	no_fr_recommendation_countries <- c("NG", "GH", "TZ", "RW")
-    if (country %in% no_fr_recommendation_countries) {
+  if (isTRUE(plumberRes$FR$failed)) {
+	#no_fr_recommendation_countries <- c("NG", "GH", "TZ", "RW")
+    #if (country %in% no_fr_recommendation_countries) {
       FRrecom <- FALSE
-      recText[["FR"]] <- plumberRes$FR
-    } # else ? {}
+      recText[["FR"]] <- plumberRes$FR$rec
+    #} # else ? {}
   } else if (plumberRes[["FR"]]$rec$NR > 0) {
       FRrecom <- TRUE
       recText[["FR"]] <- getFRrecText(ds = plumberRes$FR, country=country, fertilizers=fertilizers, rootUP=rootUP)

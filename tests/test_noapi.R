@@ -35,12 +35,11 @@ run <- function(i) {
 
 for (f in grep("api", list.files(srcdir, pattern="\\.R$"), invert=TRUE, value=TRUE)) source(file.path(srcdir, f))
 
+#out <- lapply(1:28, run)
 
-out <- lapply(1:27, \(i) {r <- run(i); test(i, r); r})
+out <- lapply(1:28, \(i) {r <- run(i); test(i, r); r})
 
-#out <- lapply(1:27, \(i) system.time(run(i)))
-
-
+#out <- lapply(1:28, \(i) system.time(run(i)))
 ##saveRDS(out, file.path(testdir, "test_out4.rds"))
 
 

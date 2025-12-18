@@ -470,6 +470,7 @@ run_akilimo <- function(json) {
     fertilizer_rates <- result$res[[selected_key]]$fertilizer_rates
     text <- result$recText[[selected_key]]
 
+## should we have both recommendation and recommendations?
 
     data <- list(
       request_token = jsonlite::unbox(request_token),
