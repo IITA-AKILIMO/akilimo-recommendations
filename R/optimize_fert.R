@@ -51,8 +51,9 @@ run_Optim_NG2 <- function(rootUP, QID, fertilizer, invest, plDate, WLYData, lat,
     ## NPK rate for user land size
     NPK_user <- rec * areaHa
 
-    ## TY for ha of land
-    TY <- QUEFTS1_Pedotransfer(QID, rec)    # Yield possible at recommended NPK in kg/ha dry wt.
+	# Yield possible at recommended NPK in kg/ha dry wt.
+    # TY for ha of land
+    TY <- QUEFTS1_Pedotransfer(QID, rec)    
 
     ## both CY and TY should be changed to user land size in ton/ha and fresh wt
     TY_user <- ((getRFY(HD = HD, RDY = TY, country = "NG")) / 1000) * areaHa
@@ -161,7 +162,7 @@ Rerun_25kgKa_try <- function(rootUP, rdd, fertilizer, QID, onlyFert, country, WL
   ## NPK rate for user land size
   NPK_user <- rec * areaHa
 
-  TY <- QUEFTS1_Pedotransfer(QID, rec)                    #dry wt yield in kg/ha
+  TY <- QUEFTS1_Pedotransfer(QID, rec) #dry wt yield in kg/ha
   #TY_user  <- ((getRFY(HD = as.Date(HD), RDY = TY, country = country))/1000) * areaHa
   TY_user <- ((getRFY(HD = HD, RDY = TY, country = country)) / 1000) * areaHa
   CY_user <- ((getRFY(HD = HD, RDY = DCY, country = country)) / 1000) * areaHa

@@ -161,54 +161,50 @@ round5min <- function(x) {
 
 getFRrecommendations <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers, rootUP, areaHa, country, FCY, riskAtt) {
 
-  lat2 <- round5min(lat)
-  lon2 <- round5min(lon)
-  latlon <- paste(lat2, lon2, sep = "_")
+	lat2 <- round5min(lat)
+	lon2 <- round5min(lon)
+#	latlon <- paste(lat2, lon2, sep = "_")
 
   ## get WLY:get PDand HD to the closest daes fr which we have WLY
-  WLY_365 <- get_data("WLY_365", country)
-  pdates <- data.frame(wlyPD = unique(WLY_365$pl_Date))
-  pdates$diff <- pd - pdates$wlyPD
-  pdates$absdiff <- abs(pdates$diff)
-  PD2 <- pdates[pdates$absdiff == min(abs(pdates$diff)), "wlyPD"]
-  hdates <- data.frame(wlyHD = seq(214, 455, 7))
-  hdates$diff <- abs(had - hdates$wlyHD)
-  HD2 <- hdates[hdates$diff == min(abs(hdates$diff)), "wlyHD"]
+	WLY_365 <- get_data("WLY_365", country=country, lon=lon2, lat=lat2)
+	
+	#wlyPD <- unique(WLY_365$pl_Date)
+	wlyPD <- seq(1, 365, 7)
+	PD2 <- wlyPD[which.min(abs(pd - wlyPD))]
+	wlyHD <- seq(214, 455, 7) # need to check the logic here 
+	HD2 <- wlyHD[which.min(abs(had - wlyHD))]
 
 ##WLY_15M[WLY_15M$long == lonr & WLY_15M$lat == latr, ]
-  wlypd <- WLY_365[WLY_365$location == latlon & WLY_365$pl_Date == PD2,] 
+	wlypd <- WLY_365[WLY_365$pl_Date == PD2,] 
 
   #  wlypd <- WLY_365[WLY_365$lon==lon2 & WLY_365$lat == lat2 & WLY_365$pl_Date == PD2, ]
-  if (nrow(wlypd) == 0) {
-   if (country %in% c("NG", "GH", "BU", "RW")) {
-		rec <- "We do not have fertilizer recommendation for your location because your location is out of the recommendation domain AKILIMO is currently serving."
+	if (nrow(wlypd) == 0) {
+		if (country %in% c("NG", "GH", "BU", "RW")) {
+			rec <- "We do not have fertilizer recommendation for your location because your location is out of the recommendation domain AKILIMO is currently serving."
     #} else if (country == "RW") {
 	#	return("kinyarwanda here")
-    } else {
-		rec <- "Hatuna mapendekezo yoyote  kwa eneo lako kwa sababu eneo lako liko nje la eneo ambalo AKILIMO linafanya kazi kwa sasa"
-    }
-	return(list(rec = rec, fertilizer_rates = NA, failed=TRUE))  
+		} else {
+			rec <- "Hatuna mapendekezo yoyote  kwa eneo lako kwa sababu eneo lako liko nje la eneo ambalo AKILIMO linafanya kazi kwa sasa"
+		}
+		return(list(rec = rec, fertilizer_rates = NA, failed=TRUE))  
+	} else {
 
-  } else {
-
-    WLYdata <- wlypd[, c("lat", "long", "pl_Date", "location")]
-    colnames(WLYdata) <- c("lat", "lon", "pl_Date", "location")
-    WLYdata$water_limited_yield <- wlypd[, colnames(wlypd) == HD2]
-    WLYdata$zone <- country
-    WLYdata$daysOnField <- had
-    WLYdata <- WLYdata[, c("lat", "lon", "water_limited_yield", "location", "pl_Date", "zone", "daysOnField")]
+		WLYdata <- wlypd[, c("lat", "long", "pl_Date", HD2)]
+		colnames(WLYdata) <- c("lat", "lon", "pl_Date", "water_limited_yield")
+		WLYdata$zone <- country
+		WLYdata$daysOnField <- had
+		WLYdata <- WLYdata[, c("lat", "lon", "water_limited_yield", "pl_Date", "zone", "daysOnField")]
 
     ## get soil NPK
     if (country %in% c("NG", "TZ")) {
 		# SoilData <- Rfmodel_Wrapper(FCY = FCY, country = country, lat = lat2, lon = lon2)
 		SoilData <- Rfmodel_values(FCY=FCY, lat=lat2, lon=lon2)
     } else {
-		SoilData <- get_data("soil_NPK", country, FCY)
-		SoilData <- SoilData[SoilData$location == wlydata$location,]
+		SoilData <- get_data("soil_NPK", country, FCY, lon=lon2, lat=lat2)
     }
 
     ## get CY
-    WLYdata$Current_Yield <- QUEFTS_WLY_CY(SoilData = SoilData, country = country, wlyd = WLYdata)
+    WLYdata$Current_Yield <- QUEFTS_WLY_CY(SoilData = SoilData, country = country, wlyd = WLYdata$water_limited_yield)
     WLYdata$weekNr <- pw
 
     #############################
@@ -280,53 +276,48 @@ process <- function(...) {
 }
 
 
-process_FR <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers, rootUP, areaHa, country, 
-						FCY, riskAtt, user, userField, area, areaUnits, PD,
-                       cassPD, cassUW, recText, plumberRes) {
-					   
-					   #, frnotrec_ng, frnotrec_tz, frnotrec_rw) {
-
-  message("Processing FR")
+process_FR <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers, rootUP, areaHa, country, FCY, 
+				riskAtt, user, userField, area, areaUnits, PD, cassPD, cassUW, recText, plumberRes) {
 
 	tr <- get_data("TRNS")
 
+	plumberRes$FR <- getFRrecommendations(
+		lat = lat, lon = lon, pd = pd, pw = pw, HD = HD, had = had, maxInv = maxInv,
+		fertilizers = fertilizers, rootUP = rootUP, areaHa = areaHa, country = country,
+		FCY = FCY, riskAtt = riskAtt
+	)
 
-  plumberRes$FR <- getFRrecommendations(
-    lat = lat, lon = lon, pd = pd, pw = pw, HD = HD, had = had, maxInv = maxInv,
-    fertilizers = fertilizers, rootUP = rootUP, areaHa = areaHa, country = country,
-    FCY = FCY, riskAtt = riskAtt
-  )
-
-  FRrecom <- NULL
-  if (isTRUE(plumberRes$FR$failed)) {
+	FRrecom <- NULL
+	if (isTRUE(plumberRes$FR$failed)) {
 	#no_fr_recommendation_countries <- c("NG", "GH", "TZ", "RW")
     #if (country %in% no_fr_recommendation_countries) {
-      FRrecom <- FALSE
-      recText[["FR"]] <- plumberRes$FR$rec
+		FRrecom <- FALSE
+		recText[["FR"]] <- plumberRes$FR$rec
     #} # else ? {}
-  } else if (plumberRes[["FR"]]$rec$NR > 0) {
-      FRrecom <- TRUE
-      recText[["FR"]] <- getFRrecText(ds = plumberRes$FR, country=country, fertilizers=fertilizers, rootUP=rootUP)
-      write.csv(recText$FR, './temp/FR_recText.csv', row.names = FALSE)
+	} else if (plumberRes[["FR"]]$rec$NR > 0) {
+	
+		FRrecom <- TRUE
+		recText[["FR"]] <- getFRrecText(ds = plumberRes$FR, country=country, fertilizers=fertilizers, rootUP=rootUP)
+		write.csv(recText$FR, './temp/FR_recText.csv', row.names = FALSE)
 
-      FR_MarkdownText(
-        rr = plumberRes$FR, fertilizers = fertilizers, user = user,
-        country = country, userField = userField, area = area, areaUnits = areaUnits, PD = PD, HD = HD, 
-        lat = lat, lon = lon, rootUP = rootUP, cassPD = cassPD, cassUW = cassUW, maxInv = maxInv
-      )
+		FR_MarkdownText(
+			rr = plumberRes$FR, fertilizers = fertilizers, user = user,
+			country = country, userField = userField, area = area, areaUnits = areaUnits, PD = PD, HD = HD, 
+			lat = lat, lon = lon, rootUP = rootUP, cassPD = cassPD, cassUW = cassUW, maxInv = maxInv
+		)
 
-      fertilizerAdviseTable(FR = TRUE, IC = FALSE, country = country, areaUnits = areaUnits)
-   } else {
-      FRrecom <- FALSE
-      recText[["FR"]] <- switch(
-        country,
-        "NG" = tr$frnotrec[1],
-        "GH" = tr$frnotrec[1],
-        "RW" = tr$frnotrec[2],
-        "TZ" = tr$frnotrec[3],
-        "No recommendation available"
-      )
-  }
+		fertilizerAdviseTable(FR = TRUE, IC = FALSE, country = country, areaUnits = areaUnits)
+	} else {
+		FRrecom <- FALSE
+		recText[["FR"]] <- switch(
+			country,
+			"NG" = tr$frnotrec[1],
+			"GH" = tr$frnotrec[1],
+			"RW" = tr$frnotrec[2],
+			"TZ" = tr$frnotrec[3],
+			"No recommendation available"
+		)
+	}
 
-  return(list(FRrecom = FRrecom, recText = recText, plumberRes = plumberRes))
+	list(FRrecom = FRrecom, recText = recText, plumberRes = plumberRes)
 }

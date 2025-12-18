@@ -71,93 +71,6 @@ final_yield_tools <- function(Uptake_Yield) {
   })
 }
 
-#' Used within QUEFTS1_Pedotransfer function
-#' using the output of function "NPK_TargetYield_forinput" and a data frame per lon and lat for intended NPK input
-#' this function calculates the yield that can be obtained for intended NPK rate.
-#' @param NutrUse_soilNPK
-#' @param NPKdata: needs to be provided
-#' @return
-#'
-#' @author Meklit
-#' @export
-NPK_TargetYield_forOutput <- function(NutrUse_soilNPK, N_rate, P_rate, K_rate) {
-
-  stopifnot(nrow(NutrUse_soilNPK) == 1)
-
-  NutrUse_soilNPK$N_rate <- N_rate
-  NutrUse_soilNPK$P_rate <- P_rate
-  NutrUse_soilNPK$K_rate <- K_rate
-
-  ## Supply of nutrients to the crop
-  NutrUse_soilNPK$SN <- NutrUse_soilNPK$N_rate + NutrUse_soilNPK$soilN
-  NutrUse_soilNPK$SP <- NutrUse_soilNPK$P_rate + NutrUse_soilNPK$soilP
-  NutrUse_soilNPK$SK <- NutrUse_soilNPK$K_rate + NutrUse_soilNPK$soilK
-
-  ## Actual Uptake of nutrients: crop param + nutrient supply
-#  tmp <- plyr::ddply(NutrUse_soilNPK, plyr::.(lat, long), actual_uptake_tool)
-#  tmp <- dd_ply(NutrUse_soilNPK, c("lat", "long"), actual_uptake_tool)
-#  NutrUse_soilNPK <- merge(NutrUse_soilNPK, tmp, by = c("lat", "long"))
-
-	tmp <- actual_uptake_tool(NutrUse_soilNPK)
-	NutrUse_soilNPK <- cbind(NutrUse_soilNPK, tmp)
-
-  ## max and min yield: actual uptake and crop param. min of N uptake constrianed by availability of P, K and water
-#  maxminY <- plyr::ddply(NutrUse_soilNPK, plyr::.(lat, long), max_min_yields_tools)
-#  maxminY <- dd_ply(NutrUse_soilNPK, c("lat", "long"), max_min_yields_tools)
-#  supply_wly <- merge(NutrUse_soilNPK, maxminY, by = c("lat", "long"))
-	maxminY <- max_min_yields_tools(NutrUse_soilNPK)
-  supply_wly <- cbind(NutrUse_soilNPK, maxminY)
-
-  ## final yield: min yield for combined uptake of 2 nutrients assuming the 3rd is not limiting, should be < WLY, and take meanof the six combinations
-#  Target_Yield <- plyr::ddply(NutrUse_soilNPK, plyr::.(lat, long), quefts_tools)
-#  Target_Yield <- dd_ply(NutrUse_soilNPK, c("lat", "long"), quefts_tools)
-#	quefts_tools <- function(supply_wly) {
-
-	  # Actual uptake of nutrients.
-	  tmp <- actual_uptake_tool(supply_wly)
-	  supply_wly$UN <- tmp[[1]]
-	  supply_wly$UP <- tmp[[2]]
-	  supply_wly$UK <- tmp[[3]]
-
-	  # Maximum and minimum yields, depending on maximum accumulation and dilution.
-	  yields <- max_min_yields_tools(supply_wly)
-	  supply_wly$YNA <- yields$YNA
-	  supply_wly$YND <- yields$YND
-	  supply_wly$YPA <- yields$YPA
-	  supply_wly$YPD <- yields$YPD
-	  supply_wly$YKA <- yields$YKA
-	  supply_wly$YKD <- yields$YKD
-
-	  # Final yield based on the combinations of nutrient uptake and minimum + maximum yields.
-	  FinalYield <- final_yield_tools(supply_wly)
-	  
-	 data.frame(lat = supply_wly$lat, lon = supply_wly$long, TargetYield = FinalYield)
-}
-
-
-#' computes target yield in tonnes/ha from a given NPK rate, it is used within profit optimization and other fucntions need to predict yield from NPK
-#' @param QID a data frame containing soil NPK, WLY (kg/ha dry wt.),
-#' @param rec recomended NPK rate
-#' @returnType
-#' @return target yield in ton/ha dry matter
-#'
-#' @author Meklit
-#' @export
-QUEFTS1_Pedotransfer <- function(QID, rec) {
-
-	QID$WLY <- QID$water_limited_yield
-
-	## nutrient use efficiency of the crop
-	crop_param <- cbind(NUE(HI = 0.52), data.frame(rN = 0, rP = 0, rK = 0, max_yield = QID$WLY, tolerance = 0.01)) 
-	Quefts_Input <- cbind(QID, crop_param)
- 
-	Quefts_Input <- Quefts_Input[, c("lat", "long", "WLY", "aN", "dN", "aP", "dP", "aK", "dK", "rN", "rP", "rK", "soilN", "soilP", "soilK", "max_yield", "tolerance")]
-
-#  N_rate <- rec[1]; P_rate <- rec[2]; K_rate <- rec[3]
-	NPK_TargetYield_forOutput(NutrUse_soilNPK = Quefts_Input, rec[1], rec[2], rec[3])$TargetYield
-}
-
-
 
 
 ## part of QUEFTS model
@@ -215,6 +128,94 @@ actual_uptake_tool <- function(ds_supply) {
 
 
 
+#' computes target yield in tonnes/ha from a given NPK rate, it is used within profit optimization and other fucntions need to predict yield from NPK
+#' @param QID a data frame containing soil NPK, WLY (kg/ha dry wt.),
+#' @param rec recomended NPK rate
+#' @returnType
+#' @return target yield in ton/ha dry matter
+#'
+#' @author Meklit
+#' @export
+QUEFTS1_Pedotransfer <- function(QID, rec) {
+
+
+#' Used within QUEFTS1_Pedotransfer function
+#' using the output of function "NPK_TargetYield_forinput" and a data frame per lon and lat for intended NPK input
+#' this function calculates the yield that can be obtained for intended NPK rate.
+#' @param NutrUse_soilNPK
+#' @param NPKdata: needs to be provided
+#' @return
+#'
+#' @author Meklit
+#' @export
+
+	QID$WLY <- QID$water_limited_yield
+
+	## nutrient use efficiency of the crop
+	crop_param <- cbind(NUE(HI = 0.52), data.frame(rN = 0, rP = 0, rK = 0, max_yield = QID$WLY)) 
+	Quefts_Input <- cbind(QID, crop_param)
+ 
+	Quefts_Input <- Quefts_Input[, c("lat", "long", "WLY", "aN", "dN", "aP", "dP", "aK", "dK", "rN", "rP", "rK", "soilN", "soilP", "soilK", "max_yield")]
+
+#  N_rate <- rec[1]; P_rate <- rec[2]; K_rate <- rec[3]
+	NutrUse_soilNPK <- Quefts_Input
+	N_rate <- rec[1]
+	P_rate <- rec[2]
+	K_rate <- rec[3]
+
+	
+#	NPK_TargetYield_forOutput <- function(NutrUse_soilNPK, N_rate, P_rate, K_rate) {
+#	  stopifnot(nrow(NutrUse_soilNPK) == 1)
+
+	  NutrUse_soilNPK$N_rate <- N_rate
+	  NutrUse_soilNPK$P_rate <- P_rate
+	  NutrUse_soilNPK$K_rate <- K_rate
+
+	  ## Supply of nutrients to the crop
+	  NutrUse_soilNPK$SN <- NutrUse_soilNPK$N_rate + NutrUse_soilNPK$soilN
+	  NutrUse_soilNPK$SP <- NutrUse_soilNPK$P_rate + NutrUse_soilNPK$soilP
+	  NutrUse_soilNPK$SK <- NutrUse_soilNPK$K_rate + NutrUse_soilNPK$soilK
+
+	  ## Actual Uptake of nutrients: crop param + nutrient supply
+	#  tmp <- plyr::ddply(NutrUse_soilNPK, plyr::.(lat, long), actual_uptake_tool)
+	#  tmp <- dd_ply(NutrUse_soilNPK, c("lat", "long"), actual_uptake_tool)
+	#  NutrUse_soilNPK <- merge(NutrUse_soilNPK, tmp, by = c("lat", "long"))
+
+		tmp <- actual_uptake_tool(NutrUse_soilNPK)
+		NutrUse_soilNPK <- cbind(NutrUse_soilNPK, tmp)
+
+	  ## max and min yield: actual uptake and crop param. min of N uptake constrianed by availability of P, K and water
+	#  maxminY <- plyr::ddply(NutrUse_soilNPK, plyr::.(lat, long), max_min_yields_tools)
+	#  maxminY <- dd_ply(NutrUse_soilNPK, c("lat", "long"), max_min_yields_tools)
+	#  supply_wly <- merge(NutrUse_soilNPK, maxminY, by = c("lat", "long"))
+		maxminY <- max_min_yields_tools(NutrUse_soilNPK)
+	  supply_wly <- cbind(NutrUse_soilNPK, maxminY)
+
+	  ## final yield: min yield for combined uptake of 2 nutrients assuming the 3rd is not limiting, should be < WLY, and take meanof the six combinations
+	#  Target_Yield <- plyr::ddply(NutrUse_soilNPK, plyr::.(lat, long), quefts_tools)
+	#  Target_Yield <- dd_ply(NutrUse_soilNPK, c("lat", "long"), quefts_tools)
+	#	quefts_tools <- function(supply_wly) {
+
+		  # Actual uptake of nutrients.
+		  tmp <- actual_uptake_tool(supply_wly)
+		  supply_wly$UN <- tmp[[1]]
+		  supply_wly$UP <- tmp[[2]]
+		  supply_wly$UK <- tmp[[3]]
+
+		  # Maximum and minimum yields, depending on maximum accumulation and dilution.
+		  yields <- max_min_yields_tools(supply_wly)
+		  supply_wly$YNA <- yields$YNA
+		  supply_wly$YND <- yields$YND
+		  supply_wly$YPA <- yields$YPA
+		  supply_wly$YPD <- yields$YPD
+		  supply_wly$YKA <- yields$YKA
+		  supply_wly$YKD <- yields$YKD
+
+		  # Final yield based on the combinations of nutrient uptake and minimum + maximum yields.
+	final_yield_tools(supply_wly)
+}
+
+
 
 #' The soil NPK as obtained from random forest model
 #' @param SoilData soil data with INS
@@ -227,11 +228,10 @@ actual_uptake_tool <- function(ds_supply) {
 
 QUEFTS_WLY_CY <- function(SoilData, country, wlyd) {
 
-	wlyd$long <- wlyd$lon
-
-	wly_plDate <- wlyd[, c("lat", "long", "water_limited_yield")]
-	Quefts_Input_Data_wly <- cbind(SoilData, wly_plDate)
-	crop_param <- data.frame(NUE(HI = 0.55), rN=0, rP=0, rK=0, max_yield=Quefts_Input_Data_wly$water_limited_yield, tolerance = 0.01)
+	
+#	wly_plDate <- wlyd[, c("lat", "long", "water_limited_yield")]
+	Qinw <- data.frame(SoilData, WLY=wlyd)
+	crop_param <- data.frame(NUE(HI = 0.55), rN=0, rP=0, rK=0, max_yield=wlyd)
 
 ## HI: Median for Nigeria=0.55 and Tanzania=0.52. Q3, Nigeria=0.63 and Tanzania=0.61
 #	if (country == "NG" | country == "GH") {
@@ -241,8 +241,8 @@ QUEFTS_WLY_CY <- function(SoilData, country, wlyd) {
 #	}
 
  ## 1. get soil nutrient supply
-	supply <- cbind(Quefts_Input_Data_wly, crop_param)
-	supply$WLY <- supply$water_limited_yield
+	supply <- cbind(Qinw, crop_param)
+#	supply$WLY <- supply$water_limited_yield
 	supply$SN <- supply$soilN; supply$SP = supply$soilP; supply$SK = supply$soilK
 
 	actualUptake <- cbind(supply, actual_uptake_tool(supply))
@@ -250,7 +250,7 @@ QUEFTS_WLY_CY <- function(SoilData, country, wlyd) {
  ## yield at zero input
 	CurrentYield <- final_yield_tools(minmax_Yield)
 
-	min(CurrentYield, wly_plDate$water_limited_yield)
+	min(CurrentYield, wlyd)
 }
 
 
