@@ -1,9 +1,5 @@
-data/
-temp/
 *.csv
 *.RDS
-*.rds
-*.Rds
 *.html
 *.pdf
 *.log
@@ -15,3 +11,5 @@ ScriptPackage
 *.Rproj
 .Rhistory
 .env
+akilimo-api.service
+data/*
