@@ -154,19 +154,19 @@ NRabove18Cost <- function(ds, riskAtt) {
 #'  @FCY farmers current yield, used as control yield in the random forest model
 #'  @return a data frame with lat,lon, plDate,N, P, K, WLY, CurrentY, TargetY, TC, NR, harvestDate and rates of fertilizer (if any)
 #'  @example getFRrecommendations(lat = 4.775, lon = 8.415, PD = 254, HD=350, maxInv = 72000, fertilizers=fertilizers, rootUP = 17000, areaHa=3, country="NG", FCY=11.25)
+
+round5min <- function(x) {
+	round(floor(x * 10) / 10 + ifelse(x - (floor(x * 10) / 10) < 0.05, 0.025, 0.075), 3)
+}
+
 getFRrecommendations <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers, rootUP, areaHa, country, FCY, riskAtt) {
 
-  ########### getting CY
-  latr <- as.factor(floor(lat * 10) / 10 + ifelse(lat - (floor(lat * 10) / 10) < 0.05, 0.025, 0.075))
-  lonr <- as.factor(floor(lon * 10) / 10 + ifelse(lat - (floor(lon * 10) / 10) < 0.05, 0.025, 0.075))
-  lat2 <- as.numeric(levels(latr))
-  lon2 <- as.numeric(levels(lonr))
-
+  lat2 <- round5min(lat)
+  lon2 <- round5min(lon)
   latlon <- paste(lat2, lon2, sep = "_")
 
   ## get WLY:get PDand HD to the closest daes fr which we have WLY
   WLY_365 <- get_data("WLY_365", country)
-
   pdates <- data.frame(wlyPD = unique(WLY_365$pl_Date))
   pdates$diff <- pd - pdates$wlyPD
   pdates$absdiff <- abs(pdates$diff)
@@ -175,29 +175,27 @@ getFRrecommendations <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers,
   hdates$diff <- abs(had - hdates$wlyHD)
   HD2 <- hdates[hdates$diff == min(abs(hdates$diff)), "wlyHD"]
 
-
-  wlypd <- WLY_365[WLY_365$location == latlon & WLY_365$pl_Date == PD2,] ##WLY_15M[WLY_15M$long == lonr & WLY_15M$lat == latr, ]
+##WLY_15M[WLY_15M$long == lonr & WLY_15M$lat == latr, ]
+  wlypd <- WLY_365[WLY_365$location == latlon & WLY_365$pl_Date == PD2,] 
 
   #  wlypd <- WLY_365[WLY_365$lon==lon2 & WLY_365$lat == lat2 & WLY_365$pl_Date == PD2, ]
   if (nrow(wlypd) == 0) {
-    if (country == "NG" |
-      country == "GH" |
-      country == "BU") {
+    if (country %in% c("NG", "GH", "BU", "RW")) {
       return("We do not have fertilizer recommendation for your location because your location is out of the recommendation domain AKILIMO is currently serving.")
-    } else if (country == "RW") {
-      return("kinyarwanda here")
+    #} else if (country == "RW") {
+	#	return("kinyarwanda here")
     } else {
-      return("Hatuna mapendekezo yoyote  kwa eneo lako kwa sababu eneo lako liko nje la eneo ambalo AKILIMO linafanya kazi kwa sasa")
+		return("Hatuna mapendekezo yoyote  kwa eneo lako kwa sababu eneo lako liko nje la eneo ambalo AKILIMO linafanya kazi kwa sasa")
     }
 
   } else {
 
-    wlydata <- wlypd[, c("lat", "long", "pl_Date", "location")]
-    colnames(wlydata) <- c("lat", "lon", "pl_Date", "location")
-    wlydata$water_limited_yield <- wlypd[, colnames(wlypd) == HD2]
-    wlydata$zone <- country
-    wlydata$daysOnField <- had
-    wlydata <- wlydata[, c("lat", "lon", "water_limited_yield", "location", "pl_Date", "zone", "daysOnField")]
+    WLYdata <- wlypd[, c("lat", "long", "pl_Date", "location")]
+    colnames(WLYdata) <- c("lat", "lon", "pl_Date", "location")
+    WLYdata$water_limited_yield <- wlypd[, colnames(wlypd) == HD2]
+    WLYdata$zone <- country
+    WLYdata$daysOnField <- had
+    WLYdata <- WLYdata[, c("lat", "lon", "water_limited_yield", "location", "pl_Date", "zone", "daysOnField")]
 
     ## get soil NPK
     if (country %in% c("NG", "TZ")) {
@@ -209,14 +207,13 @@ getFRrecommendations <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers,
     }
 
     ## get CY
-    wlydata$Current_Yield <- QUEFTS_WLY_CY(SoilData = SoilData, country = country, wlyd = wlydata)
-    WLYData <- wlydata
-    WLYData$weekNr <- pw
+    WLYdata$Current_Yield <- QUEFTS_WLY_CY(SoilData = SoilData, country = country, wlyd = WLYdata)
+    WLYdata$weekNr <- pw
 
     #############################
     ## 1. get WLY, CY, fert recom and soil data
-    WLY <- WLYData$water_limited_yield ## DM in kg/ha
-    DCY <- WLYData$Current_Yield ## DM in kg/ha
+    WLY <- WLYdata$water_limited_yield ## DM in kg/ha
+    DCY <- WLYdata$Current_Yield ## DM in kg/ha
 
 
     ## 2. change investment from given areaHa to 1ha
@@ -225,7 +222,7 @@ getFRrecommendations <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers,
 
     ## 3. optimize the fertilizer recommendation for maxInv in local currency and provide expected target yield in kg
     fert_optim <- run_Optim_NG2(rootUP = rootUP, QID = SoilData, fertilizer = fertilizers, 
-			invest = InvestHa, plDate = WLYData$pl_Date, WLYData = WLYData, 
+			invest = InvestHa, plDate = WLYdata$pl_Date, WLYData = WLYdata, 
 			lat = lat, lon = lon, areaHa=areaHa, HD = HD, DCY = DCY, WLY = WLY, country = country)
 
     if (fert_optim$NR == 0) { ## no fertilizer recommendation
@@ -277,24 +274,21 @@ getFRrecommendations <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers,
 }
 
 
+process <- function(...) {
+	return(list(...))
+}
 
-process_FR <- function(FR, lat, lon, pd, pw, HD, had, maxInv, fertilizers, rootUP, areaHa, country, 
+
+process_FR <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers, rootUP, areaHa, country, 
 						FCY, riskAtt, user, userField, area, areaUnits, PD,
                        cassPD, cassUW, recText, plumberRes) {
 					   
 					   #, frnotrec_ng, frnotrec_tz, frnotrec_rw) {
 
+  message("Processing FR")
 
 	tr <- get_data("TRNS")
-	frnotrec_ng <- tr$frnotrec[1]
-	frnotrec_tz <- tr$frnotrec[2]
-	frnotrec_rw <- tr$frnotrec[3]
 
-  no_fr_recommendation_countries <- c("NG", "GH", "TZ", "RW")
-  no_recommendation_msg <- "We do not have fertilizer recommendation for your location because your location is out of the recommendation domain AKILIMO is currently serving."
-  FRrecom <- NULL
-
-  message("Processing FR")
 
   plumberRes$FR <- getFRrecommendations(
     lat = lat, lon = lon, pd = pd, pw = pw, HD = HD, had = had, maxInv = maxInv,
@@ -302,7 +296,10 @@ process_FR <- function(FR, lat, lon, pd, pw, HD, had, maxInv, fertilizers, rootU
     FCY = FCY, riskAtt = riskAtt
   )
 
+  no_recommendation_msg <- "We do not have fertilizer recommendation for your location because your location is out of the recommendation domain AKILIMO is currently serving."
+  FRrecom <- NULL
   if (all(plumberRes$FR == no_recommendation_msg)) {
+	no_fr_recommendation_countries <- c("NG", "GH", "TZ", "RW")
     if (country %in% no_fr_recommendation_countries) {
       FRrecom <- FALSE
       recText[["FR"]] <- plumberRes$FR
@@ -323,10 +320,10 @@ process_FR <- function(FR, lat, lon, pd, pw, HD, had, maxInv, fertilizers, rootU
       FRrecom <- FALSE
       recText[["FR"]] <- switch(
         country,
-        "NG" = frnotrec_ng,
-        "GH" = frnotrec_ng,  # Assuming GH shares with NG
-        "RW" = frnotrec_rw,
-        "TZ" = frnotrec_tz,
+        "NG" = tr$frnotrec[1],
+        "GH" = tr$frnotrec[1],
+        "RW" = tr$frnotrec[2],
+        "TZ" = tr$frnotrec[3],
         "No recommendation available"
       )
   }
