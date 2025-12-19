@@ -465,8 +465,8 @@ PPSP_MarkdownText <- function(rr, fname, user, country, userField, area, areaUni
 }
 
 
-PP_MarkdownText <- function(user, country, userField, area, areaUnits, PD, HD, lat, lon, rootUP, cassPD, cassUW,
-                            maxInv, ploughing, ridging, method_ploughing, method_ridging) {
+PP_MarkdownText <- function(user, country, userField, area, areaUnits, PD, HD, lat, lon, rootUP,
+		cassPD, cassUW, maxInv, ploughing, ridging, method_ploughing, method_ridging) {
 
   MarkDownTextD <- data.frame(
 		name = user$Name, country = country, phone = user$PhoneNr, field = userField, field_area = area,

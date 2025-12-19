@@ -5,29 +5,23 @@
 #             ploughing (none, manual, tractor) and ridging (none, manual, tractor), ordered by decreasing net returns and increasing
 #             tillage intensity (riding then ploughing)
 #INPUT:       See Cassava Crop Manager function for details
-getPPrecommendations <- function(areaHa,
-                                 costLMO,
-                                 ploughing, #select one
-                                 ridging, #select one,
-                                 method_ploughing, #select one
-                                 method_ridging, #select one
-                                 FCY,
-                                 rootUP,
-                                 riskAtt) {
+getPPrecommendations <- function(areaHa, costLMO,
+		#select one
+        ploughing, ridging, method_ploughing, method_ridging,
+        FCY, rootUP, riskAtt) {
   #creating ploughing and ridging scenarios
-
 
   ds <- expand.grid(method_ploughing = c("N/A", "manual", "tractor"), method_ridging = c("N/A", "manual", "tractor"))
   ds$ploughing <- ifelse(ds$method_ploughing == "N/A", FALSE, TRUE)
   ds$ridging <- ifelse(ds$method_ridging == "N/A", FALSE, TRUE)
   ds$cost_ploughing <- ifelse(ds$method_ploughing == "N/A", 0,
-                              ifelse(ds$method_ploughing == "manual",
-                                     costLMO[costLMO$operation == "ploughing" & costLMO$method == "manual",]$costHa,
-                                     costLMO[costLMO$operation == "ploughing" & costLMO$method == "tractor",]$costHa))
+                       ifelse(ds$method_ploughing == "manual",
+                        costLMO[costLMO$operation == "ploughing" & costLMO$method == "manual",]$costHa,
+                        costLMO[costLMO$operation == "ploughing" & costLMO$method == "tractor",]$costHa))
   ds$cost_ridging <- ifelse(ds$method_ridging == "N/A", 0,
-                            ifelse(ds$method_ridging == "manual",
-                                   costLMO[costLMO$operation == "ridging" & costLMO$method == "manual",]$costHa,
-                                   costLMO[costLMO$operation == "ridging" & costLMO$method == "tractor",]$costHa))
+                     ifelse(ds$method_ridging == "manual",
+                      costLMO[costLMO$operation == "ridging" & costLMO$method == "manual",]$costHa,
+                      costLMO[costLMO$operation == "ridging" & costLMO$method == "tractor",]$costHa))
   ds <- na.omit(ds)
   #adding cost saving for weeding
   ds$cost_weeding <- ifelse(ds$ridging, -costLMO[costLMO$operation == "weeding1",]$costHa, 0)
@@ -138,50 +132,26 @@ getPPrecText <- function(ds, country = c("NG", "TZ", "RW")) {
 process_PP <- function( PP, country, areaHa, costLMO, ploughing, ridging,
 		method_ploughing, method_ridging, FCY, rootUP, riskAtt, user,
 		userField, area, areaUnits, PD, HD, lat, lon,
-		cassPD, cassUW, maxInv, res, recText_input) {
-  recText <- recText_input
-  message(paste("Processing PP for", country))
+		cassPD, cassUW, maxInv) {
 
   # Generate PP recommendations
-  res[["PP"]] <- getPPrecommendations(
-    areaHa = areaHa,
-    costLMO = costLMO,
-    ploughing = ploughing,
-    ridging = ridging,
-    method_ploughing = method_ploughing,
-    method_ridging = method_ridging,
-    FCY = FCY,
-    rootUP = rootUP,
-    riskAtt = riskAtt
-  )
+  res <- getPPrecommendations(areaHa = areaHa, costLMO = costLMO, ploughing = ploughing,
+				ridging = ridging, method_ploughing = method_ploughing,
+				method_ridging = method_ridging, FCY = FCY, rootUP = rootUP, riskAtt = riskAtt )
 
   # Generate recommendation text
-  recText[["PP"]] <- getPPrecText(ds = res$PP, country = country)
+  recText <- getPPrecText(ds = res, country = country)
 
   # Write output files
-  write.csv(res$PP, './temp/PP_rec.csv', row.names = FALSE)
-  write.csv(recText$PP, './temp/PP_recText.csv', row.names = FALSE)
+  write.csv(res, './temp/PP_rec.csv', row.names = FALSE)
+  write.csv(recText, './temp/PP_recText.csv', row.names = FALSE)
 
   # Generate markdown output
-  PP_MarkdownText(
-    user = user,
-    country = country,
-    userField = userField,
-    area = area,
-    areaUnits = areaUnits,
-    PD = PD,
-    HD = HD,
-    lat = lat,
-    lon = lon,
-    rootUP = rootUP,
-    cassPD = cassPD,
-    cassUW = cassUW,
-    maxInv = maxInv,
-    ploughing = ploughing,
-    ridging = ridging,
-    method_ploughing = method_ploughing,
-    method_ridging = method_ridging,
-  )
+  PP_MarkdownText(user = user, country = country, userField = userField, area = area, areaUnits = areaUnits,
+    PD = PD, HD = HD, lat = lat, lon = lon, rootUP = rootUP, cassPD = cassPD, cassUW = cassUW, maxInv = maxInv,
+    ploughing = ploughing, ridging = ridging, method_ploughing = method_ploughing, method_ridging = method_ridging)
 
-  return(list(PPrecom = TRUE, plumberRes = res, recText = recText))
+  #list(PPrecom = TRUE, plumberRes = res, recText = recText)
+    list(recom = TRUE, data=c(res, message=recText, rec_type="PP"))
+
 }

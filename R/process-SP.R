@@ -122,9 +122,8 @@ getSPrecText <- function(ds, country, PD, HD) {
       #5. Possible issues with the input data - especially if user provides unrealistic prices.
     }
   }
-  rec <- gsub("  ", " ", rec)
 
-  return(rec)
+  gsub("[ ]+", " ", rec)
 }
 
 
@@ -212,13 +211,15 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
     ds <- NULL
     #return("No recommendations available for this location because your location is not within the recommendation domain of AKILIMO.")
 
-    if (country %in% c("NG", "GH")) {
-      return("We do not have fertilizer recommendation for your location because your location is out of the recommendation domain AKILIMO is currently serving.")
-    }else if (country == "TZ") {
-      return("Hatuna mapendekezo yoyote kwa eneo lako kwa sababu eneo lako liko nje la eneo ambalo AKILIMO linafanya kazi kwa sasa")
-    }else {
-      return("kinyarwanda here")
-    }
+    if (country == "TZ") {
+		msg <- "Hatuna mapendekezo yoyote kwa eneo lako kwa sababu eneo lako liko nje la eneo ambalo AKILIMO linafanya kazi kwa sasa"
+    } else { #if (country %in% c("NG", "GH")) {
+		# fertilizer??
+		msg <- "We do not have fertilizer recommendation for your location because your location is out of the recommendation domain AKILIMO is currently serving."
+    } #else {
+    #  return("kinyarwanda here")
+    #}
+	return(msg)
 
   } else {
 
@@ -287,7 +288,7 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
     #recommendation is highest GR, earliest harvesting, latest planting combination
     ds <- ds[order(-ds$dGR, ds$rHWnr, -ds$rPWnr),]
     write.csv(ds, "./temp/SP_rec.csv", row.names = FALSE)
-    return(ds)
+	ds
   }
 
 }
@@ -297,56 +298,49 @@ process_SP <- function(
   SPP, SPH, country, PD_window, HD_window, areaHa, lat, lon, PD, HD, saleSF, nameSF, FCY,
   rootUP, rootUP_m1, rootUP_m2, rootUP_p1, rootUP_p2, user, userField,
   area, areaUnits, maxInv, ploughing, ridging, method_ploughing, method_ridging, CMP, riskAtt,
-  cassPD, cassUW, cassUP, cassUP_m1, cassUP_m2, cassUP_p1, cassUP_p2, res, recText
-) {
-  SPrecom <- NULL
+  cassPD, cassUW, cassUP, cassUP_m1, cassUP_m2, cassUP_p1, cassUP_p2) {
 
-  if (PD_window == 0 && HD_window == 0) {
-    SPrecom <- FALSE
-    recText[["SP"]] <- if (country %in% c("NG", "GH")) {
-      "AKILIMO provides advice for schedule planting if only at least your planting or harvest time or both are flexible. Please provide this information and you will be advised when the best time is for your location."
-    } else {
-      "AKILIMO hutoa ushauri wa upandaji wa ratiba ikiwa angalau wakati wako wa upandaji au wakati wa kuvuna au zote mbili zinabadilika. Tafadhali toa habari hii na utashauriwa wakati mzuri wa kupanda na kuvuna kwa eneo lako"
-    }
-  } else {
-    message("Processing SP")
 
-    res[["SP"]] <- getSPrecommendations(
-		areaHa = areaHa, country = country, lat = lat, lon = lon, PD = PD, HD = HD, 
-		PD_window = PD_window, HD_window = HD_window, saleSF = saleSF, nameSF = nameSF,
-		FCY = FCY, rootUP = rootUP, rootUP_m1 = rootUP_m1, rootUP_m2 = rootUP_m2, rootUP_p1 = rootUP_p1,
-		rootUP_p2 = rootUP_p2)
+	success <- FALSE
+	if (PD_window == 0 && HD_window == 0) {
+		recText <- if (country %in% c("NG", "GH")) {
+			"AKILIMO provides advice for schedule planting if only at least your planting or harvest time or both are flexible. Please provide this information and you will be advised when the best time is for your location."
+		} else {
+			"AKILIMO hutoa ushauri wa upandaji wa ratiba ikiwa angalau wakati wako wa upandaji au wakati wa kuvuna au zote mbili zinabadilika. Tafadhali toa habari hii na utashauriwa wakati mzuri wa kupanda na kuvuna kwa eneo lako"
+		}
+		res <- NULL
 
-    if (!is.data.frame(res[["SP"]])) {
-      SPrecom <- FALSE
-      recText[["SP"]] <- res$SP
-    } else {
-      SPrecom <- TRUE
-      recText[["SP"]] <- getSPrecText(
-        ds = res$SP,
-        country = country,
-        PD = PD,
-        HD = HD
-      )
+	} else {
 
-      write.csv(recText$SP, './temp/SP_recText.csv', row.names = FALSE)
+		res <- getSPrecommendations(
+			areaHa = areaHa, country = country, lat = lat, lon = lon, PD = PD, HD = HD, 
+			PD_window = PD_window, HD_window = HD_window, saleSF = saleSF, nameSF = nameSF,
+			FCY = FCY, rootUP = rootUP, rootUP_m1 = rootUP_m1, rootUP_m2 = rootUP_m2, rootUP_p1 = rootUP_p1,
+			rootUP_p2 = rootUP_p2)
 
-      SP_MarkdownText(
-        user = user, country = country,
-        userField = userField, area = area, areaUnits = areaUnits,
-        PD = PD, HD = HD, lat = lat, lon = lon,
-        saleSF = saleSF, nameSF = nameSF,
-        maxInv = maxInv, ploughing = ploughing,
-        ridging = ridging, method_ploughing = method_ploughing,
-        method_ridging = method_ridging,
-        CMP = CMP, riskAtt = riskAtt,
-        PD_window = PD_window, HD_window = HD_window,
-        cassPD = cassPD, cassUW = cassUW, cassUP = cassUP, cassUP_m1 = cassUP_m1,
-        cassUP_m2 = cassUP_m2, cassUP_p1 = cassUP_p1, cassUP_p2 = cassUP_p2
-      )
-    }
-  }
+		if (!is.data.frame(res)) {
+			recText <- res
+			res <- NULL
+		} else {
+			success <- TRUE
+
+			recText <- getSPrecText(ds = res, country = country,PD = PD, HD = HD)
+			write.csv(recText, './temp/SP_recText.csv', row.names = FALSE)
+
+			SP_MarkdownText(
+				user = user, country = country, userField = userField, area = area, areaUnits = areaUnits,
+				PD = PD, HD = HD, lat = lat, lon = lon, saleSF = saleSF, nameSF = nameSF,
+				maxInv = maxInv, ploughing = ploughing, ridging = ridging, method_ploughing = method_ploughing,
+				method_ridging = method_ridging, CMP = CMP, riskAtt = riskAtt, PD_window = PD_window, 
+				HD_window = HD_window, cassPD = cassPD, cassUW = cassUW, cassUP = cassUP, 
+				cassUP_m1 = cassUP_m1, cassUP_m2 = cassUP_m2, cassUP_p1 = cassUP_p1, cassUP_p2 = cassUP_p2
+			)
+		}
+	}
+
+	list(recom=success, data=list(recommendations=res, fertilizer_rates=NULL, 
+							message=recText, rec_type="SP"))
 
 #  return(list(SPrecom = SPrecom, plumberRes = res, recText = recText))
-  return(list(SPrecom = SPrecom, plumberRes = list(rec=res, dummy="dummy to prevent bug in test 10"), recText = recText))
+#  return(list(SPrecom = SPrecom, plumberRes = list(rec=res, dummy="dummy to prevent bug in test 10"), recText = recText)) 
 }

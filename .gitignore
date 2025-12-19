@@ -13,3 +13,4 @@ ScriptPackage
 .env
 akilimo-api.service
 data/*
+temp/*

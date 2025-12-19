@@ -88,10 +88,7 @@ getFRrecText <- function(ds, country, fertilizers, rootUP) {
       #5. Possible issues with the input data - very high fertilizer prices or very low root price, very low or very high FCY, very low or very high WY,...
   }
 
-  recom <- gsub("  ", " ", recom)
-  recom <- gsub("  ", " ", recom)
-  return(recom)
-
+	gsub("[ ]+", " ", recom)
 }
 
 
@@ -186,7 +183,7 @@ getFRrecommendations <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers,
 		} else {
 			rec <- "Hatuna mapendekezo yoyote  kwa eneo lako kwa sababu eneo lako liko nje la eneo ambalo AKILIMO linafanya kazi kwa sasa"
 		}
-		return(list(rec = rec, fertilizer_rates = NA, failed=TRUE))  
+		return(list(message = rec, fertilizer_rates = NA, failed=TRUE))  
 	} else {
 
 		WLYdata <- wlypd[, c("lat", "long", "pl_Date", HD2)]
@@ -229,8 +226,8 @@ getFRrecommendations <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers,
 
     if (fert_optim$NR == 0) { ## no fertilizer recommendation
       fertilizer_rates <- NULL
-      return(list(rec = fert_optim, fertilizer_rates = fertilizer_rates))
-    }else {
+      return(list(recommendations = fert_optim, fertilizer_rates = fertilizer_rates))
+    } else {
       fertinfo <- subset(fert_optim, select = c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
       onlyFert <- subset(fert_optim, select = -c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
 
@@ -243,16 +240,16 @@ getFRrecommendations <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers,
         fertinfo$N <- fertinfo$P <- fertinfo$K <- fertinfo$NR <- fertinfo$TC <- 0
         fertinfo$TargetY <- fertinfo$CurrentY
         fertilizer_rates <- NULL
-        return(list(rec = fertinfo, fertilizer_rates = fertilizer_rates))
-      }else if (ncol(onlyFert) == nrow(onlyFert2)) { ## if all fertilizer recom are >= 25 kg/ha they will be kept and only checked for NR >= 18% of invest
+        return(list(recommendations = fertinfo, fertilizer_rates = fertilizer_rates))
+      } else if (ncol(onlyFert) == nrow(onlyFert2)) { ## if all fertilizer recom are >= 25 kg/ha they will be kept and only checked for NR >= 18% of invest
         Reset_fert_Cont <- fert_optim
         GPS_fertRecom <- NRabove18Cost(ds = Reset_fert_Cont, riskAtt = riskAtt)
         rec <- subset(GPS_fertRecom, select = c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
         frates <- subset(GPS_fertRecom, select = -c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
         frates2 <- tidyr::gather(frates, type, rate)
-        return(list(rec = rec, fertilizer_rates = frates2))
+        return(list(recommendations = rec, fertilizer_rates = frates2))
 
-      }else {
+      } else {
         fert25 <- tidyr::spread(onlyFert2, type, rate) ## when some fertilizer recom are dropped b/c < 25 kg/ha, ty and NR should be recalculated
         fert_optim2 <- cbind(fertinfo, fert25)
         fertilizer <- fertilizers[fertilizers$type %in% onlyFert2$type,]
@@ -260,14 +257,14 @@ getFRrecommendations <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers,
                                             country = country, WLY = WLY, DCY = DCY, HD = HD, areaHa = areaHa)
         if (Reset_fert_Cont$NR <= 0) { ## after rerunning after avoiding <25KG/ha fertilizers, if NR <=0
           fertilizer_rates <- NULL
-          return(list(rec = Reset_fert_Cont, fertilizer_rates = fertilizer_rates))
-        }else {
+          return(list(recommendations = Reset_fert_Cont, fertilizer_rates = fertilizer_rates))
+        } else {
           print("The elesae happens here you know")
           GPS_fertRecom <- NRabove18Cost(ds = Reset_fert_Cont, riskAtt = riskAtt)
           rec <- subset(GPS_fertRecom, select = c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
           frates <- subset(GPS_fertRecom, select = -c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
           frates2 <- tidyr::gather(frates, type, rate)
-          return(list(rec = rec, fertilizer_rates = frates2))
+          return(list(recommendations = rec, fertilizer_rates = frates2))
 
         }
       }
@@ -282,39 +279,36 @@ process <- function(...) {
 
 
 process_FR <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers, rootUP, areaHa, country, FCY, 
-				riskAtt, user, userField, area, areaUnits, PD, cassPD, cassUW, recText, plumberRes) {
+				riskAtt, user, userField, area, areaUnits, PD, cassPD, cassUW) {
 
 	tr <- get_data("TRNS")
 
-	plumberRes$FR <- getFRrecommendations(
+	response <- getFRrecommendations(
 		lat = lat, lon = lon, pd = pd, pw = pw, HD = HD, had = had, maxInv = maxInv,
 		fertilizers = fertilizers, rootUP = rootUP, areaHa = areaHa, country = country,
 		FCY = FCY, riskAtt = riskAtt
 	)
 
-	FRrecom <- NULL
-	if (isTRUE(plumberRes$FR$failed)) {
+	FRrecom <- FALSE
+	if (isTRUE(response$failed)) {
 	#no_fr_recommendation_countries <- c("NG", "GH", "TZ", "RW")
     #if (country %in% no_fr_recommendation_countries) {
-		FRrecom <- FALSE
-		recText[["FR"]] <- plumberRes$FR$rec
+		recText <- response$rec
     #} # else ? {}
-	} else if (plumberRes[["FR"]]$rec$NR > 0) {
-	
+	} else if (response$rec$NR > 0) {	
 		FRrecom <- TRUE
-		recText[["FR"]] <- getFRrecText(ds = plumberRes$FR, country=country, fertilizers=fertilizers, rootUP=rootUP)
-		write.csv(recText$FR, './temp/FR_recText.csv', row.names = FALSE)
+		recText <- getFRrecText(ds = response, country=country, fertilizers=fertilizers, rootUP=rootUP)
+		write.csv(recText, './temp/FR_recText.csv', row.names = FALSE)
 
 		FR_MarkdownText(
-			rr = plumberRes$FR, fertilizers = fertilizers, user = user,
+			rr = response, fertilizers = fertilizers, user = user,
 			country = country, userField = userField, area = area, areaUnits = areaUnits, PD = PD, HD = HD, 
 			lat = lat, lon = lon, rootUP = rootUP, cassPD = cassPD, cassUW = cassUW, maxInv = maxInv
 		)
 
 		fertilizerAdviseTable(FR = TRUE, IC = FALSE, country = country, areaUnits = areaUnits)
 	} else {
-		FRrecom <- FALSE
-		recText[["FR"]] <- switch(
+		recText <- switch(
 			country,
 			"NG" = tr$frnotrec[1],
 			"GH" = tr$frnotrec[1],
@@ -324,5 +318,5 @@ process_FR <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers, rootUP, a
 		)
 	}
 
-	list(FRrecom = FRrecom, recText = recText, plumberRes = plumberRes)
+	list(recom = FRrecom, data=c(response, message = recText, rec_type="FR"))
 }

@@ -76,13 +76,14 @@ run_akilimo <- function(json) {
     area <- from_json("area", body)
     areaUnits <- from_json("areaUnits", body)
 
-    IC <- from_json("IC", body, default_value = FALSE)
     # not used?
 	#intercrop <- from_json("intercrop", body, default_value = FALSE)
+    IC <- from_json("IC", body, default_value = FALSE)
     FR <- from_json("FR", body, default_value = FALSE)
     PP <- from_json("PP", body, default_value = FALSE)
     SPP <- from_json("SPP", body, default_value = FALSE)
     SPH <- from_json("SPH", body, default_value = FALSE)
+
     PD <- from_json("PD", body, default_value = 0)
     HD <- from_json("HD", body, default_value = 0)
 
@@ -112,7 +113,8 @@ run_akilimo <- function(json) {
 		country <- "BU" #use non standard country code for Burundi
     }
 
-	message(paste0("Country: ", country, ", Planting: ", PD, ", Harvesting: ", HD))
+	key <- unique(c("FR", "PP", "IC", "SP", "SP")[c(FR, PP, IC, SPP, SPH)])
+	message(paste0(key, ": ", country, ", planting: ", PD, ", harvest: ", HD))
     #riskAtt <- 0
 
     #fertilizers <- get_fertilizers(body, country)
@@ -183,33 +185,27 @@ run_akilimo <- function(json) {
     haw <- round(had / 7)                                # Age in weeks
 
     # generate list with requested recommendations
-    recText <- list(FR = NULL, PP = NULL, IC = NULL, SP = NULL)
-    plumberRes <- list(FR = NULL, PP = NULL, SP = NULL)
+    #recText <- list(FR = NULL, PP = NULL, IC = NULL, SP = NULL)
+    #plumberRes <- list(FR = NULL, PP = NULL, SP = NULL)
 
-    FRrecom <- NULL
-    ICrecom <- NULL
-    PPrecom <- FALSE
-    SPrecom <- NULL
+    #FRrecom <- NULL
+    #ICrecom <- NULL
+    #PPrecom <- FALSE
+    #SPrecom <- NULL
 
     selected_key <- NULL
+	result <- list()
+
 
     if (FR) {
 
-		message("Processing FR")
-
-		resFr <- process_FR(lat=lat, lon=lon, pd=pd, pw=pw, HD=HD, had=had, maxInv=maxInv, 
+		result$FR <- process_FR(lat=lat, lon=lon, pd=pd, pw=pw, HD=HD, had=had, maxInv=maxInv, 
 				fertilizers=fertilizers, rootUP=rootUP, areaHa=areaHa, country=country, 
 				FCY=FCY, riskAtt=riskAtt, user=user, userField=userField, area=area, 
-				areaUnits=areaUnits, PD=PD, cassPD=cassPD, cassUW=cassUW, recText=recText, 
-				plumberRes=plumberRes)
+				areaUnits=areaUnits, PD=PD, cassPD=cassPD, cassUW=cassUW)
 
-		FRrecom <- resFr$FRrecom
-		recText <- resFr$recText
-		plumberRes <- resFr$plumberRes
-		selected_key <- 'FR'
-    }
-
-    if (IC) {
+		selected_key <- "FR"
+    } else if (IC) {
 	
 		sweetPotatoPD <- from_json("sweetPotatoPD", body, default_value = "tubers")
 		sweetPotatoUW <- from_json("sweetPotatoUW", body, default_value = NA)
@@ -222,59 +218,54 @@ run_akilimo <- function(json) {
 
 		# Set default price and weight if maizeUP is zero
 		if (maizeUP == 0) {
-		  if (maizePD == "fresh_cob") {
-			maizeUP <- 50    # Default price for 1 large fresh cob
-			maizeUW <- 1
-		  } else if (maizePD == "grain") {
-			maizeUP <- 230   # Default price for 1 kg of maize grain
-			maizeUW <- 1
-		  }
+			if (maizePD == "fresh_cob") {
+				maizeUP <- 50    # Default price for 1 large fresh cob
+				maizeUW <- 1
+			} else if (maizePD == "grain") {
+				maizeUP <- 230   # Default price for 1 kg of maize grain
+				maizeUW <- 1
+			}
 		}
 
 		# Ensure maizeUW is numeric if using grain
 		if (maizePD == "grain") {
-		  maizeUW <- as.numeric(as.character(maizeUW))
+			maizeUW <- as.numeric(as.character(maizeUW))
 		}
 
-		# Calculate cobUP
-		cobUP <- ifelse (maizePD == "fresh_cob", maizeUP, maizeUP / maizeUW / 7.64)  # 1 kg of grain ~ 7.64 cobs
+		# Calculate cobUP  # 1 kg of grain ~ 7.64 cobs
+		cobUP <- ifelse (maizePD == "fresh_cob", maizeUP, maizeUP / maizeUW / 7.64) 
 	   
 		# Conversion factors for sweetPotato products
 		tuberConv <- data.frame(
-		  sweetPotatoPD = c("tubers", "flour"), # sweetpotato "tubers"? ouch.
-		  conversion = c(1, 3.2)
+			sweetPotatoPD = c("tubers", "flour"), # sweetpotato "tubers"? ouch.
+			conversion = c(1, 3.2)
 		)
 
 		# Set default price and weight for Tanzania if price is missing
 		if (sweetPotatoUP == 0 && country == "TZ") {
-		  if (sweetPotatoPD == "tubers") {
-			sweetPotatoUP <- 120000
 			sweetPotatoUW <- 1000
-		  } else if (sweetPotatoPD == "flour") {
-			sweetPotatoUP <- 384000
-			sweetPotatoUW <- 1000
-		  }
+			if (sweetPotatoPD == "tubers") {
+				sweetPotatoUP <- 120000
+			} else if (sweetPotatoPD == "flour") {
+				sweetPotatoUP <- 384000
+			}
 		}
 
 		# Get the conversion factor
 		conversion_factor <- tuberConv[tuberConv$sweetPotatoPD == sweetPotatoPD, "conversion"]
-
 		# Compute tuberUP
 		tuberUP <- sweetPotatoUP / sweetPotatoUW / conversion_factor * 1000
-
 		
       if (country == "NG") {
-        resIC <- process_IC_NG(
+		result$IC <- process_IC_NG(
           IC = IC, country = country, areaHa = areaHa, CMP = CMP, cobUP = cobUP, fertilizers = fertilizers,
           riskAtt = riskAtt, maizePD = maizePD, user = user, userField = userField,
           area = area, areaUnits = areaUnits, PD = PD, HD = HD, lat = lat, lon = lon,
 		  maizeUW = maizeUW, cassUW = cassUW, saleSF = saleSF, nameSF = nameSF,
-          rootUP = rootUP, cassPD = cassPD, maxInv = maxInv, maizeUP = maizeUP, res = plumberRes, recText = recText
+          rootUP = rootUP, cassPD = cassPD, maxInv = maxInv, maizeUP = maizeUP
         )
-      }
-
-      if (country == "TZ") {
-        resIC <- process_IC_TZ(
+      } else if (country == "TZ") {
+        result$IC <- process_IC_TZ(
           IC = IC, country = country, areaHa = areaHa, FCY = FCY, tuberUP = tuberUP, rootUP = rootUP,
           fertilizers = fertilizers, riskAtt = riskAtt, user = user, 
 		  userField = userField, area = area, areaUnits = areaUnits,
@@ -284,13 +275,11 @@ run_akilimo <- function(json) {
         )
       }
 
-      ICrecom <- resIC$ICrecom
-      plumberRes <- resIC$res
-      recText <- resIC$recText
+      #ICrecom <- resIC$ICrecom
+      #plumberRes <- resIC$res
+      #recText <- resIC$recText
       selected_key <- 'IC'
-    }
-
-    if (PP) {
+    } else if (PP) {
 
 		tractor_plough <- from_json("tractor_plough", body, default_value = FALSE)
 		tractor_harrow <- from_json("tractor_harrow", body, default_value = FALSE)
@@ -323,9 +312,10 @@ run_akilimo <- function(json) {
 		if (fallowHeight == 0) fallowHeight <- NA
 
 		# create dataframe with cost of land management operations
-		costLMO <- data.frame(operation = c(rep(c("ploughing", "harrowing", "ridging"), 2), "weeding1", "weeding2"),
-							  method = c(rep("manual", 3), rep("tractor", 3), NA, NA),
-							  cost = c(cost_manual_ploughing, cost_manual_harrowing, cost_manual_ridging, cost_tractor_ploughing, cost_tractor_harrowing, cost_tractor_ridging, cost_weeding1, cost_weeding2), area = area_basis)
+		costLMO <- data.frame(
+				operation = c(rep(c("ploughing", "harrowing", "ridging"), 2), "weeding1", "weeding2"),
+				method = c(rep("manual", 3), rep("tractor", 3), NA, NA),
+				cost = c(cost_manual_ploughing, cost_manual_harrowing, cost_manual_ridging, cost_tractor_ploughing, cost_tractor_harrowing, cost_tractor_ridging, cost_weeding1, cost_weeding2), area = area_basis)
 
 		costLMO_MD <- costLMO
 		costLMO$costHa <- costLMO$cost / costLMO$area
@@ -398,7 +388,7 @@ run_akilimo <- function(json) {
 
 		}
 	
-      resPP <- process_PP(
+      result$PP <- process_PP(
         PP = PP, country = country, areaHa = areaHa, costLMO = costLMO,
         ploughing = ploughing, ridging = ridging,
         method_ploughing = method_ploughing, method_ridging = method_ridging,
@@ -409,33 +399,30 @@ run_akilimo <- function(json) {
         res = plumberRes, recText = recText
       )
 
-      PPrecom <- resPP$PPrecom
-      recText <- resPP$recText
-      plumberRes <- resPP$plumberRes
+      #PPrecom <- resPP$PPrecom
+      #recText <- resPP$recText
+      #plumberRes <- resPP$plumberRes
       selected_key <- 'PP'
-    }
-
-    if (SPP || SPH) {
+    } else if (SPP || SPH) {
 	
-      resSP <- process_SP(
-        SPP = SPP, SPH = SPH, PD_window = PD_window, HD_window = HD_window,
-        areaHa = areaHa, country = country, lat = lat, lon = lon, PD = PD, HD = HD,
-        saleSF = saleSF, nameSF = nameSF, FCY = FCY,
-        rootUP = rootUP, rootUP_m1 = rootUP_m1, rootUP_m2 = rootUP_m2,
-        rootUP_p1 = rootUP_p1, rootUP_p2 = rootUP_p2,
-        user = user, userField = userField,
-        area = area, areaUnits = areaUnits, maxInv = maxInv,
-        ploughing = ploughing, ridging = ridging, method_ploughing = method_ploughing,
-        method_ridging = method_ridging,  CMP = CMP, riskAtt = riskAtt,
-        cassPD = cassPD, cassUW = cassUW, cassUP = cassUP,
-        cassUP_m1 = cassUP_m1, cassUP_m2 = cassUP_m2, cassUP_p1 = cassUP_p1, cassUP_p2 = cassUP_p2,
-        res = plumberRes, recText = recText
-      )
+		result$SP <- process_SP(
+			SPP = SPP, SPH = SPH, PD_window = PD_window, HD_window = HD_window,
+			areaHa = areaHa, country = country, lat = lat, lon = lon, PD = PD, HD = HD,
+			saleSF = saleSF, nameSF = nameSF, FCY = FCY,
+			rootUP = rootUP, rootUP_m1 = rootUP_m1, rootUP_m2 = rootUP_m2,
+			rootUP_p1 = rootUP_p1, rootUP_p2 = rootUP_p2, user = user, userField = userField,
+			area = area, areaUnits = areaUnits, maxInv = maxInv,
+			ploughing = ploughing, ridging = ridging, method_ploughing = method_ploughing,
+			method_ridging = method_ridging, CMP = CMP, riskAtt = riskAtt,
+			cassPD = cassPD, cassUW = cassUW, cassUP = cassUP,
+			cassUP_m1 = cassUP_m1, cassUP_m2 = cassUP_m2, cassUP_p1 = cassUP_p1, cassUP_p2 = cassUP_p2
+		)
 
-      SPrecom <- resSP$SPRecom
-      recText <- resSP$recText
-      plumberRes <- resSP$plumberRes
-      selected_key <- 'SP'
+		#SPrecom <- resSP$SPRecom
+		#recText <- resSP$recText
+		#plumberRes <- resSP$plumberRes
+
+		selected_key <- "SP"
     }
 
 # for getWMrecommendations 
@@ -446,40 +433,55 @@ run_akilimo <- function(json) {
 
 
     #=============================================================================
-    result <- list(
-      res = plumberRes,
-      recText = recText
-    )
+    #result <- list(
+    #  res = plumberRes,
+    #  recText = recText
+    #)
 
 
-    request_token <- from_json("request_token", body)
+    request_token <- jsonlite::unbox(from_json("request_token", body))
 
     if (is.null(selected_key)) {
-      res$status <- 404
-      data <- list(
-        request_token = jsonlite::unbox(request_token),
-        message = jsonlite::unbox("No valid recommendation found")
-      )
-      list(status = jsonlite::unbox("error"), data = data)
+		res$status <- 404
+		data <- list(
+			request_token = request_token,
+			message = jsonlite::unbox("No valid recommendation found")
+		)
+		return(list(status = jsonlite::unbox("error"), data = data))
     }
 
+	r <- result[[selected_key]]
+
+	r$data <- c(request_token = request_token, r$data)
+
+	# it would be clearer to use "message" instead of recommendation
+	#r$data$message <- jsonlite::unbox(r$data$message)
+	r$data$recommendation <- jsonlite::unbox(r$data$message)
+	r$recom <- r$data$message <- NULL
+
+	r$data$rec_type <- jsonlite::unbox(r$data$rec_type)
+	
+    out <- list(status = jsonlite::unbox("success"), data=r$data)
+	
+	return(out)
+	
     # Extract data
-    recommendations <- result$res[[selected_key]]$rec
-    if (is.null(recommendations) || length(recommendations) == 0) {
-      recommendations <- result$res[[selected_key]]
-    }
-    fertilizer_rates <- result$res[[selected_key]]$fertilizer_rates
-    text <- result$recText[[selected_key]]
+    #recommendations <- result$res[[selected_key]]$rec
+    #if (is.null(recommendations) || length(recommendations) == 0) {
+    #  recommendations <- result$res[[selected_key]]
+    #}
+    #fertilizer_rates <- result$res[[selected_key]]$fertilizer_rates
+    #text <- result$recText[[selected_key]]
 
 ## should we have both recommendation and recommendations?
 
-    data <- list(
-      request_token = jsonlite::unbox(request_token),
-      recommendations = recommendations,
-      fertilizer_rates = fertilizer_rates,
-      recommendation = jsonlite::unbox(text),
-      rec_type = jsonlite::unbox(selected_key)  # optional: tells you whether it's FR, SP, IC, PP, etc.
-    )
+ #   data <- list(
+ #    request_token = request_token,
+ #     recommendations = recommendations,
+ #     fertilizer_rates = fertilizer_rates,
+ #     recommendation = jsonlite::unbox(text),
+ #     rec_type = jsonlite::unbox(selected_key)  # optional: tells you whether it's FR, SP, IC, PP, etc.
+ #   )
 
-    list(status = jsonlite::unbox("success"), data = data)
+  #  list(status = jsonlite::unbox("success"), data = data)
 }  

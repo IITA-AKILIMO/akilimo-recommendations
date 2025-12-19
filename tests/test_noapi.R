@@ -24,11 +24,10 @@ test <- function(i, new) {
 		b <- tinytest::expect_equivalent(x$recommendations, y$recommendations, tolerance=0.1)
 		if (!b) print(b)
 	} 
-	cat(" ----- ", "\n")
 }
 
 run <- function(i) {
-	cat(i, " ---+\n"); flush.console()
+	cat("+--- ", i, " ---+\n"); flush.console()
 	js <- readLines(paste0(testdir, gsub("xxx", i, "/input/in_xxx.json")))
 	run_akilimo(js)
 }
