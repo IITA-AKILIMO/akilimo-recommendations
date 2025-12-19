@@ -76,13 +76,14 @@ run_akilimo <- function(json) {
     area <- from_json("area", body)
     areaUnits <- from_json("areaUnits", body)
 
-    IC <- from_json("IC", body, default_value = FALSE)
     # not used?
 	#intercrop <- from_json("intercrop", body, default_value = FALSE)
+    IC <- from_json("IC", body, default_value = FALSE)
     FR <- from_json("FR", body, default_value = FALSE)
     PP <- from_json("PP", body, default_value = FALSE)
     SPP <- from_json("SPP", body, default_value = FALSE)
     SPH <- from_json("SPH", body, default_value = FALSE)
+
     PD <- from_json("PD", body, default_value = 0)
     HD <- from_json("HD", body, default_value = 0)
 
@@ -205,9 +206,7 @@ run_akilimo <- function(json) {
 				areaUnits=areaUnits, PD=PD, cassPD=cassPD, cassUW=cassUW)
 
 		selected_key <- "FR"
-    }
-
-    if (IC) {
+    } else if (IC) {
 	
 		sweetPotatoPD <- from_json("sweetPotatoPD", body, default_value = "tubers")
 		sweetPotatoUW <- from_json("sweetPotatoUW", body, default_value = NA)
@@ -220,46 +219,43 @@ run_akilimo <- function(json) {
 
 		# Set default price and weight if maizeUP is zero
 		if (maizeUP == 0) {
-		  if (maizePD == "fresh_cob") {
-			maizeUP <- 50    # Default price for 1 large fresh cob
-			maizeUW <- 1
-		  } else if (maizePD == "grain") {
-			maizeUP <- 230   # Default price for 1 kg of maize grain
-			maizeUW <- 1
-		  }
+			if (maizePD == "fresh_cob") {
+				maizeUP <- 50    # Default price for 1 large fresh cob
+				maizeUW <- 1
+			} else if (maizePD == "grain") {
+				maizeUP <- 230   # Default price for 1 kg of maize grain
+				maizeUW <- 1
+			}
 		}
 
 		# Ensure maizeUW is numeric if using grain
 		if (maizePD == "grain") {
-		  maizeUW <- as.numeric(as.character(maizeUW))
+			maizeUW <- as.numeric(as.character(maizeUW))
 		}
 
-		# Calculate cobUP
-		cobUP <- ifelse (maizePD == "fresh_cob", maizeUP, maizeUP / maizeUW / 7.64)  # 1 kg of grain ~ 7.64 cobs
+		# Calculate cobUP  # 1 kg of grain ~ 7.64 cobs
+		cobUP <- ifelse (maizePD == "fresh_cob", maizeUP, maizeUP / maizeUW / 7.64) 
 	   
 		# Conversion factors for sweetPotato products
 		tuberConv <- data.frame(
-		  sweetPotatoPD = c("tubers", "flour"), # sweetpotato "tubers"? ouch.
-		  conversion = c(1, 3.2)
+			sweetPotatoPD = c("tubers", "flour"), # sweetpotato "tubers"? ouch.
+			conversion = c(1, 3.2)
 		)
 
 		# Set default price and weight for Tanzania if price is missing
 		if (sweetPotatoUP == 0 && country == "TZ") {
-		  if (sweetPotatoPD == "tubers") {
-			sweetPotatoUP <- 120000
 			sweetPotatoUW <- 1000
-		  } else if (sweetPotatoPD == "flour") {
-			sweetPotatoUP <- 384000
-			sweetPotatoUW <- 1000
-		  }
+			if (sweetPotatoPD == "tubers") {
+				sweetPotatoUP <- 120000
+			} else if (sweetPotatoPD == "flour") {
+				sweetPotatoUP <- 384000
+			}
 		}
 
 		# Get the conversion factor
 		conversion_factor <- tuberConv[tuberConv$sweetPotatoPD == sweetPotatoPD, "conversion"]
-
 		# Compute tuberUP
 		tuberUP <- sweetPotatoUP / sweetPotatoUW / conversion_factor * 1000
-
 		
       if (country == "NG") {
 		result$IC <- process_IC_NG(
@@ -284,9 +280,7 @@ run_akilimo <- function(json) {
       #plumberRes <- resIC$res
       #recText <- resIC$recText
       selected_key <- 'IC'
-    }
-
-    if (PP) {
+    } else if (PP) {
 
 		tractor_plough <- from_json("tractor_plough", body, default_value = FALSE)
 		tractor_harrow <- from_json("tractor_harrow", body, default_value = FALSE)
@@ -410,9 +404,7 @@ run_akilimo <- function(json) {
       #recText <- resPP$recText
       #plumberRes <- resPP$plumberRes
       selected_key <- 'PP'
-    }
-
-    if (SPP || SPH) {
+    } else if (SPP || SPH) {
 	
 		result$SP <- process_SP(
 			SPP = SPP, SPH = SPH, PD_window = PD_window, HD_window = HD_window,
@@ -459,12 +451,10 @@ run_akilimo <- function(json) {
 		return(list(status = jsonlite::unbox("error"), data = data))
     }
 
-
 	r <- result[[selected_key]]
 	r$recom <- NULL
 	r$data <- c(request_token=request_token, r$data)
 	
-	## unbox for backwards compatibility for the exact data type
     r$data$recommendation <- jsonlite::unbox(r$data$recommendation)
     r$data$rec_type <- jsonlite::unbox(r$data$rec_type)
 	
