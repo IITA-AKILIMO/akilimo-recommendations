@@ -113,7 +113,8 @@ run_akilimo <- function(json) {
 		country <- "BU" #use non standard country code for Burundi
     }
 
-	message(paste0("Country: ", country, ", Planting: ", PD, ", Harvesting: ", HD))
+	key <- unique(c("FR", "PP", "IC", "SP", "SP")[c(FR, PP, IC, SPP, SPH)])
+	message(paste0(key, ": ", country, ", planting: ", PD, ", harvest: ", HD))
     #riskAtt <- 0
 
     #fertilizers <- get_fertilizers(body, country)
@@ -197,8 +198,6 @@ run_akilimo <- function(json) {
 
 
     if (FR) {
-
-		message("Processing FR")
 
 		result$FR <- process_FR(lat=lat, lon=lon, pd=pd, pw=pw, HD=HD, had=had, maxInv=maxInv, 
 				fertilizers=fertilizers, rootUP=rootUP, areaHa=areaHa, country=country, 
@@ -452,13 +451,18 @@ run_akilimo <- function(json) {
     }
 
 	r <- result[[selected_key]]
-	r$recom <- NULL
-	r$data <- c(request_token=request_token, r$data)
+
+	r$data <- c(request_token = request_token, r$data)
+
+	# it would be clearer to use "message" instead of recommendation
+	#r$data$message <- jsonlite::unbox(r$data$message)
+	r$data$recommendation <- jsonlite::unbox(r$data$message)
+	r$recom <- r$data$message <- NULL
+
+	r$data$rec_type <- jsonlite::unbox(r$data$rec_type)
 	
-    r$data$recommendation <- jsonlite::unbox(r$data$recommendation)
-    r$data$rec_type <- jsonlite::unbox(r$data$rec_type)
+    out <- list(status = jsonlite::unbox("success"), data=r$data)
 	
-    out <- list(status=jsonlite::unbox("success"), data=r$data)
 	return(out)
 	
     # Extract data
@@ -471,13 +475,13 @@ run_akilimo <- function(json) {
 
 ## should we have both recommendation and recommendations?
 
-    data <- list(
-      request_token = request_token,
-      recommendations = recommendations,
-      fertilizer_rates = fertilizer_rates,
-      recommendation = jsonlite::unbox(text),
-      rec_type = jsonlite::unbox(selected_key)  # optional: tells you whether it's FR, SP, IC, PP, etc.
-    )
+ #   data <- list(
+ #    request_token = request_token,
+ #     recommendations = recommendations,
+ #     fertilizer_rates = fertilizer_rates,
+ #     recommendation = jsonlite::unbox(text),
+ #     rec_type = jsonlite::unbox(selected_key)  # optional: tells you whether it's FR, SP, IC, PP, etc.
+ #   )
 
-    list(status = jsonlite::unbox("success"), data = data)
+  #  list(status = jsonlite::unbox("success"), data = data)
 }  

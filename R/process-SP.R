@@ -122,9 +122,8 @@ getSPrecText <- function(ds, country, PD, HD) {
       #5. Possible issues with the input data - especially if user provides unrealistic prices.
     }
   }
-  rec <- gsub("  ", " ", rec)
 
-  return(rec)
+  gsub("[ ]+", " ", rec)
 }
 
 
@@ -312,7 +311,6 @@ process_SP <- function(
 		res <- NULL
 
 	} else {
-		message("Processing SP")
 
 		res <- getSPrecommendations(
 			areaHa = areaHa, country = country, lat = lat, lon = lon, PD = PD, HD = HD, 
@@ -341,11 +339,8 @@ process_SP <- function(
 	}
 
 	list(recom=success, data=list(recommendations=res, fertilizer_rates=NULL, 
-							recommendation=recText, rec_type="SP"))
+							message=recText, rec_type="SP"))
 
 #  return(list(SPrecom = SPrecom, plumberRes = res, recText = recText))
-#  return(list(SPrecom = SPrecom, plumberRes = list(rec=res, dummy="dummy to prevent bug in test 10"), recText = recText))
-  
-
-  
+#  return(list(SPrecom = SPrecom, plumberRes = list(rec=res, dummy="dummy to prevent bug in test 10"), recText = recText)) 
 }

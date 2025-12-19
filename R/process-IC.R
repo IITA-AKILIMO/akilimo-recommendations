@@ -163,6 +163,8 @@ getICrecText <- function(x, maizePD) {
   }
 
   rec <- paste0(recF, recD)
+  gsub("[ ]+", " ", rec)
+
 
   #TODO: This only provides the minimal information to return to the user. We may consider adding following information:
   #1. Make sure they grow the right maize variety (should be mature in 95 days max), and the right cassava variety. Should also make recommendations on the right cassava variety.
@@ -171,7 +173,7 @@ getICrecText <- function(x, maizePD) {
   #4. Possible issues with the input data - especially if user provides unrealistic prices for maize produce / fertilizers.
   #5. Currently reports the increase in maize production in nr of cobs, even if the user reported to sell as grain (NEEDS TO BE URGENTLY ADDRESSED - CONFUSING! Requires adapting the getICrecommendations function)
 
-  gsub("  ", " ", rec)
+
 }
 
 
@@ -180,8 +182,6 @@ process_IC_NG <- function(
 	IC, country, areaHa, CMP, cobUP, fertilizers, riskAtt, maizePD, user, userField, area, areaUnits,
 	PD, HD, lat, lon, maizeUW, cassUW, saleSF, nameSF, rootUP, cassPD, maxInv, maizeUP) {
 	
-  message(paste("Processing IC for", country))
-
   # Generate IC recommendations
   res <- getICrecommendations(areaHa = areaHa, CMP = CMP, cobUP = cobUP, 
 							fertilizers = fertilizers, riskAtt = riskAtt)
@@ -205,15 +205,13 @@ process_IC_NG <- function(
     ICrecom <- FALSE
   }
 
-  list(recom = ICrecom, data=c(res, recommendation = recText, rec_type="IC"))
+  list(recom = ICrecom, data=c(res, message=recText, rec_type="IC"))
 }
 
 # Process recommendations for Tanzania (TZ)
 process_IC_TZ <- function(IC, country, areaHa, FCY, tuberUP, rootUP, fertilizers, riskAtt, 
 			user, userField, area, areaUnits, PD, HD, lat, lon, sweetPotatoUP, sweetPotatoPD, 
 			sweetPotatoUW, cassUW, cassPD, maxInv) {
-			
-  message(paste("Processing IC for", country))
 
   # Generate CIS recommendations
   res <- getCISrecommendations(areaHa = areaHa, FCY = FCY, tuberUP = tuberUP, rootUP = rootUP,
@@ -240,7 +238,7 @@ process_IC_TZ <- function(IC, country, areaHa, FCY, tuberUP, rootUP, fertilizers
   }
 
   #return(list(ICrecom = ICrecom, plumberRes = res, recText = recText))
-  list(recom = ICrecom, data=c(res, recommendation = recText, rec_type="IC"))
+  list(recom = ICrecom, data=c(res, message=recText, rec_type="IC"))
 }
 
 
@@ -272,7 +270,7 @@ getCISrecText <- function(ds) {
       #recF <- paste0("Fertilizer use is not recommended because ", ds$reason_F, ".\n")
       recF <- paste0("Haishauriwi kutumia  mbolea kwa sababu ", ds$reason_F, ".\n")
 
-    }else {
+    } else {
 
       dTC <- formatC(signif(ds$dTC, digits = 3), format = "f", big.mark = ",", digits = 0)
       dNR <- formatC(signif(ds$dNR, digits = 3), format = "f", big.mark = ",", digits = 0)
@@ -302,8 +300,8 @@ getCISrecText <- function(ds) {
   #2. We purposefully did not include recommendations on the exact yield increases as the data is rather weak to justify this. Can be added later when more data is available.
   #3. Some explanation included on why fertilizer is not recommended, or why intercropping is not recommended - need to evaluate if this is not too cryptic.
   #4. Possible issues with the input data - especially if user provides unrealistic prices for sweet potato/cassava produce / fertilizers.
-  rec <- gsub("  ", " ", rec)
-  return(rec)
+
+  gsub("[ ]+", " ", rec)
 
 }
 

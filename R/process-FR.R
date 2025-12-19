@@ -88,10 +88,7 @@ getFRrecText <- function(ds, country, fertilizers, rootUP) {
       #5. Possible issues with the input data - very high fertilizer prices or very low root price, very low or very high FCY, very low or very high WY,...
   }
 
-  recom <- gsub("  ", " ", recom)
-  recom <- gsub("  ", " ", recom)
-  return(recom)
-
+	gsub("[ ]+", " ", recom)
 }
 
 
@@ -186,7 +183,7 @@ getFRrecommendations <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers,
 		} else {
 			rec <- "Hatuna mapendekezo yoyote  kwa eneo lako kwa sababu eneo lako liko nje la eneo ambalo AKILIMO linafanya kazi kwa sasa"
 		}
-		return(list(recommendation = rec, fertilizer_rates = NA, failed=TRUE))  
+		return(list(message = rec, fertilizer_rates = NA, failed=TRUE))  
 	} else {
 
 		WLYdata <- wlypd[, c("lat", "long", "pl_Date", HD2)]
@@ -321,5 +318,5 @@ process_FR <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers, rootUP, a
 		)
 	}
 
-	list(recom = FRrecom, data=c(response, recommendation = recText, rec_type="FR"))
+	list(recom = FRrecom, data=c(response, message = recText, rec_type="FR"))
 }

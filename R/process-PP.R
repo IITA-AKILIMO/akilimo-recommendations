@@ -134,20 +134,10 @@ process_PP <- function( PP, country, areaHa, costLMO, ploughing, ridging,
 		userField, area, areaUnits, PD, HD, lat, lon,
 		cassPD, cassUW, maxInv) {
 
-  message(paste("Processing PP for", country))
-
   # Generate PP recommendations
-  res <- getPPrecommendations(
-    areaHa = areaHa,
-    costLMO = costLMO,
-    ploughing = ploughing,
-    ridging = ridging,
-    method_ploughing = method_ploughing,
-    method_ridging = method_ridging,
-    FCY = FCY,
-    rootUP = rootUP,
-    riskAtt = riskAtt
-  )
+  res <- getPPrecommendations(areaHa = areaHa, costLMO = costLMO, ploughing = ploughing,
+				ridging = ridging, method_ploughing = method_ploughing,
+				method_ridging = method_ridging, FCY = FCY, rootUP = rootUP, riskAtt = riskAtt )
 
   # Generate recommendation text
   recText <- getPPrecText(ds = res, country = country)
@@ -162,6 +152,6 @@ process_PP <- function( PP, country, areaHa, costLMO, ploughing, ridging,
     ploughing = ploughing, ridging = ridging, method_ploughing = method_ploughing, method_ridging = method_ridging)
 
   #list(PPrecom = TRUE, plumberRes = res, recText = recText)
-    list(recom = TRUE, data=c(res, recommendation = recText, rec_type="PP"))
+    list(recom = TRUE, data=c(res, message=recText, rec_type="PP"))
 
 }
