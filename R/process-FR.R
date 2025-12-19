@@ -16,7 +16,7 @@ getFRrecText <- function(ds, country, fertilizers, rootUP) {
 	rec <- ds$rec
 	frate <- ds$fertilizer_rates
 
-	ci <- ifelse(country %in% c("NG", "GH", "BU"), 1, 
+	ci <- ifelse(country %in% c("NG", "GH", "BI"), 1, 
 			ifelse(country == "TZ", 2, 3)) #RW = 3
 
 	if (is.null(rec)) {
@@ -32,10 +32,8 @@ getFRrecText <- function(ds, country, fertilizers, rootUP) {
 
     } else {
 
-      currency <- ifelse(country == "NG", "NGN", 
-					ifelse(country == "RW", "RWF", 
-					ifelse(country == "GH", "GHS", 
-					ifelse(country == "BU", "BIF", "TZS"))))
+	
+      currency <- get_currency(country)
 
       fertilizerTypes <- frate$type
       fertilizerRates <- round(frate$rate, digits = 0)
@@ -176,7 +174,7 @@ getFRrecommendations <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers,
 
   #  wlypd <- WLY_365[WLY_365$lon==lon2 & WLY_365$lat == lat2 & WLY_365$pl_Date == PD2, ]
 	if (nrow(wlypd) == 0) {
-		if (country %in% c("NG", "GH", "BU", "RW")) {
+		if (country %in% c("NG", "GH", "BI", "RW")) {
 			rec <- "We do not have fertilizer recommendation for your location because your location is out of the recommendation domain AKILIMO is currently serving."
     #} else if (country == "RW") {
 	#	return("kinyarwanda here")
@@ -186,7 +184,7 @@ getFRrecommendations <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers,
 		return(list(message = rec, fertilizer_rates = NA, failed=TRUE))  
 	} else {
 
-		WLYdata <- wlypd[, c("lat", "long", "pl_Date", HD2)]
+		WLYdata <- wlypd[, c("lat", "lon", "pl_Date", HD2)]
 		colnames(WLYdata) <- c("lat", "lon", "pl_Date", "water_limited_yield")
 		WLYdata$zone <- country
 		WLYdata$daysOnField <- had

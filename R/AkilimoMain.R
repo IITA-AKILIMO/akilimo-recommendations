@@ -38,7 +38,7 @@ get_cassUPUW <- function(cassUP, cassUW, cassPD, country, saleSF, nameSF) {
 			  if (cassPD == "chips") { cassUP <- 75000; cassUW <- 1000 }
 			  if (cassPD == "flour") { cassUP <- 75000; cassUW <- 1000 }
 			  if (cassPD == "gari") { cassUP <- 75000; cassUW <- 1000 }
-		} else if (country == "BU") {
+		} else if (country == "BI") {
 			  if (cassPD == "roots") { cassUP <- 700000; cassUW <- 1000 }
 			  if (cassPD == "chips") { cassUP <- 700000; cassUW <- 1000 }
 			  if (cassPD == "flour") { cassUP <- 700000; cassUW <- 1000 }
@@ -86,9 +86,9 @@ run_akilimo <- function(json) {
 
     PD <- from_json("PD", body, default_value = 0)
     HD <- from_json("HD", body, default_value = 0)
-
     PD_window <- from_json("PD_window", body, default_value = 0)
     HD_window <- from_json("HD_window", body, default_value = 0)
+
 	cost_LMO_areaBasis <- from_json("cost_LMO_areaBasis", body, default_value = "areaUnit")
     FCY <- from_json("FCY", body)
     CMP <- from_json("CMP", body)
@@ -103,15 +103,14 @@ run_akilimo <- function(json) {
     cassUP_p2 <- from_json("cassUP_p2", body)
     maxInv <- from_json("maxInv", body, default_value = NA)
 
-    user <- get_user(body)
-    
+    user <- get_user(body)    
 	userField <- from_json("userField", body)
     
 	riskAtt <- from_json("riskAtt", body, default_value = 0)
 
-    if (country == "BI") {
-		country <- "BU" #use non standard country code for Burundi
-    }
+#    if (country == "BI") {
+#		country <- "BU" #use non standard country code for Burundi
+#    }
 
 	key <- unique(c("FR", "PP", "IC", "SP", "SP")[c(FR, PP, IC, SPP, SPH)])
 	message(paste0(key, ": ", country, ", planting: ", PD, ", harvest: ", HD))

@@ -77,7 +77,7 @@ getSPrecText <- function(ds, country, PD, HD) {
 
 
       DP <- signif(ds[1,]$RP - ds[ds$CP == TRUE,]$RP, digits = 2)
-      currency <- ifelse(country == "NG", "NGN", ifelse(country == "RW", "RWF", ifelse(country == "GH", "GHS", "TZS")))
+      currency <- get_currency(country)
       dGR <- formatC(signif(ds[1,]$dGR, digits = 3), format = "f", big.mark = ",", digits = 0)
 	  
 
@@ -169,13 +169,12 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
 
 
   SoilData_fcy1 <- get_data("soil_NPK-4")
-  SoilData <- SoilData_fcy1[SoilData_fcy1$long == lonr & SoilData_fcy1$lat == latr,]
+  SoilData <- SoilData_fcy1[SoilData_fcy1$lon == lonr & SoilData_fcy1$lat == latr,]
 	
 
 	WLY_15M <- get_data("WLY_15M", country)
 
   latlon <- paste(latr, lonr, sep = "_")
-
   WLYDataLintul <- WLY_15M[WLY_15M$location == latlon,] ##WLY_15M[WLY_15M$long == lonr & WLY_15M$lat == latr, ]
   WLY_CY <- NULL
   if (nrow(WLYDataLintul) > 0) {

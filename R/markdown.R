@@ -15,9 +15,8 @@ get_markdown_text <- function(FR, IC, country) {
 	} else {
 		stop("FR and IC can not both be TRUE")
 	}
-	acairm$currency <- ifelse(acairm$country == "NG", "NGN",
-                        ifelse(acairm$country == "TZ", "TZS", 
-						ifelse(acairm$country == "BU", "BIF", "GHS")))
+	
+	acairm$currency <- get_currency(acairm$country)
 	acairm
 }
 
@@ -222,7 +221,7 @@ FR_MarkdownText <- function(rr, fertilizers, user, country, userField,
   current_yield = rr$rec$CurrentY
   sum_total = rr$rec$TC
 
-  currency <- ifelse(country == "NG", "NGN", ifelse(country == "RW", "RWF", ifelse(country == "GH", "GHS", ifelse(country == "BU", "BIF", "TZS"))))
+  currency <- get_currency(country)
 
   MarkDownTextD <- data.frame(name = user$Name, country = country, phone = user$PhoneNr, field = userField, 
 		field_area = area, unit_field = areaUnits, plant_date = PD, hvst_date = HD, current_yield = current_yield,    email = user$Email, latitude = lat, longitude = lon, userPhoneCC = user$PhoneCC,
@@ -288,11 +287,8 @@ IC_MarkdownText <- function(rr, fertilizers, user, country, userField,
   totalSalePrice = rr$rec$dTC + rr$rec$dNR
   revenue = rr$rec$dNR
   sum_total = rr$rec$dTC
-  currency <- ifelse(country == "NG", "NGN", ifelse(country == "RW", "RWF", ifelse(country == "GH", "GHS", "TZS")))
+  currency <- get_currency(country)
   dMP <- rr$rec$dMP
-
-
-  currency <- ifelse(country == "NG", "NGN", ifelse(country == "RW", "RWF", ifelse(country == "GH", "GHS", "TZS")))
 
   message(paste("Processing IC_MarkdownText  with risk attitutde", riskAtt))
   MarkDownTextD <- data.frame(name = user$Name, country = country, phone = user$PhoneNr, 
@@ -382,10 +378,7 @@ CIS_MarkdownText <- function(rr, fertilizers, user, country, userField, area, ar
   totalSalePrice = rr$rec$dTC + rr$rec$dNR
   revenue = rr$rec$dNR
   sum_total = rr$rec$dTC
-  currency <- ifelse(country == "NG", "NGN", ifelse(country == "RW", "RWF", ifelse(country == "GH", "GHS", "TZS")))
-  #dMP <- rr$rec$dMP
-
-  currency <- ifelse(country == "NG", "NGN", ifelse(country == "RW", "RWF", ifelse(country == "GH", "GHS", "TZS")))
+  currency <- get_currency(country)
 
   MarkDownTextD <- data.frame(name = user$Name, country = country, phone = user$PhoneNr, 
 		field = userField, field_area = area,
@@ -449,7 +442,7 @@ CIS_MarkdownText <- function(rr, fertilizers, user, country, userField, area, ar
 PPSP_MarkdownText <- function(rr, fname, user, country, userField, area, areaUnits,
                               PD, HD, lat, lon, rootUP, cassPD, cassUW, maxInv) {
 
-  currency <- ifelse(country == "NG", "NGN", ifelse(country == "RW", "RWF", ifelse(country == "GH", "GHS", "TZS")))
+  currency <- get_currency(country)
 
   MarkDownTextD <- data.frame(name = user$Name, country = country, phone = user$PhoneNr, 
 		field = userField, field_area = area, unit_field = areaUnits, plant_date = PD, hvst_date = HD,

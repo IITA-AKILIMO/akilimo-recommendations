@@ -1,5 +1,13 @@
 
+get_currency <- function(country) {
+	m <- matrix(c("NG", "NGN", "RW", "RWF", "GH", "GHS", "BI", "BIF", "TZ", "TZS"), ncol=2, byrow=TRUE)
+	i <- match(country, m[,1])
+	m[i,2]
+}
+
+
 # to replace plyr::ddply (and the need for the plyr package)
+# not used anymore 
 dd_ply <- function(X, index, fun, ...) {
 	s <- split(X, X[index])
 	out <- lapply(s, fun, ...)

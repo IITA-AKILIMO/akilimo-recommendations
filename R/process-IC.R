@@ -374,7 +374,7 @@ getCISrecText <- function(ds) {
 
       dTC <- formatC(signif(ds$dTC, digits = 3), format = "f", big.mark = ",", digits = 0)
       dNR <- formatC(signif(ds$dNR, digits = 3), format = "f", big.mark = ",", digits = 0)
-      #currency <- ifelse(country == "NG", "NGN", "TZS")
+
       currency <- "TZS"
 
       #recF <- paste0("We recommend applying\n",

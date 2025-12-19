@@ -1,6 +1,13 @@
 
 add_path <- function(f) file.path("./data/", f)	
 
+long2lon <- function(x) {
+	cn <- names(x)
+	cn[cn=="long"] <- "lon"
+	colnames(x) <- cn
+	x
+}
+
 get_data <- function(x, country, FCY, lon, lat) {
 	
 	if (x == "TRNS") {
@@ -8,13 +15,16 @@ get_data <- function(x, country, FCY, lon, lat) {
 		unquote <- function(x) gsub(pattern = "\"", replacement = "", x)
 		data.frame(lapply(TRNS, unquote))
 	} else if (x == "default_prices") {
-		read.csv(add_path("input/Default_prices.csv"))
+		out <- read.csv(add_path("input/Default_prices.csv"))
+		out$Country[out$Country == "BU"] <- "BI"
+		out
 	} else if (x == "starch_prices") {
 		read.csv(add_path("input/starchPrices.csv"))
 	} else if (x == "dry_matter") {
 		read.csv(add_path("input/fd2.csv"))
 	} else if (x == "soil_NPK-4") {
-		readRDS(add_path("soil/SoilData_4Country.RDS"))
+		out <- readRDS(add_path("soil/SoilData_4Country.RDS"))
+		long2lon(out)		
 	} else if (x == "soil_NPK") {
 		fcyy <- ifelse(FCY < 7.5, "FCY1",
               ifelse(FCY >= 7.5 & FCY < 15, "FCY2",
@@ -42,7 +52,7 @@ get_data <- function(x, country, FCY, lon, lat) {
 		soil$rel_N <- 1
 		soil$rel_P <- soil$soilP / soil$soilN
 		soil$rel_K <- soil$soilK / soil$soilN
-		soil			
+		long2lon(soil)
 	} else if (x == "WLY_365") {
 		if (country == "NG") {
 			w <- readRDS(add_path("yield/Nigeria_WLY_LINTUL_2020.RDS"))
@@ -58,7 +68,7 @@ get_data <- function(x, country, FCY, lon, lat) {
 			w$pl_Date <- w$plantingDate
 			w$PlweekNr <- w$weekNr
 			colnames(w) <- gsub("WLY_", "", colnames(w))
-		} else if (country == "BU") {
+		} else if (country == "BI") {
 			w <- readRDS(add_path("yield/Burundi_WLY_LINTUL.RDS"))
 			w$pl_Date <- w$plantingDate
 			w$PlweekNr <- w$weekNr
@@ -68,20 +78,22 @@ get_data <- function(x, country, FCY, lon, lat) {
 			stop(paste("WLY_365", "not available for", country))
 		}
 		# should be fixed in files.
-		w[round(w$long,3)==lon & round(w$lat,3)==lat, ]
-		
+		w <- long2lon(w)
+		w[round(w$lon,3)==lon & round(w$lat,3)==lat, ]
+
 	} else if (x == "WLY_15M") {
 		if (country == "NG") {
-			readRDS(add_path("yield/Nigeria_WLY_LINTUL_2020_Server.RDS"))
+			w <- readRDS(add_path("yield/Nigeria_WLY_LINTUL_2020_Server.RDS"))
 		} else if (country == "TZ") {
-			readRDS(add_path("yield/Tanzania_WLY_LINTUL_2020_Server.RDS"))
+			w <- readRDS(add_path("yield/Tanzania_WLY_LINTUL_2020_Server.RDS"))
 		} else if (country == "GH") {
-			readRDS(add_path("yield/Ghana_WLY_LINTUL_SP.RDS"))
-		} else if (country == "BU") {
-			readRDS(add_path("yield/Burundi_WLY_LINTUL_SP.RDS"))
+			w <- readRDS(add_path("yield/Ghana_WLY_LINTUL_SP.RDS"))
+		} else if (country == "BI") {
+			w <- readRDS(add_path("yield/Burundi_WLY_LINTUL_SP.RDS"))
 		} else {
 			stop(paste("WLY_15M", "not available for", country))
 		}
+		long2lon(w)
 	} else {
 		stop("no such data")
 	}
