@@ -185,7 +185,7 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
       #print(k)
       wlyd <- WLYDataLintul[k,]
       if (!is.na(SoilData$soilN)) {
-        wlyd$Current_Yield <- QUEFTS_WLY_CY(SoilData = SoilData, country = country, wlyd = wlyd$water_limited_yield)
+        wlyd$Current_Yield <- QUEFTS_no_fertilizer(soil = SoilData, country = country, wlyd = wlyd$water_limited_yield)
 		# in kg/ha dry
         WLY_CY <- rbind(WLY_CY, wlyd)
       }

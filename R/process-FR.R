@@ -204,7 +204,8 @@ getFRrecommendations <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers,
     }
 
     ## get CY
-    WLYdata$Current_Yield <- QUEFTS_WLY_CY(SoilData = SoilData, country = country, wlyd = WLYdata$water_limited_yield)
+    WLYdata$Current_Yield <- QUEFTS_no_fertilizer(soil=SoilData, country=country, wlyd=WLYdata$water_limited_yield)
+
     WLYdata$weekNr <- pw
 
     #############################
