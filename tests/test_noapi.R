@@ -39,7 +39,7 @@ for (f in grep("api", list.files(srcdir, pattern="\\.R$"), invert=TRUE, value=TR
 
 out <- lapply(1:28, \(i) {r <- run(i); test(i, r); r})
 
-#out <- lapply(1:28, \(i) system.time(run(i)))
+#timeout <- sapply(1:28, \(i) system.time(run(i))["elapsed"])
 ##saveRDS(out, file.path(testdir, "test_out4.rds"))
 
 
