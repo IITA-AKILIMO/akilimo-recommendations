@@ -17,7 +17,7 @@
 run_Optim_NG2 <- function(rootUP, QID, fertilizer, invest, plDate, WLYData, lat, lon, areaHa, HD, WLY, DCY, country) {
 
   ## input of CY and WLY are in dry wt in KG/ha
-  QID$water_limited_yield <- WLY
+  QID$WLY <- WLY
   initial <- rep(0, nrow(fertilizer))
   lowerST <- rep(0, nrow(fertilizer))
 
@@ -51,8 +51,9 @@ run_Optim_NG2 <- function(rootUP, QID, fertilizer, invest, plDate, WLYData, lat,
     ## NPK rate for user land size
     NPK_user <- rec * areaHa
 
-    ## TY for ha of land
-    TY <- QUEFTS1_Pedotransfer(QID, rec)    # Yield possible at recommended NPK in kg/ha dry wt.
+	# Yield possible at recommended NPK in kg/ha dry wt.
+    # TY for ha of land
+    TY <- QUEFTS(QID, rec)    
 
     ## both CY and TY should be changed to user land size in ton/ha and fresh wt
     TY_user <- ((getRFY(HD = HD, RDY = TY, country = "NG")) / 1000) * areaHa
@@ -119,7 +120,7 @@ optim_NR <- function(fertRate, rootUP, QID, CY, fertilizer, invest, HD, country,
 		as.vector(fertRate %*% fertilizer$K_cont)
 	)
 
-	TotalYield <- QUEFTS1_Pedotransfer(QID, rec)
+	TotalYield <- QUEFTS(QID, rec)
 
  ## DM is converted to FW and then from KG/ha to ton/ha
 	AdditionalYield <- (TotalYield - CY) / DC
@@ -149,7 +150,7 @@ optim_NR <- function(fertRate, rootUP, QID, CY, fertilizer, invest, HD, country,
 Rerun_25kgKa_try <- function(rootUP, rdd, fertilizer, QID, onlyFert, country, WLY = WLY, DCY = DCY, HD = HD, areaHa = areaHa) {
 
 
-  QID$water_limited_yield <- WLY
+  QID$WLY <- WLY
   fertilizer <- merge(fertilizer, onlyFert, by = 'type')
   TC <- (sum(fertilizer$price %*% fertilizer$rate)) * areaHa
   TC <- round(TC, -2)
@@ -161,7 +162,7 @@ Rerun_25kgKa_try <- function(rootUP, rdd, fertilizer, QID, onlyFert, country, WL
   ## NPK rate for user land size
   NPK_user <- rec * areaHa
 
-  TY <- QUEFTS1_Pedotransfer(QID, rec)                    #dry wt yield in kg/ha
+  TY <- QUEFTS(QID, rec) #dry wt yield in kg/ha
   #TY_user  <- ((getRFY(HD = as.Date(HD), RDY = TY, country = country))/1000) * areaHa
   TY_user <- ((getRFY(HD = HD, RDY = TY, country = country)) / 1000) * areaHa
   CY_user <- ((getRFY(HD = HD, RDY = DCY, country = country)) / 1000) * areaHa

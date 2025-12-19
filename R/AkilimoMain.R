@@ -191,10 +191,11 @@ run_akilimo <- function(json) {
     PPrecom <- FALSE
     SPrecom <- NULL
 
-
     selected_key <- NULL
 
     if (FR) {
+
+		message("Processing FR")
 
 		resFr <- process_FR(lat=lat, lon=lon, pd=pd, pw=pw, HD=HD, had=had, maxInv=maxInv, 
 				fertilizers=fertilizers, rootUP=rootUP, areaHa=areaHa, country=country, 

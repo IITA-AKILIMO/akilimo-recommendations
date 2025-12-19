@@ -1,8 +1,8 @@
 
+add_path <- function(f) file.path("./data/", f)	
 
-get_data <- function(x, country, FCY) {
+get_data <- function(x, country, FCY, lon, lat) {
 	
-	add_path <- function(f) file.path("./data/", f)	
 	if (x == "TRNS") {
 		TRNS <- read.csv(add_path("input/translations_TEST.csv"), stringsAsFactors = FALSE)
 		unquote <- function(x) gsub(pattern = "\"", replacement = "", x)
@@ -22,7 +22,9 @@ get_data <- function(x, country, FCY) {
               ifelse(FCY >= 22.5 & FCY < 30, "FCY4", "FCY5"))))
 		f <- add_path(paste0("soil/", country, "_", fcyy, "_soilNPK.RDS"))
 		soil <- readRDS(f)
-		soil$location <- paste(soil$lat, soil$lon, sep = "_")
+		soil <- soil[round(soil$lon, 3)==lon & round(soil$lat,3)==lat, ]
+		if (nrow(soil) == 0) return(soil)
+		#soil$location <- paste(soil$lat, soil$lon, sep = "_")
 		#soil$Zone <- country
 		soil <- soil[, c("location", "lat", "lon", "soilN", "soilP", "soilK")]
 		soil$rec_N <- 0.5
@@ -43,29 +45,31 @@ get_data <- function(x, country, FCY) {
 		soil			
 	} else if (x == "WLY_365") {
 		if (country == "NG") {
-			WLY_365 <- readRDS(add_path("yield/Nigeria_WLY_LINTUL_2020.RDS"))
+			w <- readRDS(add_path("yield/Nigeria_WLY_LINTUL_2020.RDS"))
 		} else if (country == "TZ") {
-			WLY_365 <- readRDS(add_path("yield/Tanzania_WLY_LINTUL_2020.RDS"))
+			w <- readRDS(add_path("yield/Tanzania_WLY_LINTUL_2020.RDS"))
 		} else if (country == "RW") {
-			WLY_365 <- readRDS(add_path("yield/Rwanda_WLY_LINTUL.RDS"))
-			WLY_365$pl_Date <- WLY_365$plantingDate
-			WLY_365$PlweekNr <- WLY_365$weekNr
-			colnames(WLY_365) <- gsub("WLY_", "", colnames(WLY_365))
+			w <- readRDS(add_path("yield/Rwanda_WLY_LINTUL.RDS"))
+			w$pl_Date <- w$plantingDate
+			w$PlweekNr <- w$weekNr
+			colnames(w) <- gsub("WLY_", "", colnames(w))
 		} else if (country == "GH") {
-			WLY_365 <- readRDS(add_path("yield/Ghana_WLY_LINTUL.RDS"))
-			WLY_365$pl_Date <- WLY_365$plantingDate
-			WLY_365$PlweekNr <- WLY_365$weekNr
-			colnames(WLY_365) <- gsub("WLY_", "", colnames(WLY_365))
+			w <- readRDS(add_path("yield/Ghana_WLY_LINTUL.RDS"))
+			w$pl_Date <- w$plantingDate
+			w$PlweekNr <- w$weekNr
+			colnames(w) <- gsub("WLY_", "", colnames(w))
 		} else if (country == "BU") {
-			WLY_365 <- readRDS(add_path("yield/Burundi_WLY_LINTUL.RDS"))
-			WLY_365$pl_Date <- WLY_365$plantingDate
-			WLY_365$PlweekNr <- WLY_365$weekNr
-			colnames(WLY_365) <- gsub("WLY_", "", colnames(WLY_365))
-			WLY_365$location <- paste(WLY_365$lat, WLY_365$long, sep = "_")
+			w <- readRDS(add_path("yield/Burundi_WLY_LINTUL.RDS"))
+			w$pl_Date <- w$plantingDate
+			w$PlweekNr <- w$weekNr
+			colnames(w) <- gsub("WLY_", "", colnames(w))
+			#w$location <- paste(w$lat, w$long, sep = "_")
 		} else {
 			stop(paste("WLY_365", "not available for", country))
 		}
-		WLY_365
+		# should be fixed in files.
+		w[round(w$long,3)==lon & round(w$lat,3)==lat, ]
+		
 	} else if (x == "WLY_15M") {
 		if (country == "NG") {
 			readRDS(add_path("yield/Nigeria_WLY_LINTUL_2020_Server.RDS"))
