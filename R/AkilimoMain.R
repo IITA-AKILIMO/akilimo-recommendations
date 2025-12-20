@@ -367,8 +367,6 @@ run_akilimo <- function(json) {
 		rootUP_p1 <- cassUP_p1 / cass_denominator
 		rootUP_p2 <- cassUP_p2 / cass_denominator
 
-	
-	
 		result <- process_SP(
 			SPP = SPP, SPH = SPH, PD_window = PD_window, HD_window = HD_window,
 			areaHa = areaHa, country = country, lat = lat, lon = lon, PD = PD, HD = HD,
@@ -381,7 +379,6 @@ run_akilimo <- function(json) {
 			cassPD = cassPD, cassUW = cassUW, cassUP = cassUP,
 			cassUP_m1 = cassUP_m1, cassUP_m2 = cassUP_m2, cassUP_p1 = cassUP_p1, cassUP_p2 = cassUP_p2
 		)
-
     }
 
 # for getWMrecommendations 

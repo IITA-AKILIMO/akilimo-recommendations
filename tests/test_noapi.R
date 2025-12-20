@@ -28,15 +28,15 @@ test <- function(i, new) {
 
 run <- function(i) {
 	cat("+--- ", i, " ---+\n"); flush.console()
-	js <- readLines(paste0(testdir, gsub("xxx", i, "/input/in_xxx.json")))
-	run_akilimo(js)
+	json <- readLines(paste0(testdir, gsub("xxx", i, "/input/in_xxx.json")))
+	run_akilimo(json)
 }
 
 for (f in grep("api", list.files(srcdir, pattern="\\.R$"), invert=TRUE, value=TRUE)) source(file.path(srcdir, f))
 
-#out <- lapply(1:28, run)
+#out <- lapply(1:29, run)
 
-out <- lapply(1:28, \(i) {r <- run(i); test(i, r); r})
+out <- lapply(1:29, \(i) {r <- run(i); test(i, r); r})
 
 #timeout <- sapply(1:28, \(i) system.time(run(i))["elapsed"])
 ##saveRDS(out, file.path(testdir, "test_out4.rds"))
