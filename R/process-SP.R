@@ -77,7 +77,7 @@ getSPrecText <- function(ds, country, PD, HD) {
 
 
       DP <- signif(ds[1,]$RP - ds[ds$CP == TRUE,]$RP, digits = 2)
-      currency <- ifelse(country == "NG", "NGN", ifelse(country == "RW", "RWF", ifelse(country == "GH", "GHS", "TZS")))
+      currency <- get_currency(country)
       dGR <- formatC(signif(ds[1,]$dGR, digits = 3), format = "f", big.mark = ",", digits = 0)
 	  
 
@@ -162,72 +162,40 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
 			rootUP, rootUP_m1, rootUP_m2, rootUP_p1, rootUP_p2) {
 
   #rounding lat and lon to centroid of 5x5km pixel
-  latr <- as.factor(floor(lat * 10) / 10 + ifelse(lat - (floor(lat * 10) / 10) < 0.05, 0.025, 0.075))
-  lonr <- as.factor(floor(lon * 10) / 10 + ifelse(lat - (floor(lon * 10) / 10) < 0.05, 0.025, 0.075))
-  latr <- as.numeric(levels(latr))
-  lonr <- as.numeric(levels(lonr))
+  #latr <- as.factor(floor(lat * 10) / 10 + ifelse(lat - (floor(lat * 10) / 10) < 0.05, 0.025, 0.075))
+  #lonr <- as.factor(floor(lon * 10) / 10 + ifelse(lat - (floor(lon * 10) / 10) < 0.05, 0.025, 0.075))
+  #                                                --- note the error 
+  #latr <- as.numeric(levels(latr))
+  #lonr <- as.numeric(levels(lonr))
+  latr <- round5min(lat)
+  lonr <- round5min(lon)
+ 
+  SoilData <- get_data("soil_NPK-4")
+  SoilData <- SoilData[SoilData$lon == lonr & SoilData$lat == latr, ]
 
-
-  SoilData_fcy1 <- get_data("soil_NPK-4")
-  SoilData <- SoilData_fcy1[SoilData_fcy1$long == lonr & SoilData_fcy1$lat == latr,]
-	
-
-	WLY_15M <- get_data("WLY_15M", country)
+  
+	# it takes more than 10 seconds to read this, need to use a better apporach
+	WLY <- get_data("WLY_15M", country)
 
   latlon <- paste(latr, lonr, sep = "_")
+  ##WLY_15M[WLY_15M$long == lonr & WLY_15M$lat == latr, ]
+  WLY <- WLY[WLY$location == latlon,] 
+  #WLY_CY <- NULL
+	if ((nrow(SoilData) == 0) || isTRUE(is.na(SoilData$soilN)) || (nrow(WLY) == 0)) {
+		return(NULL)
+	}
+   
+	WLY <- merge(WLY, data.frame(daysOnField = seq(235, 455, 7), haw = 34:65), by = "daysOnField")
 
-  WLYDataLintul <- WLY_15M[WLY_15M$location == latlon,] ##WLY_15M[WLY_15M$long == lonr & WLY_15M$lat == latr, ]
-  WLY_CY <- NULL
-  if (nrow(WLYDataLintul) > 0) {
-    WLYDataLintul <- merge(WLYDataLintul, data.frame(daysOnField = seq(235, 455, 7), haw = 34:65), by = "daysOnField")
-    for (k in 1:nrow(WLYDataLintul)) {
-      #print(k)
-      wlyd <- WLYDataLintul[k,]
-      if (!is.na(SoilData$soilN)) {
-        #wlyd$Current_Yield <- QUEFTS_no_fertilizer(soil = SoilData, country = country, wlyd = wlyd$water_limited_yield)
-		#WLYdata$Current_Yield <- QUEFTS(Qinw, c(0,0,0), HI=.55)
-		
-		Qinw <- data.frame(SoilData, WLY=wlyd$water_limited_yield, water_limited_yield=wlyd$water_limited_yield)
-		WLYdata$Current_Yield <- QUEFTS(Qinw, c(0,0,0), HI=.55)
+	for (k in 1:nrow(WLY)) {
+		Qinw <- data.frame(SoilData, WLY=WLY$water_limited_yield[k], water_limited_yield=WLY$water_limited_yield[k])
+		WLY$Current_Yield[k] <- QUEFTS(Qinw, c(0,0,0), HI=.55)
+			# in kg/ha dry
+	}
 
-		# in kg/ha dry
-        WLY_CY <- rbind(WLY_CY, wlyd)
-      }
-    }
-  }
-
-
-  #TRNS <- read.csv("./data/input/translations_TEST.csv", stringsAsFactors = FALSE)
-  #unquote <- function(x) gsub(pattern = "\"", replacement = "", x)
-  #TRNS <- data.frame(lapply(TRNS, unquote))
-  #frnotrec_[1] <- TRNS$frnotrec[1]);
-  #frnotrec_[2] <- TRNS$frnotrec[2]);
-  #frnotrec_[3] <- TRNS$frnotrec[3])
-
-  if (is.null(WLY_CY)) {
-    # if(!file.exists(flp)){
-    #issuereturn
-    #trans
-    ds <- NULL
-    #return("No recommendations available for this location because your location is not within the recommendation domain of AKILIMO.")
-
-    if (country == "TZ") {
-		msg <- "Hatuna mapendekezo yoyote kwa eneo lako kwa sababu eneo lako liko nje la eneo ambalo AKILIMO linafanya kazi kwa sasa"
-    } else { #if (country %in% c("NG", "GH")) {
-		# fertilizer??
-		msg <- "We do not have fertilizer recommendation for your location because your location is out of the recommendation domain AKILIMO is currently serving."
-    } #else {
-    #  return("kinyarwanda here")
-    #}
-	return(msg)
-
-  } else {
-
-
-    yld <- unique(data.frame(plw = WLY_CY$PlweekNr, haw = WLY_CY$haw, CY = WLY_CY$Current_Yield, WY = WLY_CY$water_limited_yield)) ## is still dry weight
-    yld$CY <- round(yld$CY / 1000, digits = 0)
-    yld$WY <- round(yld$WY / 1000, digits = 0)
-
+    yld <- unique(data.frame(plw = WLY$PlweekNr, haw = WLY$haw, CY = WLY$Current_Yield, WY = WLY$water_limited_yield)) ## is still dry weight
+    yld$CY <- round(yld$CY / 1000)
+    yld$WY <- round(yld$WY / 1000)
 
     #constituting df with yields within relevant planting and harvest windows
     ds <- expand.grid(rPWnr = seq((-4 * PD_window), (4 * PD_window), by = 2),
@@ -237,12 +205,9 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
     ds$HD <- as.Date(HD) + ds$rHWnr * 7
 
     # ds <- droplevels(ds[ds$PD >= Sys.Date(),])
-
-
     ds$plw <- as.numeric(format(ds$PD, format = "%W")) + 1
     ds$haw <- round(as.numeric(ds$HD - ds$PD) / 7)
     ds <- merge(ds, yld)
-
 
     #converting dry yields to fresh root yields
     # ds$RFCY <- getRFY(HD = ds$HD, RDY = ds$CY, country = country)
@@ -252,7 +217,6 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
       ds$RFCY[k] <- getRFY(HD = ds$HD[k], RDY = ds$CY[k], country = "NG") ## TZ function is giving very strange values, need to be checked
       ds$RFWY[k] <- getRFY(HD = ds$HD[k], RDY = ds$WY[k], country = "NG")
     }
-
 
     #scaling predicted yield based on farmer-reported current yield relative to modelled CY and WY:
     ds$RY <- (ds$RFWY - ds$RFCY) / (13.5 - 1.5) / 2.5 * (FCY - 1.5 * 2.5) + ds$RFCY
@@ -289,8 +253,6 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
     ds <- ds[order(-ds$dGR, ds$rHWnr, -ds$rPWnr),]
     write.csv(ds, "./temp/SP_rec.csv", row.names = FALSE)
 	ds
-  }
-
 }
 
 
@@ -319,8 +281,15 @@ process_SP <- function(
 			rootUP_p2 = rootUP_p2)
 
 		if (!is.data.frame(res)) {
-			recText <- res
-			res <- NULL
+
+			if (country == "TZ") {
+				recText <- "Hatuna mapendekezo yoyote kwa eneo lako kwa sababu eneo lako liko nje la eneo ambalo AKILIMO linafanya kazi kwa sasa"
+			} else { #if (country %in% c("NG", "GH")) {
+				# fertilizer??
+				recText <- "We do not have fertilizer recommendation for your location because your location is out of the recommendation domain AKILIMO is currently serving."
+			} #else {
+			#  return("kinyarwanda here")
+			#}	
 		} else {
 			success <- TRUE
 

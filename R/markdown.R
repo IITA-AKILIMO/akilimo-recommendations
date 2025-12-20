@@ -15,9 +15,8 @@ get_markdown_text <- function(FR, IC, country) {
 	} else {
 		stop("FR and IC can not both be TRUE")
 	}
-	acairm$currency <- ifelse(acairm$country == "NG", "NGN",
-                        ifelse(acairm$country == "TZ", "TZS", 
-						ifelse(acairm$country == "BU", "BIF", "GHS")))
+	
+	acairm$currency <- get_currency(acairm$country)
 	acairm
 }
 
@@ -222,7 +221,7 @@ FR_MarkdownText <- function(rr, fertilizers, user, country, userField,
   current_yield = rr$rec$CurrentY
   sum_total = rr$rec$TC
 
-  currency <- ifelse(country == "NG", "NGN", ifelse(country == "RW", "RWF", ifelse(country == "GH", "GHS", ifelse(country == "BU", "BIF", "TZS"))))
+  currency <- get_currency(country)
 
   MarkDownTextD <- data.frame(name = user$Name, country = country, phone = user$PhoneNr, field = userField, 
 		field_area = area, unit_field = areaUnits, plant_date = PD, hvst_date = HD, current_yield = current_yield,    email = user$Email, latitude = lat, longitude = lon, userPhoneCC = user$PhoneCC,
@@ -288,11 +287,8 @@ IC_MarkdownText <- function(rr, fertilizers, user, country, userField,
   totalSalePrice = rr$rec$dTC + rr$rec$dNR
   revenue = rr$rec$dNR
   sum_total = rr$rec$dTC
-  currency <- ifelse(country == "NG", "NGN", ifelse(country == "RW", "RWF", ifelse(country == "GH", "GHS", "TZS")))
+  currency <- get_currency(country)
   dMP <- rr$rec$dMP
-
-
-  currency <- ifelse(country == "NG", "NGN", ifelse(country == "RW", "RWF", ifelse(country == "GH", "GHS", "TZS")))
 
   message(paste("Processing IC_MarkdownText  with risk attitutde", riskAtt))
   MarkDownTextD <- data.frame(name = user$Name, country = country, phone = user$PhoneNr, 
@@ -382,10 +378,7 @@ CIS_MarkdownText <- function(rr, fertilizers, user, country, userField, area, ar
   totalSalePrice = rr$rec$dTC + rr$rec$dNR
   revenue = rr$rec$dNR
   sum_total = rr$rec$dTC
-  currency <- ifelse(country == "NG", "NGN", ifelse(country == "RW", "RWF", ifelse(country == "GH", "GHS", "TZS")))
-  #dMP <- rr$rec$dMP
-
-  currency <- ifelse(country == "NG", "NGN", ifelse(country == "RW", "RWF", ifelse(country == "GH", "GHS", "TZS")))
+  currency <- get_currency(country)
 
   MarkDownTextD <- data.frame(name = user$Name, country = country, phone = user$PhoneNr, 
 		field = userField, field_area = area,
@@ -449,7 +442,7 @@ CIS_MarkdownText <- function(rr, fertilizers, user, country, userField, area, ar
 PPSP_MarkdownText <- function(rr, fname, user, country, userField, area, areaUnits,
                               PD, HD, lat, lon, rootUP, cassPD, cassUW, maxInv) {
 
-  currency <- ifelse(country == "NG", "NGN", ifelse(country == "RW", "RWF", ifelse(country == "GH", "GHS", "TZS")))
+  currency <- get_currency(country)
 
   MarkDownTextD <- data.frame(name = user$Name, country = country, phone = user$PhoneNr, 
 		field = userField, field_area = area, unit_field = areaUnits, plant_date = PD, hvst_date = HD,
@@ -498,102 +491,3 @@ SP_MarkdownText <- function(user, country, userField, area, areaUnits, PD, HD, l
 		
   write.csv(MarkDownTextD, "./temp/SP_MarkDownText.csv", row.names = FALSE)
 }
-
-#SHORT DEF:   Function to obtain recommendations on cassava-sweet potato intercropping.
-#RETURNS:     list of 2 dataframes: (i) cost benefit analysis for most profitable system, and (ii) fertilizer rates to apply.
-#DESCRIPTION: Function to obtain recommendations on cassava-sweet potato intercropping.
-#             Returns (i) a 1-row dataframe cost-benefit parameters (extra yield, cost and net revenue, and whether to apply
-#             fertilizer and whether to intercrop, and why (not)) , and (ii) a data.frame with types of fertilizer and rates to apply (zeros included).
-#INPUT:       See Cassava Crop Manager function for details
-getCISrecommendations <- function(areaHa = 1, FCY = 11,
-                                  tuberUP, rootUP, fertilizers, riskAtt = c(0, 1, 2)) {
-
-  #calculating expected yield increase from fertilizer
-  FSY <- 0.7 * FCY #expected yield of a sweet potato monocrop
-  FSY <- FSY * areaHa #extra sweet potato production for the area of the field TODO check with Pieter
-  GR_MC <- FCY * rootUP #gross revenue of cassava monocrop
-  # GR_IC <- GR_MC * 0.6 + 0.8 * FSY * tuberUP #gross revenue of cassava-sweet potato intercrop
-  GR_IC <- GR_MC * 0.8 + 0.6 * FSY * tuberUP
-  rec_IC <- GR_MC < GR_IC
-
-  if (rec_IC) {
-    #calculating fertilizer requirement
-    E <- t(data.matrix(fertilizers[, c("N_cont", "P_cont", "K_cont")]))
-    #F <- c(68, 19.6, 56.8) #ideally 2 bags of urea + 6 bags of NPK15:15:15
-    F <- c(68, 33.2, 60) #ideally 2 bags of urea + 8 bags of NPK17:17:17
-    G <- diag(nrow(fertilizers))
-    H <- rep(0, nrow(fertilizers))
-    Cost <- fertilizers$price
-
-    #calculating fertilizer recommendation and total cost of fertilizer
-    FR <- limSolve::linp(E, F, G, H, Cost)$X
-    FR[FR < 25] <- 0 #dropping all rates less than 25 kg/ha
-    FR <- FR * areaHa #adjusting to field area
-
-    #calculating total cost
-    dTC <- c(FR %*% fertilizers$price)
-    # dGR <- ifelse(FCY > 20, 0, FCY * 0.6 * 0.4 * rootUP + FSY * 0.8 * 0.2 * tuberUP) #gross revenue increase: 40% yield increase in cassava + 20% yield increase in sweet potato, but not in fields with yields above 20 t/ha
-
-    #gross revenue increase: 40% yield increase in cassava + 20% yield increase in sweet potato, but not in fields with yields above 20 t/ha in yield classes 1-3, 20% in cassava and 10% in sweet potato in yield class 4, and 0 in yield class 5
-    # dGR <- ifelse(FCY > 30, 0, ifelse(FCY > 20, FCY * 0.6 * 0.2 * rootUP + FSY * 0.8 * 0.1 * tuberUP, FCY * 0.6 * 0.4 * rootUP + FSY * 0.8 * 0.2 * tuberUP))
-    dGR <- ifelse(FCY > 30, 0, ifelse(FCY > 20, FCY * 0.8 * 0.2 * rootUP + FSY * 0.6 * 0.1 * tuberUP, 
-				FCY * 0.8 * 0.4 * rootUP + FSY * 0.6 * 0.2 * tuberUP))  #NEW CALCULATION
-
-    #evaluating if a solution was found
-    if (dTC == 0) {
-      dGR <- 0
-      #trans
-      reason_F <- "Mbolea sahihi haipatikani."
-      rec_F <- FALSE
-    } else { #trans
-      reason_F <- "Tunakushauri usitumie mbolea kwa sababu itakuongezea gharama hatimae utapata hasara."
-      rec_F <- TRUE
-    }
-  } else {
-    dTC <- 0
-    FR <- 0
-    dGR <- 0
-    #trans
-    reason_F <- "Kilimo mchanganyiko haupendekezwi.Panda muhogo peke yake."
-    rec_F <- FALSE
-  }
-
-  #net revenue increase from fertilizer
-  dNR <- dGR - dTC
-
-  if (dTC > 0) {
-    #minimal required net revenue increase from fertilizer needed (taking into account risk attitude of user)
-    dNRmin <- dTC * ifelse(riskAtt == 0, 1.8, ifelse(riskAtt == 1, 1, 0.2))
-
-    #check profitability of fertilizer use
-    if (dNR > dNRmin) {
-      rec_F <- TRUE
-      #trans
-      reason_F <- "Matumizi ya mbolea inapendekezwa."
-    }else {
-      dTC <- 0
-      dGR <- 0
-      dNR <- 0
-      FR <- FR * 0
-      rec_F <- FALSE
-
-      #trans
-      reason_F <- "Tunakushauri usitumie mbolea kwa sababu itakuongezea gharama hatimae utapata hasara"
-    }
-  }
-
-  #output
-  rec <- data.frame(rec_IC = rec_IC, #boolean indicating whether intercropping is recommended (more profitable than monocropping cassava)
-                    rec_F = rec_F, #TRUE or FALSE indicating if fertilizer application is recommended
-                    dNR = dNR, #net revenue increase from fertilizer use (in local currency)
-                    dTC = dTC, #extra cost for fertilizer use (in local currency)
-                    reason_F = reason_F #reason why fertilizer application is not recommended
-  )
-
-  fertilizer_rates <- data.frame(type = fertilizers$type, rate = FR) #fertilizer rates to apply
-  fertilizer_rates <- fertilizer_rates[fertilizer_rates$rate > 0,]
-
-  return(list(rec = rec, fertilizer_rates = fertilizer_rates))
-
-}
-

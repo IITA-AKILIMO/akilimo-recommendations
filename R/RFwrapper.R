@@ -54,7 +54,7 @@ new_Rfmodel_Wrapper <- function(FCY, country, lat, lon) {
 	out <- data.frame(
 		location = paste(lat, lon, sep = "_"),
 		lat = lat, 	
-		long = lon,
+		lon = lon,
 		soilN = exp(predict(RF_N, y) ),
 		soilP = exp(predict(RF_P, y)),
 		soilK = exp(predict(RF_K, y)),
