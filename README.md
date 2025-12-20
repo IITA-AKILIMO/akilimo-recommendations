@@ -396,6 +396,7 @@ SOFTWARE.
 
 ## Contributors
 
+- [@rhijmans](https://github.com/rhijmans)
 - [@omilika](https://github.com/omilika)
 - [@masgeek](https://github.com/masgeek)
 
