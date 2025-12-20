@@ -17,7 +17,8 @@ getFRrecText <- function(ds, country, fertilizers, rootUP) {
 	frate <- ds$fertilizer_rates
 
 	ci <- ifelse(country %in% c("NG", "GH", "BI"), 1, 
-			ifelse(country == "TZ", 2, 3)) #RW = 3
+			ifelse(country == "TZ", 2, 
+			ifelse(country == "RW", 3, NA)))
 
 	if (is.null(rec)) {
 		tr$norecom[ci]
@@ -32,18 +33,14 @@ getFRrecText <- function(ds, country, fertilizers, rootUP) {
 
     } else {
 
-	
       currency <- get_currency(country)
-
       fertilizerTypes <- frate$type
-      fertilizerRates <- round(frate$rate, digits = 0)
-
+      fertilizerRates <- round(frate$rate)
       bags <- round(fertilizerRates / 50, digits = 1)  # 50 hard coded
       Bagsfull <- trunc(bags)
       bagshalf <- bags - floor(bags)
       bagshalf <- ifelse(bagshalf >= 0.25 & bagshalf <= 0.75, 0.5, ifelse(bagshalf < 0.25, 0, 1))
       bags <- Bagsfull + bagshalf
-
 
       sum_total = ds$rec$TC
       fertilizers_recom <- fertilizers[fertilizers$type %in% ds$fertilizer_rates$type,]
@@ -52,7 +49,7 @@ getFRrecText <- function(ds, country, fertilizers, rootUP) {
       fertilizers_recom$cost <- round(fertilizers_recom$rate, digits = 0) * fertilizers_recom$price
       sum_total <- sum(fertilizers_recom$cost)
       totalSalePrice <- round(ds$rec$TC + ds$rec$NR, digits = 0)
-      revenue = totalSalePrice - sum_total
+      revenue <- totalSalePrice - sum_total
       revenue <- round(revenue, -2)
 
       fertilizers <- droplevels(fertilizers[fertilizers$type %in% frate$type,])
@@ -63,13 +60,13 @@ getFRrecText <- function(ds, country, fertilizers, rootUP) {
       DY <- signif(rec$TargetY - rec$CurrentY, digits = 2)
 
 		add_more <- function(x, i) {
-             paste0(x, tr$area[i], "\n",
+            paste0(x, tr$area[i], "\n",
                tr$willc[i], currency, " ", TC, ".\n",
                tr$extrap[i], DY, tr$tonof[1],
                tr$netincr[i], currency, " ", NR, ".")
-		}
+			}
 
-      recom <- if (ci == 1) {
+		recom <- if (ci == 1) {
 				add_more(paste0(tr$werec[1], "\n", fertilizerRates, tr$kgof[1], 
 					fertilizerTypes, collapse = "\n"), ci)
 			} else {
@@ -154,11 +151,20 @@ round5min <- function(x) {
 	round(floor(x * 10) / 10 + ifelse(x - (floor(x * 10) / 10) < 0.05, 0.025, 0.075), 3)
 }
 
-getFRrecommendations <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers, rootUP, areaHa, country, FCY, riskAtt) {
+getFRrecommendations <- function(lat, lon, HD, PD, maxInv, fertilizers, rootUP, areaHa, country, FCY, riskAtt) {
 
 	lat2 <- round5min(lat)
 	lon2 <- round5min(lon)
 #	latlon <- paste(lat2, lon2, sep = "_")
+
+
+	# Calculate planting and harvest dates/weeks
+	pd <- as.numeric(strftime(PD, format = "%j"))  # Planting day of year
+	pw <- as.numeric(strftime(PD, format = "%W"))  # Planting week of year
+	#hd <- as.numeric(strftime(HD, format = "%j"))  # Harvest day of year
+	#hw <- as.numeric(strftime(HD, format = "%W"))  # Harvest week of year
+	had <- as.numeric(difftime(HD, PD, units = "days"))  # Age in days
+	#haw <- round(had / 7)                                # Age in weeks
 
   ## get WLY:get PDand HD to the closest daes fr which we have WLY
 	WLY_365 <- get_data("WLY_365", country=country, lon=lon2, lat=lat2)
@@ -276,13 +282,13 @@ process <- function(...) {
 }
 
 
-process_FR <- function(lat, lon, pd, pw, HD, had, maxInv, fertilizers, rootUP, areaHa, country, FCY, 
+process_FR <- function(lat, lon, HD, maxInv, fertilizers, rootUP, areaHa, country, FCY, 
 				riskAtt, user, userField, area, areaUnits, PD, cassPD, cassUW) {
 
 	tr <- get_data("TRNS")
 
 	response <- getFRrecommendations(
-		lat = lat, lon = lon, pd = pd, pw = pw, HD = HD, had = had, maxInv = maxInv,
+		lat = lat, lon = lon, HD = HD, PD=PD, maxInv = maxInv,
 		fertilizers = fertilizers, rootUP = rootUP, areaHa = areaHa, country = country,
 		FCY = FCY, riskAtt = riskAtt
 	)
