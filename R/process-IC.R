@@ -9,8 +9,6 @@
 #INPUT:       See Cassava Crop Manager function for details
 getICrecommendations <- function(areaHa = 1, CMP = 1:5, cobUP, fertilizers, riskAtt = c(0, 1, 2)) {
 
- # if (!require("limSolve")) install.packages("limSolve"); library("limSolve")
-
   #calculating expected yield increase from fertilizer
   maizeY <- data.frame(CMP = 1:5, dY = c(0, 6500, 4000, 2500, 0))
 
@@ -20,7 +18,7 @@ getICrecommendations <- function(areaHa = 1, CMP = 1:5, cobUP, fertilizers, risk
   #extra gross revenue from fertilizer
   dGR <- dMP * cobUP
 
-  if (dGR == 0) {
+  if ((dGR == 0 || nrow(fertilizers) == 0)) {
     reason_F <- ifelse(CMP == 1, "of low soil fertility", "of high soil fertility")
     dTC <- 0
     FRATE <- 0
@@ -96,10 +94,14 @@ getICrecommendations <- function(areaHa = 1, CMP = 1:5, cobUP, fertilizers, risk
 
 
   }
-
-  fertilizer_rates <- data.frame(type = fertilizers$type, rate = FRATE) #fertilizer rates to apply
-  fertilizer_rates <- fertilizer_rates[fertilizer_rates$rate > 0,]
-
+	
+	if (nrow(fertilizer_rates > 0)) {
+		fertilizer_rates <- data.frame(type = fertilizers$type, rate = FRATE) #fertilizer rates to apply
+		fertilizer_rates <- fertilizer_rates[fertilizer_rates$rate > 0,]
+	} else {
+		fertilizer_rates <- data.frame(type = "", rate = 0)[0,]
+	}
+	
   if (CMP == 1) {
     rec$reason_F <- "Your soil is very poor. You need to improve soil fertility before considering investing in fertilizer. You should apply compost or manure, or fallow for at least 2 years. Plant maize at low density (20,000 plants per hectare) and saw the seeds at 50 cm within rows."
   }else if (CMP == 5) {
@@ -334,9 +336,12 @@ getCISrecommendations <- function(areaHa = 1, FCY = 11,
                     reason_F = reason_F #reason why fertilizer application is not recommended
   )
 
-  fertilizer_rates <- data.frame(type = fertilizers$type, rate = FR) #fertilizer rates to apply
-  fertilizer_rates <- fertilizer_rates[fertilizer_rates$rate > 0,]
-
+  if (nrow(fertilizers) > 0) {
+	fertilizer_rates <- data.frame(type = fertilizers$type, rate = FR) #fertilizer rates to apply
+	fertilizer_rates <- fertilizer_rates[fertilizer_rates$rate > 0,]
+  } else {
+	fertilizer_rates <- data.frame(type = "", rate = 0)[0,]
+  }
   list(recommendations=rec, fertilizer_rates=fertilizer_rates)
 
 }

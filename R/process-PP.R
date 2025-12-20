@@ -123,9 +123,8 @@ getPPrecText <- function(ds, country = c("NG", "TZ", "RW")) {
     } else {""}
 	
 	
-    rec <- paste(recT, rcost, tr$thank[1])
+    paste(recT, rcost, tr$thank[1])
   }
-  return(rec)
 }
 
 
