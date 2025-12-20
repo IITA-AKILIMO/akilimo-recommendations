@@ -51,12 +51,19 @@ get_cassUPUW <- function(cassUP, cassUW, cassPD, country, saleSF, nameSF) {
 }
 
 
-get_costLMO <- function(body, areaHa) {
+get_costLMO <- function(body, country, areaHa, areaUnits, ploughing, harrowing, ridging, method_ploughing, method_harrowing, method_ridging) {
 
     # Determine area basis for cost calculation
 	cost_LMO_areaBasis <- from_json("cost_LMO_areaBasis", body, default_value = "areaUnit")
     area_basis <- switch(cost_LMO_areaBasis, "areaField" = areaHa, 
 			"acre" = 0.404686, "ha" = 1, 0.0001)  # fallback default (likely m²)
+
+# for getWMrecommendations 
+#		fallowType <- from_json("fallowType", body, default_value = "none")
+		fallowHeight <- from_json("fallowHeight", body, default_value = NA)
+#		fallowGreen <- from_json("fallowGreen", body, default_value = FALSE)
+#		problemWeeds <- from_json("problemWeeds", body, default_value = FALSE)
+
 
 		tractor_plough <- from_json("tractor_plough", body, default_value = FALSE)
 		tractor_harrow <- from_json("tractor_harrow", body, default_value = FALSE)
@@ -69,12 +76,6 @@ get_costLMO <- function(body, areaHa) {
 		cost_manual_ridging <- from_json("cost_manual_ridging", body, default_value = NA)
 		cost_weeding1 <- from_json("cost_weeding1", body, default_value = NA)
 		cost_weeding2 <- from_json("cost_weeding2", body, default_value = NA)
-		ploughing <- from_json("ploughing", body, default_value = FALSE)
-		harrowing <- from_json("harrowing", body, default_value = FALSE)
-		ridging <- from_json("ridging", body, default_value = FALSE)
-		method_ploughing <- from_json("method_ploughing", body)
-		method_harrowing <- from_json("method_harrowing", body)
-		method_ridging <- from_json("method_ridging", body)
 		if (method_ploughing == "NA") method_ploughing <- "N/A"
 		if (method_ridging == "NA") method_ridging <- "N/A"
 		if (cost_manual_ploughing == 0) cost_manual_ploughing <- NA
@@ -158,13 +159,13 @@ get_costLMO <- function(body, areaHa) {
 				cost_tractor_ploughing, cost_tractor_harrowing, cost_tractor_ridging,
 				cost_weeding1, cost_weeding2)))) {
 		  costLMO_MD$area <- paste(costLMO_MD$area, areaUnits, sep = "")
-		  write.csv(./temp/costLMO_MD, "costLMO.csv", row.names = FALSE)
+		  write.csv(costLMO_MD, "./temp/costLMO.csv", row.names = FALSE)
 		} else {
 		  costLMO_MD <- costLMO
 		  names(costLMO_MD) <- c("operation", "method", "cost")
 		  costLMO_MD$area <- "1ha"
 		  costLMO_MD$cost <- formatC(signif(costLMO_MD$cost, digits = 3), format = "f", big.mark = ",", digits = 0)
-		  write.csv(./temp/costLMO_MD, "costLMO.csv", row.names = FALSE)
+		  write.csv(costLMO_MD, "./temp/costLMO.csv", row.names = FALSE)
 		}
 		costLMO
 }
@@ -345,7 +346,14 @@ run_akilimo <- function(json) {
 		
 	} else if (PP) {
 
-		costLMO <- get_costLMO(body, areaHa)
+		ploughing <- from_json("ploughing", body, default_value = FALSE)
+		harrowing <- from_json("harrowing", body, default_value = FALSE)
+		ridging <- from_json("ridging", body, default_value = FALSE)
+		method_ploughing <- from_json("method_ploughing", body)
+		method_harrowing <- from_json("method_harrowing", body)
+		method_ridging <- from_json("method_ridging", body)
+
+		costLMO <- get_costLMO(body, country, areaHa, areaUnits, ploughing, harrowing, ridging, method_ploughing, method_harrowing, method_ridging)
 		result <- process_PP(
 			PP = PP, country = country, areaHa = areaHa, costLMO = costLMO,
 			ploughing = ploughing, ridging = ridging,
@@ -380,12 +388,6 @@ run_akilimo <- function(json) {
 			cassUP_m1 = cassUP_m1, cassUP_m2 = cassUP_m2, cassUP_p1 = cassUP_p1, cassUP_p2 = cassUP_p2
 		)
     }
-
-# for getWMrecommendations 
-#		fallowType <- from_json("fallowType", body, default_value = "none")
-#		fallowHeight <- from_json("fallowHeight", body, default_value = NA)
-#		fallowGreen <- from_json("fallowGreen", body, default_value = FALSE)
-#		problemWeeds <- from_json("problemWeeds", body, default_value = FALSE)
 
 
     request_token <- jsonlite::unbox(from_json("request_token", body))

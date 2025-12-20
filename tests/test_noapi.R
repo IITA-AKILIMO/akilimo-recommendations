@@ -32,14 +32,32 @@ run <- function(i) {
 	run_akilimo(json)
 }
 
+
+run2 <- function(i) {
+	if (i %% 10 == 0) {	
+		cat("+--- ", i, " ---+\n"); flush.console()
+	}
+	json <- readLines(paste0(testdir, gsub("xxx", i, "/request/request_xxx.json")))
+	r <- try(run_akilimo(json))
+	flush.console()
+	if (inherits(r, "try-error")) {
+		cat("ERROR",  i, " ---+\n"); flush.console()	
+	}
+	r
+}
+
 for (f in grep("api", list.files(srcdir, pattern="\\.R$"), invert=TRUE, value=TRUE)) source(file.path(srcdir, f))
+
+#x <- vector(mode="list", 56492)
+#for (i in 55:56492) { x[[i]] <- run2(i) }
+
 
 #out <- lapply(1:29, run)
 
 out <- lapply(1:29, \(i) {r <- run(i); test(i, r); r})
 
-#timeout <- sapply(1:28, \(i) system.time(run(i))["elapsed"])
-##saveRDS(out, file.path(testdir, "test_out4.rds"))
+#timeout <- sapply(1:29, \(i) system.time(run(i))["elapsed"])
+saveRDS(out, file.path(testdir, "test_out4.rds"))
 
 
 add_new <- function(js) {
