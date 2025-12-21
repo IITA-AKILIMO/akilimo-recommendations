@@ -35,7 +35,7 @@ get_data <- function(x, country, FCY, lon, lat) {
 		if (nrow(soil) == 0) return(soil)
 		#soil$location <- paste(soil$lat, soil$lon, sep = "_")
 		#soil$Zone <- country
-		soil <- soil[, c("location", "lat", "lon", "soilN", "soilP", "soilK")]
+		soil <- soil[, c("lat", "lon", "soilN", "soilP", "soilK")]
 		soil$rec_N <- 0.5
 		soil$rec_P <- 0.15
 		soil$rec_K <- 0.5

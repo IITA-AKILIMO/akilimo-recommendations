@@ -7,12 +7,12 @@
 #             Returns (i) a 1-row dataframe cost-benefit parameters (extra yield, cost and net revenue, and whether to apply
 #             fertilizer and to plant maize at high density, and why (not)) , and (ii) a data.frame with types of fertilizer and rates to apply (zeros included).
 #INPUT:       See Cassava Crop Manager function for details
-getICrecommendations <- function(areaHa = 1, CMP = 1:5, cobUP, fertilizers, riskAtt = c(0, 1, 2)) {
+getICrecommendations <- function(areaHa, CMP, cobUP, fertilizers, riskAtt = c(0, 1, 2)) {
 
   #calculating expected yield increase from fertilizer
   maizeY <- data.frame(CMP = 1:5, dY = c(0, 6500, 4000, 2500, 0))
 
-  dMY <- maizeY[maizeY$CMP == CMP,]$dY
+  dMY <- maizeY[maizeY$CMP == CMP, "dY"]
   dMP <- dMY * areaHa #extra maize production for the area of the field
 
   #extra gross revenue from fertilizer
@@ -70,7 +70,8 @@ getICrecommendations <- function(areaHa = 1, CMP = 1:5, cobUP, fertilizers, risk
 
   #recommendation on high density maize planting
   rec_D <- ifelse(rec_F == TRUE | CMP == 5, TRUE, FALSE)
-  reason_D <- ifelse(rec_F == TRUE, "fertilizer use is recommended", ifelse(CMP == 5, "of high soil fertility", NA))
+  reason_D <- ifelse(rec_F == TRUE, "fertilizer use is recommended", 
+		ifelse(CMP == 5, "of high soil fertility", NA))
 
 
   #output
@@ -84,18 +85,16 @@ getICrecommendations <- function(areaHa = 1, CMP = 1:5, cobUP, fertilizers, risk
                       reason_D = reason_D)  #reason why high maize density is recommended
 
 
-  }else {
+  } else {
     rec <- data.frame(dMP = dMP, #extra maize production expected (in nr of cobs)
                       dNR = dNR, #net revenue increase from fertilizer use (in local currency)
                       dTC = dTC, #extra cost for fertilizer use (in local currency)
                       rec_F = rec_F, #TRUE or FALSE indicating if fertilizer application is recommended
                       rec_D = rec_D, #TRUE or FALSE indicating if high density maize planting is recommended
                       reason_F = reason_F) #reason why fertilizer application is not recommended
-
-
   }
 	
-	if (nrow(fertilizer_rates > 0)) {
+	if (nrow(fertilizers) > 0) {
 		fertilizer_rates <- data.frame(type = fertilizers$type, rate = FRATE) #fertilizer rates to apply
 		fertilizer_rates <- fertilizer_rates[fertilizer_rates$rate > 0,]
 	} else {
@@ -104,7 +103,7 @@ getICrecommendations <- function(areaHa = 1, CMP = 1:5, cobUP, fertilizers, risk
 	
   if (CMP == 1) {
     rec$reason_F <- "Your soil is very poor. You need to improve soil fertility before considering investing in fertilizer. You should apply compost or manure, or fallow for at least 2 years. Plant maize at low density (20,000 plants per hectare) and saw the seeds at 50 cm within rows."
-  }else if (CMP == 5) {
+  } else if (CMP == 5) {
     rec$reason_F <- "Your soil is very fertile. It is likely that your maize yield will not improve much after fertilizer application. Plant maize at high density (40,000 plants per hectare) and sow the seeds at 25 cm within rows."
   }
 
@@ -157,7 +156,7 @@ getICrecText <- function(x, maizePD) {
     #trans
     recD <- ifelse(ds$rec_D, "Plant your maize intercrop at high density: 1 m between rows and 25 cm within row (40,000 plants per hectare).",
                    paste0("Plant your maize intercrop at low density: 1 m between rows and 50 cm within row (20,000 plants per hectare) because ", ds$reason_D, "."))
-  }else {
+  } else {
 
     #trans
     recD <- ifelse(ds$rec_D, "Plant your maize intercrop at high density: 1 m between rows and 25 cm within row (40,000 plants per hectare).",
@@ -184,11 +183,14 @@ process_IC_NG <- function(
 	IC, country, areaHa, CMP, cobUP, fertilizers, riskAtt, maizePD, user, userField, area, areaUnits,
 	PD, HD, lat, lon, maizeUW, cassUW, saleSF, nameSF, rootUP, cassPD, maxInv, maizeUP) {
 	
+	
+	CMP <- min(5, max(1, as.numeric(CMP)))
+	
   # Generate IC recommendations
   res <- getICrecommendations(areaHa = areaHa, CMP = CMP, cobUP = cobUP, 
 							fertilizers = fertilizers, riskAtt = riskAtt)
 
-  if (nrow(res[[2]]) > 0) {
+  if (NROW(res$fertilizer_rates) > 0) {
     recText <- getICrecText(res, maizePD)
 
     write.csv(res, './temp/IC_rec.csv', row.names = FALSE)
@@ -219,8 +221,8 @@ process_IC_TZ <- function(IC, country, areaHa, FCY, tuberUP, rootUP, fertilizers
   res <- getCISrecommendations(areaHa = areaHa, FCY = FCY, tuberUP = tuberUP, rootUP = rootUP,
 					fertilizers = fertilizers, riskAtt = riskAtt)
 
-  if (nrow(res[[2]]) > 0) {
-    recText <- getCISrecText(ds = res)
+  if (NROW(res$fertilizer_rates) > 0) {
+    recText <- getCISrecText(res)
 
     write.csv(recText, './temp/CIS_recText.csv', row.names = FALSE)
 
@@ -352,34 +354,26 @@ getCISrecommendations <- function(areaHa = 1, FCY = 11,
 #' @param country
 #'
 #' @return the advice as text to print in app
-getCISrecText <- function(ds) {
+getCISrecText <- function(d) {
 
-	ds <- ds[["recommendations"]]
+	ds <- d[["recommendations"]]
 
   if (!ds$rec_IC) {
-
     # recIC <- "Intercropping is not recommended. Growing a cassava monocrop will give you a higher profit.\n"
     # recF  <- "If you consider investing in fertilizer, please use our Fertilizer Recommendations Tool to obtain fertilizer advice for a cassava monocrop."
 
     recIC <- "Kilimo mchanganyiko haipendekezwi. Kupanda muhogo peke yake utakupatia faida ya juu.\n"
     recF <- "Kama ungependa kuwekeza katika mbolea, tafadhali tumia chombo chetu cha mapandekezo ya mbolea ili kupata ushauri wa kupanda muhogo bila mseto."
-
-
-  }else {
+  } else {
 
     recIC <- "Tunapendekeza kuchanganya muhogo na viazi vitamu (kilimo mseto). Hii itakupatia faida ya juu na mapato ya haraka kutoka kwenye viazi vitamu."
     #recIC <- "This will generate a higher profit overall, and also give you access to early income from sweet potato.\n"
-
     if (!ds$rec_F) {
-
       #recF <- paste0("Fertilizer use is not recommended because ", ds$reason_F, ".\n")
       recF <- paste0("Haishauriwi kutumia  mbolea kwa sababu ", ds$reason_F, ".\n")
-
     } else {
-
       dTC <- formatC(signif(ds$dTC, digits = 3), format = "f", big.mark = ",", digits = 0)
       dNR <- formatC(signif(ds$dNR, digits = 3), format = "f", big.mark = ",", digits = 0)
-
       currency <- "TZS"
 
       #recF <- paste0("We recommend applying\n",
@@ -388,9 +382,8 @@ getCISrecText <- function(ds) {
       # "This will cost ", currency, " ", dTC, ". ",
       # "We expect a net value increase of ", currency, " ", dNR, " for the area of your field.")
 
-
       recF <- paste0("Tunapendekeza utumie\n",
-                     paste0("kilo ", round(ds[["fertilizer_rates"]]$rate), " ya ", ds[["fertilizer_rates"]]$type, collapse = "\n"), " ",
+                     paste0("kilo ", round(d[["fertilizer_rates"]]$rate), " ya ", ds[["fertilizer_rates"]]$type, collapse = "\n"), " ",
                      "\nkatika eneo la shamba lako.\n",
                      "Hii itagharimu shilingi ", currency, " ", dTC, ". ",
                      "Tunatarajia jumla ya ongezeko la thamani kwa ", currency, " ", dNR, " katika eneo la shamba lako.")
