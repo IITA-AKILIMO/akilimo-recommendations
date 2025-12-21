@@ -189,8 +189,7 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
 
 	for (k in 1:nrow(WLY)) {
 		Qinw <- data.frame(SoilData, WLY=WLY$water_limited_yield[k], water_limited_yield=WLY$water_limited_yield[k])
-		WLY$Current_Yield[k] <- QUEFTS(Qinw, c(0,0,0), HI=.55)
-			# in kg/ha dry
+		WLY$Current_Yield[k] <- QUEFTS(Qinw, c(0,0,0), HI=.55) # in kg/ha dry
 	}
 
     yld <- unique(data.frame(plw = WLY$PlweekNr, haw = WLY$haw, CY = WLY$Current_Yield, WY = WLY$water_limited_yield)) ## is still dry weight
@@ -236,7 +235,7 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
       ds$rootUP <- price
       ds <- subset(ds, select = -SC)
       #If not selling to a starch factory, user needs to specify rootUP across the harvest window
-    }else {
+    } else {
       dp <- data.frame(rHWnr = c(-8, -4, 0, 4, 8),
                        rootUP = c(rootUP_m2, rootUP_m1, rootUP, rootUP_p1, rootUP_p2))
       dpm <- suppressWarnings(loess(rootUP ~ rHWnr, data = dp))
@@ -246,12 +245,16 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
     }
 
     ds$GR <- ds$RP * ds$rootUP
-    ds$CP <- ifelse(ds$rPWnr == 0 & ds$rHWnr == 0, TRUE, FALSE)
-    ds$dGR <- ds$GR - ds[ds$CP == TRUE,]$GR
-
-    #sort by decreasing GR, increasing HWnr, decreasing PWnr
-    #recommendation is highest GR, earliest harvesting, latest planting combination
-    ds <- ds[order(-ds$dGR, ds$rHWnr, -ds$rPWnr),]
+    ds$CP <- (ds$rPWnr == 0) & (ds$rHWnr == 0)
+	if (!any(ds$CP)) {
+	    # the combination was not available in the yield data...
+		return(NULL)
+	} else {
+		ds$dGR <- ds$GR - ds[ds$CP, "GR"]
+		#sort by decreasing GR, increasing HWnr, decreasing PWnr
+		#recommendation is highest GR, earliest harvesting, latest planting combination
+		ds <- ds[order(-ds$dGR, ds$rHWnr, -ds$rPWnr),]
+	}
     write.csv(ds, "./temp/SP_rec.csv", row.names = FALSE)
 	ds
 }
@@ -266,7 +269,7 @@ process_SP <- function(
 
 	success <- FALSE
 	res <- NULL
-	if (PD_window == 0 && HD_window == 0) {
+	if ((PD_window == 0) && (HD_window == 0)) {
 		recText <- if (country %in% c("NG", "GH")) {
 			"AKILIMO provides advice for schedule planting if only at least your planting or harvest time or both are flexible. Please provide this information and you will be advised when the best time is for your location."
 		} else {

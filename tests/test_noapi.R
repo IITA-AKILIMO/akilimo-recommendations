@@ -46,11 +46,17 @@ run2 <- function(i) {
 	r
 }
 
+test <- function(i) {
+	json <- readLines(paste0(testdir, gsub("xxx", i, "/request/request_xxx.json")))
+	try(run_akilimo(json))
+	json
+}
+
 for (f in grep("api", list.files(srcdir, pattern="\\.R$"), invert=TRUE, value=TRUE)) source(file.path(srcdir, f))
 
-#x <- vector(mode="list", 56492)
-#for (i in 55:56492) { x[[i]] <- run2(i) }
-
+#x <- vector(mode="list", 3203)
+#for (i in 1:3203) { x[[i]] <- run2(i) }
+#saveRDS(x, file.path(testdir, "test_all1.rds"))
 
 #out <- lapply(1:29, run)
 

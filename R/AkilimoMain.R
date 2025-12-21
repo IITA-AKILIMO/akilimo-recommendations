@@ -254,7 +254,7 @@ run_akilimo <- function(json) {
 	areaUnits[areaUnits == "ekari"] <- "acre"
 	areaUnits[areaUnits == "hekta"] <- "ha"
 	
-    unit_factors <- c(ha=1, acre=2.47105, are=100, m2=10000)
+    unit_factors <- c(ha=1, acre=2.47105, are=100, m2=10000, string=1000)
 
     # Fallback to 10000 (i.e., square meters) if unit is unknown or missing
     conversion_factor2 <- unit_factors[[areaUnits]]
