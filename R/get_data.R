@@ -8,6 +8,32 @@ long2lon <- function(x) {
 	x
 }
 
+cellFromLonLat <- function(lon, lat, res=0.05) {
+	rown <- floor((90 - lat) / res)
+	coln <- floor((lon + 180) / res)
+	rown * 360/res + coln + 1
+}
+
+
+get_WLY_15M_ncdf <- function(country, lon, lat) {
+
+	cell <- cellFromLonLat(lon, lat)
+	
+	f <- paste0("data/yield/", country, "_WLY_LINTUL_2020SP.nc")
+	nc <- ncdf4::nc_open(f)
+	off <- which(nc$dim$cell$vals == cell)
+	if (length(off) != 1) return(NULL)
+	
+	x <- ncdf4::ncvar_get(nc, varid=NA, start=c(1,1,off), count=c(-1,-1,1))
+	ncdf4::nc_close(nc)
+	colnames(x) <- nc$dim$plant$vals
+	rownames(x) <- nc$dim$daysOnField$vals
+	x
+}
+
+
+
+
 get_data <- function(x, country, FCY, lon, lat) {
 	
 	if (x == "TRNS") {
@@ -87,12 +113,20 @@ get_data <- function(x, country, FCY, lon, lat) {
 			w <- readRDS(data_path("yield/Tanzania_WLY_LINTUL_2020_Server.RDS"))
 		} else if (country == "GH") {
 			w <- readRDS(data_path("yield/Ghana_WLY_LINTUL_SP.RDS"))
-		} else if (country == "BI") {
-			w <- readRDS(data_path("yield/Burundi_WLY_LINTUL_SP.RDS"))
+		#} else if (country == "BI") {
+		#	w <- readRDS(data_path("yield/Burundi_WLY_LINTUL_SP.RDS"))
 		} else {
 			stop(paste("WLY_15M", "not available for", country))
 		}
 		long2lon(w)
+	} else if (x == "WLY_15M_ncdf") {
+		v <- get_WLY_15M_ncdf(country, lon, lat)
+		v <- data.frame(WLY=as.vector(t(v)), pl_Date=as.numeric(colnames(v)), 
+						daysOnField=as.numeric(rep(rownames(v), each=ncol(v))))
+		#v$harvestDay <- v$daysOnField + v$pl_Date
+		v$PlweekNr = floor(v$pl_Date / 7 ) + 1
+
+		v
 	} else {
 		stop("no such data")
 	}

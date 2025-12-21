@@ -37,7 +37,8 @@ getSPrecText <- function(ds, country, PD, HD) {
         #trans
         if (country %in% c("NG", "GH")) {
           recP <- paste0(tr$recPln[1], format(ds[1,]$PD, "%d %B %Y"), ", ",
-                         abs(ds[1,]$rPWnr), " ", tr$wks[1], " ", ifelse(ds[1,]$rPWnr < 0, tr$early[1], tr$late[1]), " ", tr$recPlnP[1], "\n")
+                         abs(ds[1,]$rPWnr), " ", tr$wks[1], " ", 
+						 ifelse(ds[1,]$rPWnr < 0, tr$early[1], tr$late[1]), " ", tr$recPlnP[1], "\n")
 
         } else {
           recP <- paste0(tr$recPln[cni], " ", format(ds[1,]$PD, "%d %B %Y"), ", ",
@@ -59,10 +60,12 @@ getSPrecText <- function(ds, country, PD, HD) {
       if (ds[1,]$HD != ds[ds$CP == TRUE,]$HD) {
         if (country %in% c("NG", "GH")) {
           recH <- paste0(tr$recHvs[1], format(ds[1,]$PD, "%d %B %Y"), ", ",
-                         abs(ds[1,]$rPWnr), " ", tr$wks[1], " ", ifelse(ds[1,]$rPWnr < 0, tr$early[1], tr$late[1]), tr$recPhv[1], "\n")
+                         abs(ds[1,]$rPWnr), " ", tr$wks[1], " ", 
+						 ifelse(ds[1,]$rPWnr < 0, tr$early[1], tr$late[1]), tr$recPhv[1], "\n")
         } else {
-          recH <- paste0(tr$recHvs[cni], " ", format(ds[1,]$PD, "%d %B %Y"), ", ", tr$wks[cni], " ",
-                         abs(ds[1,]$rPWnr), " ", ifelse(ds[1,]$rPWnr < 0, tr$early[cni], tr$late[cni]), tr$recPhv[cni], "\n")
+          recH <- paste0(tr$recHvs[cni], " ", format(ds[1,]$PD, "%d %B %Y"), ", ", 
+						tr$wks[cni], " ", abs(ds[1,]$rPWnr), " ", 
+						ifelse(ds[1,]$rPWnr < 0, tr$early[cni], tr$late[cni]), tr$recPhv[cni], "\n")
         }
       }else {
         recH <- NULL
@@ -75,32 +78,29 @@ getSPrecText <- function(ds, country, PD, HD) {
         }
       }
 
-
       DP <- signif(ds[1,]$RP - ds[ds$CP == TRUE,]$RP, digits = 2)
       currency <- get_currency(country)
-      dGR <- formatC(signif(ds[1,]$dGR, digits = 3), format = "f", big.mark = ",", digits = 0)
-	  
+      dGR <- formatC(signif(ds[1,]$dGR, digits = 3), format = "f", big.mark = ",", digits = 0)	  
 
       if (DP == 0) {
-
         if (dGR == 0) {
             recR <- paste0(tr$rechange[cni],
-                     ifelse(!is.null(recH), paste(tr$hvst[cni]), paste(tr$plnt[cni])))
+                     ifelse(!is.null(recH), tr$hvst[cni], tr$plnt[cni]))
         } else {
             recR <- paste0(tr$recRatt1[cni], currency, " ", dGR, " ", tr$recRatt2[cni])
         }
       } else {
         if (dGR == 0) {
-            recR <- paste0(tr$exp[cni],
-                           ifelse(DP < 0, paste(tr$dec[cni]), paste(tr$inc[cni])), tr$root[cni], " ", abs(DP), " ", tr$ton[cni], tr$notot[cni],
-                           ifelse(!is.null(recH), paste(tr$hvst[cni]), paste(tr$plnt[cni])))
+            recR <- paste0(" ", tr$exp[cni],
+                           ifelse(DP < 0, tr$dec[cni], tr$inc[cni]), " ",
+						   tr$root[cni], " ", abs(DP), " ", tr$ton[cni], tr$notot[cni],
+                           ifelse(!is.null(recH), tr$hvst[cni], tr$plnt[cni]))
         } else {
-            recR <- paste0(tr$exp[cni],
-                           ifelse(DP < 0, paste(tr$dec[cni]), paste(tr$inc[cni])), tr$root[cni], " ", abs(DP), " ", tr$ton[cni],
-                           ifelse(DP < 0, paste(tr$but[cni]), paste(tr$and[cni])),
+            recR <- paste0(" ", tr$exp[cni],
+                           ifelse(DP < 0, tr$dec[cni], tr$inc[cni]), " ", 
+						   tr$root[cni], " ", abs(DP), " ", tr$ton[cni],
+                           ifelse(DP < 0, tr$but[cni], tr$and[cni]),
                            tr$valinc[cni], currency, " ", dGR, ".")
-
-
         }
       }
 
@@ -167,32 +167,37 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
   #                                                --- note the error 
   #latr <- as.numeric(levels(latr))
   #lonr <- as.numeric(levels(lonr))
-  latr <- round5min(lat)
-  lonr <- round5min(lon)
+  #latr <- round5min(lat)
+  #lonr <- round5min(lon)
  
   SoilData <- get_data("soil_NPK-4")
   SoilData <- SoilData[SoilData$lon == lonr & SoilData$lat == latr, ]
-
   
 	# it takes more than 10 seconds to read this, need to use a better apporach
-	WLY <- get_data("WLY_15M", country)
+#	WLY <- get_data("WLY_15M", country)
+#	latlon <- paste(latr, lonr, sep = "_")
+	##WLY_15M[WLY_15M$long == lonr & WLY_15M$lat == latr, ]
+#	WLY <- WLY[WLY$location == latlon,] 
 
-  latlon <- paste(latr, lonr, sep = "_")
-  ##WLY_15M[WLY_15M$long == lonr & WLY_15M$lat == latr, ]
-  WLY <- WLY[WLY$location == latlon,] 
-  #WLY_CY <- NULL
-	if ((nrow(SoilData) == 0) || isTRUE(is.na(SoilData$soilN)) || (nrow(WLY) == 0)) {
+	WLY <- get_data("WLY_15M_ncdf", country, lon=lon, lat=lat)
+
+	if ((nrow(SoilData) == 0) || isTRUE(is.na(SoilData$soilN)) || (NROW(WLY) == 0)) {
 		return(NULL)
 	}
    
 	WLY <- merge(WLY, data.frame(daysOnField = seq(235, 455, 7), haw = 34:65), by = "daysOnField")
 
+	## these could all be precomputed
 	for (k in 1:nrow(WLY)) {
-		Qinw <- data.frame(SoilData, WLY=WLY$water_limited_yield[k], water_limited_yield=WLY$water_limited_yield[k])
+#		Qinw <- data.frame(SoilData, WLY=WLY$water_limited_yield[k])
+		Qinw <- data.frame(SoilData, WLY=WLY$WLY[k]) #, water_limited_yield=WLY$WLY[k])
 		WLY$Current_Yield[k] <- QUEFTS(Qinw, c(0,0,0), HI=.55) # in kg/ha dry
 	}
 
-    yld <- unique(data.frame(plw = WLY$PlweekNr, haw = WLY$haw, CY = WLY$Current_Yield, WY = WLY$water_limited_yield)) ## is still dry weight
+#    yld <- unique(data.frame(plw = WLY$PlweekNr, haw = WLY$haw, CY = WLY$Current_Yield, WY = WLY$water_limited_yield)) ## is still dry weight
+
+    yld <- unique(data.frame(plw = WLY$PlweekNr, haw = WLY$haw, CY = WLY$Current_Yield, WY = WLY$WLY)) ## is still dry weight
+
     yld$CY <- round(yld$CY / 1000)
     yld$WY <- round(yld$WY / 1000)
 
@@ -248,6 +253,7 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
     ds$CP <- (ds$rPWnr == 0) & (ds$rHWnr == 0)
 	if (!any(ds$CP)) {
 	    # the combination was not available in the yield data...
+		message("this situation needs to be avoided")
 		return(NULL)
 	} else {
 		ds$dGR <- ds$GR - ds[ds$CP, "GR"]
@@ -312,6 +318,8 @@ process_SP <- function(
 		}
 	}
 
+	ds$PD <- as.character(ds$PD)
+	ds$HD <- as.character(ds$HD)
 	list(recom=success, data=list(recommendations=res, fertilizer_rates=NULL, 
 							message=recText, rec_type="SP"))
 
