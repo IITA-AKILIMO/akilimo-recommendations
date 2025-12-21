@@ -145,7 +145,9 @@ getFRrecomMarkdown <- function(lat, lon, PD, HD, maxInv, fertilizers, GPS_fertRe
   GPS_fertRecom2 <- suppressWarnings(data.frame(lapply(GPS_fertRecom, function(x) as.numeric(as.character(x)))))
   fertilizer <- fertilizers[fertilizers$type %in% colnames(GPS_fertRecom),]
   onlyFert <- subset(GPS_fertRecom, select = -c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
-  onlyFert <- tidyr::gather(onlyFert, type, amountKg)
+  #onlyFert <- tidyr::gather(onlyFert, type, amountKg)
+  onlyFert <- data.frame(type=names(onlyFert), amountKg=as.numeric(unlist(onlyFert)))
+  
   fertilizer_amount <- merge(fertilizer, onlyFert, by = "type")
   fertilizer_amount$cost <- fertilizer_amount$price * 50
   fertilizer_amount$Nrbags25 <- signif(fertilizer_amount$amountKg / 25, digits = 0) ##

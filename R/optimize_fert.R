@@ -77,7 +77,10 @@ run_Optim_NG2 <- function(rootUP, QID, fertilizer, invest, plDate, WLYData, lat,
 
     NR <- round(GR - TC, digits = 0)                                                # Net Revenue
 
-    Recomfr_wide <- tidyr::spread(Recomfr[, c('type', 'FR')], type, FR)
+#    Recomfr_wide <- tidyr::spread(Recomfr[, c('type', 'FR')], type, FR)
+	Recomfr_wide <- as.list(Recomfr$FR)
+	names(Recomfr_wide) <- Recomfr$type
+	Recomfr_wide <- as.data.frame(Recomfr_wide)
 
     d1 <- data.frame(lat = lat, lon = lon, plDate, N = NPK_user[1], P = NPK_user[2], K = NPK_user[3],
                      WLY = WLY_user, CurrentY = CY_user, TargetY = TY_user, TC = TC, NR = NR)

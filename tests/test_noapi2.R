@@ -31,8 +31,9 @@ test2 <- function(i) {
 
 for (f in grep("api", list.files(srcdir, pattern="\\.R$"), invert=TRUE, value=TRUE)) source(file.path(srcdir, f))
 
-#cmp2 <- vector(mode="list", 3203)
-#for (i in 1:3203) { cmp2[[i]] <- run2(i) }
+cmp2 <- vector(mode="list", 3203)
+for (i in 1:3203) { cmp2[[i]] <- run2(i) }
+
 #saveRDS(cmp2, file.path(testdir, "test_all1.rds"))
 #cmp2 <- readRDS(file.path(testdir, "test_all1.rds"))
 #rct <- sapply(cmp2, \(x) x$data$rec_type)

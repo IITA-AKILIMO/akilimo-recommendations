@@ -67,13 +67,12 @@ getFRrecText <- function(ds, country, fertilizers, rootUP) {
 			}
 
 		recom <- if (ci == 1) {
-				add_more(paste0(tr$werec[1], "\n", fertilizerRates, tr$kgof[1], 
-					fertilizerTypes, collapse = "\n"), ci)
+				add_more(paste0(tr$werec[1], "\n", paste0(fertilizerRates, tr$kgof[1], 
+					fertilizerTypes, collapse = "\n")), ci)
 			} else {
-				add_more(paste0(tr$werec[2], " ", "\n", tr$kgof[2], 
-					fertilizerRates, tr$of[2], fertilizerTypes, collapse = "\n"), ci)
+				add_more(paste0(tr$werec[2], "\n", paste0(tr$kgof[2], 
+					fertilizerRates, tr$of[2], fertilizerTypes, collapse = "\n")), ci)
 			}
-
 
       #TODO: This only provides the minimal information to return to the user. We may consider adding following information:
       #1. Split regime - how should this fertilizer application be distributed over time?
@@ -149,6 +148,11 @@ NRabove18Cost <- function(ds, riskAtt) {
 
 
 getFRrecommendations <- function(lat, lon, HD, PD, maxInv, fertilizers, rootUP, areaHa, country, FCY, riskAtt) {
+
+	go_there <- function(x) {
+		# as.numeric to get rid of the names
+		data.frame(type=names(x), rate=as.numeric(unlist(x)))
+	}
 
 	# Calculate planting and harvest dates/weeks
 	pd <- as.numeric(strftime(PD, format = "%j"))  # Planting day of year
@@ -229,7 +233,8 @@ getFRrecommendations <- function(lat, lon, HD, PD, maxInv, fertilizers, rootUP, 
 
       ## 4. remove ferilizer application < 25 kg/ha and re run the TY and NR calculation
       RecomperHa <- onlyFert / areaHa
-      RecomperHa2 <- tidyr::gather(RecomperHa, type, rate)
+      RecomperHa2 <- go_there(RecomperHa)
+
       onlyFert2 <- droplevels(RecomperHa2[RecomperHa2$rate > 25,])
 
       if (nrow(onlyFert2) == 0) { ## if all fertilizer recom < 25 kg/ha all will be set to 0
@@ -242,25 +247,33 @@ getFRrecommendations <- function(lat, lon, HD, PD, maxInv, fertilizers, rootUP, 
         GPS_fertRecom <- NRabove18Cost(ds = Reset_fert_Cont, riskAtt = riskAtt)
         rec <- subset(GPS_fertRecom, select = c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
         frates <- subset(GPS_fertRecom, select = -c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
-        frates2 <- tidyr::gather(frates, type, rate)
+#        frates2 <- tidyr::gather(frates, type, rate)
+        frates2 <- go_there(frates)
         return(list(recommendations = rec, fertilizer_rates = frates2))
 
       } else {
 	  ## when some fertilizer recom are dropped b/c < 25 kg/ha, ty and NR should be recalculated
-        fert25 <- tidyr::spread(onlyFert2, type, rate) 
+##      fert25 <- tidyr::spread(onlyFert2, type, rate) 
+		fert25 <- as.list(onlyFert2$rate)
+		names(fert25) <- onlyFert2$type
+		fert25 <- as.data.frame(fert25)
+	
         fert_optim2 <- cbind(fertinfo, fert25)
         fertilizer <- fertilizers[fertilizers$type %in% onlyFert2$type,]
-        Reset_fert_Cont <- Rerun_25kgKa_try(rootUP = rootUP, rdd = fert_optim2, fertilizer = fertilizer, QID = SoilData, onlyFert = onlyFert2,
-                                            country = country, WLY = WLY, DCY = DCY, HD = HD, areaHa = areaHa)
+        Reset_fert_Cont <- Rerun_25kgKa_try(rootUP = rootUP, rdd = fert_optim2, 
+				fertilizer = fertilizer, QID = SoilData, onlyFert = onlyFert2, 
+				country = country, WLY = WLY, DCY = DCY, HD = HD, areaHa = areaHa)
         if (Reset_fert_Cont$NR <= 0) { ## after rerunning after avoiding <25KG/ha fertilizers, if NR <=0
           fertilizer_rates <- NULL
           return(list(recommendations = Reset_fert_Cont, fertilizer_rates = fertilizer_rates))
         } else {
-          print("The elesae happens here you know")
+#          print("The elesae happens here you know")
           GPS_fertRecom <- NRabove18Cost(ds = Reset_fert_Cont, riskAtt = riskAtt)
           rec <- subset(GPS_fertRecom, select = c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
           frates <- subset(GPS_fertRecom, select = -c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
-          frates2 <- tidyr::gather(frates, type, rate)
+#          frates2 <- tidyr::gather(frates, type, rate)
+          frates2 <- go_there(frates)
+		  
           return(list(recommendations = rec, fertilizer_rates = frates2))
 
         }
