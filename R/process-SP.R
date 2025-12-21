@@ -207,8 +207,6 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
     # ds <- droplevels(ds[ds$PD >= Sys.Date(),])
     ds$plw <- as.numeric(format(ds$PD, format = "%W")) + 1
     ds$haw <- round(as.numeric(ds$HD - ds$PD) / 7)
-    ds$plw <- as.numeric(format(ds$PD, format = "%W"))
-    ds$haw <- round(as.numeric(ds$HD - ds$PD) / 7)
 
     ds <- merge(ds, yld)
 
