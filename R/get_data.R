@@ -8,6 +8,10 @@ long2lon <- function(x) {
 	x
 }
 
+round5min <- function(x) {
+	round(floor(x * 10) / 10 + ifelse(x - (floor(x * 10) / 10) < 0.05, 0.025, 0.075), 3)
+}
+
 cellFromLonLat <- function(lon, lat, res=0.05) {
 	rown <- floor((90 - lat) / res)
 	coln <- floor((lon + 180) / res)
@@ -26,11 +30,13 @@ get_WLY_15M_ncdf <- function(country, lon, lat) {
 	
 	x <- ncdf4::ncvar_get(nc, varid=NA, start=c(1,1,off), count=c(-1,-1,1))
 	ncdf4::nc_close(nc)
-	colnames(x) <- nc$dim$plant$vals
-	rownames(x) <- nc$dim$daysOnField$vals
+	
+	x <- data.frame(WLY=as.vector(t(x)), pl_Date=as.numeric(nc$dim$plant$vals), 
+					daysOnField=as.numeric(rep(nc$dim$daysOnField$vals, each=ncol(x))))
+
+	x$PlweekNr = floor(x$pl_Date / 7 ) + 1
 	x
 }
-
 
 
 
@@ -50,13 +56,24 @@ get_data <- function(x, country, FCY, lon, lat) {
 		read.csv(data_path("input/starchPrices.csv"))
 	} else if (x == "dry_matter") {
 		read.csv(data_path("input/fd2.csv"))
+	} else if (x == "RF_soil") {
+		CONc <- as.integer(cut(FCY, breaks = c(-Inf, 7.5, 15, 22.5, 30, Inf), right=FALSE))
+		p <- get_data("predicted_soil_properties")
+		lat <- round5min(lat)
+		lon <- round5min(lon)
+		p[p$CONclass == CONc & p$lon == lon & p$lat == lat, ]		
 	} else if (x == "soil_NPK-4") {
 		out <- readRDS(data_path("soil/SoilData_4Country.RDS"))
-		long2lon(out)		
+		out <- long2lon(out)
+		lat <- round5min(lat)
+		lon <- round5min(lon)
+		out[out$lon == lon & out$lat == lat, ]
 	} else if (x == "soil_NPK") {
 		fcyy <- cut(FCY, breaks=c(-Inf, 7.5, 15, 22.5, 30, Inf), right=FALSE, labels=paste0("FCY", 1:5))
 		f <- data_path(paste0("soil/", country, "_", fcyy, "_soilNPK.RDS"))
 		soil <- readRDS(f)
+		lat <- round5min(lat)
+		lon <- round5min(lon)
 		soil <- soil[round(soil$lon, 3)==lon & round(soil$lat,3)==lat, ]
 		if (nrow(soil) == 0) return(soil)
 		#soil$location <- paste(soil$lat, soil$lon, sep = "_")
@@ -104,6 +121,8 @@ get_data <- function(x, country, FCY, lon, lat) {
 		}
 		# should be fixed in files.
 		w <- long2lon(w)
+		lat <- round5min(lat)
+		lon <- round5min(lon)
 		w[round(w$lon,3)==lon & round(w$lat,3)==lat, ]
 
 	} else if (x == "WLY_15M") {
@@ -120,13 +139,7 @@ get_data <- function(x, country, FCY, lon, lat) {
 		}
 		long2lon(w)
 	} else if (x == "WLY_15M_ncdf") {
-		v <- get_WLY_15M_ncdf(country, lon, lat)
-		v <- data.frame(WLY=as.vector(t(v)), pl_Date=as.numeric(colnames(v)), 
-						daysOnField=as.numeric(rep(rownames(v), each=ncol(v))))
-		#v$harvestDay <- v$daysOnField + v$pl_Date
-		v$PlweekNr = floor(v$pl_Date / 7 ) + 1
-
-		v
+		get_WLY_15M_ncdf(country, lon, lat)
 	} else {
 		stop("no such data")
 	}

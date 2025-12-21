@@ -1,12 +1,6 @@
 
+# NOT USED
 # now using precomputed data 
-Rfmodel_values <- function(FCY, lat, lon) { 
-#	cat(FCY, ", ", lat, ", ", lon, "\n")
-	CONc <- as.integer(cut(FCY, breaks = c(-Inf, 7.5, 15, 22.5, 30, Inf), right=FALSE))
-	p <- get_data("predicted_soil_properties")
-	p[p$CONclass == CONc & p$lon == lon & p$lat == lat, ]
-}
-
 
 # this new version of leaner and meaner. It uses all the data instead of sample (why would you?), but only 250 trees (100 is usually enough, 1000 is excessive). However, this leads to small differences with the original and the quefts optimization is very sensitive to that. So currently not being used. 
 

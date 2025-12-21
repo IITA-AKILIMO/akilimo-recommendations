@@ -5,10 +5,6 @@ get_currency <- function(country) {
 	m[i,2]
 }
 
-round5min <- function(x) {
-	round(floor(x * 10) / 10 + ifelse(x - (floor(x * 10) / 10) < 0.05, 0.025, 0.075), 3)
-}
-
 
 # to replace plyr::ddply (and the need for the plyr package)
 # not used anymore 

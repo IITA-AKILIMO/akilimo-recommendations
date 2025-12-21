@@ -150,11 +150,6 @@ NRabove18Cost <- function(ds, riskAtt) {
 
 getFRrecommendations <- function(lat, lon, HD, PD, maxInv, fertilizers, rootUP, areaHa, country, FCY, riskAtt) {
 
-	lat2 <- round5min(lat)
-	lon2 <- round5min(lon)
-#	latlon <- paste(lat2, lon2, sep = "_")
-
-
 	# Calculate planting and harvest dates/weeks
 	pd <- as.numeric(strftime(PD, format = "%j"))  # Planting day of year
 	pw <- as.numeric(strftime(PD, format = "%W"))  # Planting week of year
@@ -164,7 +159,7 @@ getFRrecommendations <- function(lat, lon, HD, PD, maxInv, fertilizers, rootUP, 
 	#haw <- round(had / 7)                                # Age in weeks
 
   ## get WLY:get PDand HD to the closest daes fr which we have WLY
-	WLY_365 <- get_data("WLY_365", country=country, lon=lon2, lat=lat2)
+	WLY_365 <- get_data("WLY_365", country=country, lon=lon, lat=lat)
 	
 	#wlyPD <- unique(WLY_365$pl_Date)
 	wlyPD <- seq(1, 365, 7)
@@ -196,9 +191,9 @@ getFRrecommendations <- function(lat, lon, HD, PD, maxInv, fertilizers, rootUP, 
     ## get soil NPK
     if (country %in% c("NG", "TZ")) {
 		# SoilData <- Rfmodel_Wrapper(FCY = FCY, country = country, lat = lat2, lon = lon2)
-		SoilData <- Rfmodel_values(FCY=FCY, lat=lat2, lon=lon2)
+		SoilData <- get_data("RF_soil", FCY=FCY, lat=lat, lon=lon)
     } else {
-		SoilData <- get_data("soil_NPK", country, FCY, lon=lon2, lat=lat2)
+		SoilData <- get_data("soil_NPK", country, FCY, lon=lon, lat=lat)
     }
 
     ## get CY
@@ -251,7 +246,8 @@ getFRrecommendations <- function(lat, lon, HD, PD, maxInv, fertilizers, rootUP, 
         return(list(recommendations = rec, fertilizer_rates = frates2))
 
       } else {
-        fert25 <- tidyr::spread(onlyFert2, type, rate) ## when some fertilizer recom are dropped b/c < 25 kg/ha, ty and NR should be recalculated
+	  ## when some fertilizer recom are dropped b/c < 25 kg/ha, ty and NR should be recalculated
+        fert25 <- tidyr::spread(onlyFert2, type, rate) 
         fert_optim2 <- cbind(fertinfo, fert25)
         fertilizer <- fertilizers[fertilizers$type %in% onlyFert2$type,]
         Reset_fert_Cont <- Rerun_25kgKa_try(rootUP = rootUP, rdd = fert_optim2, fertilizer = fertilizer, QID = SoilData, onlyFert = onlyFert2,

@@ -167,11 +167,8 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
   #                                                --- note the error 
   #latr <- as.numeric(levels(latr))
   #lonr <- as.numeric(levels(lonr))
-  #latr <- round5min(lat)
-  #lonr <- round5min(lon)
  
-  SoilData <- get_data("soil_NPK-4")
-  SoilData <- SoilData[SoilData$lon == lonr & SoilData$lat == latr, ]
+  SoilData <- get_data("soil_NPK-4", lon=lon, lat=lat)
   
 	# it takes more than 10 seconds to read this, need to use a better apporach
 #	WLY <- get_data("WLY_15M", country)
@@ -318,8 +315,6 @@ process_SP <- function(
 		}
 	}
 
-	ds$PD <- as.character(ds$PD)
-	ds$HD <- as.character(ds$HD)
 	list(recom=success, data=list(recommendations=res, fertilizer_rates=NULL, 
 							message=recText, rec_type="SP"))
 
