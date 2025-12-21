@@ -46,7 +46,7 @@ run2 <- function(i) {
 	r
 }
 
-test <- function(i) {
+test2 <- function(i) {
 	json <- readLines(paste0(testdir, gsub("xxx", i, "/request/request_xxx.json")))
 	try(run_akilimo(json))
 	json
@@ -54,9 +54,33 @@ test <- function(i) {
 
 for (f in grep("api", list.files(srcdir, pattern="\\.R$"), invert=TRUE, value=TRUE)) source(file.path(srcdir, f))
 
-#x <- vector(mode="list", 3203)
-#for (i in 1:3203) { x[[i]] <- run2(i) }
-#saveRDS(x, file.path(testdir, "test_all1.rds"))
+#cmp2 <- vector(mode="list", 3203)
+#for (i in 1:3203) { cmp2[[i]] <- run2(i) }
+#saveRDS(cmp2, file.path(testdir, "test_all1.rds"))
+#cmp2 <- readRDS(file.path(testdir, "test_all1.rds"))
+#rct <- sapply(cmp2, \(x) x$data$rec_type)
+#s <- which(rct == "FR")
+
+#for (j in s) {
+r <- lapply(s, \(j) {
+	x <- jsonlite::fromJSON(readLines(paste0(testdir, gsub("xxx", j, "/response/response_xxx.json"))))
+	y <- cmp2[[j]]
+	if (length(x) < 2) {
+		#next
+		return(TRUE)
+	}
+	if (is.data.frame(x)) {
+		xr <- unlist(x[2,][[1]])
+	} else {
+		xr <- unlist(x[[2]])
+	}
+	names(xr) <- NULL
+	yr <- as.character(y$data$recommendation)
+	tst <- tinytest::expect_equal(gsub(" ", "", xr), gsub(" ", "", yr))
+}
+)
+table(sapply(r, isTRUE))
+#z <- jsonlite::fromJSON(readLines(paste0(testdir, gsub("xxx", i, "/response/response_xxx.json"))))
 
 #out <- lapply(1:29, run)
 
