@@ -117,10 +117,10 @@ get_costLMO <- function(body, country, areaHa, areaUnits, ploughing, harrowing, 
 			costLMO[costLMO$operation == "ploughing" & tract, "costHa"] <- 6000 * 2.47105
 		  }
 		  if (is.na(cost_tractor_harrowing) & tractor_harrow) {
-			costLMO[costLMO$operation == "harrowing" & "tract", "costHa"] <- 6000 * 2.47105
+			costLMO[costLMO$operation == "harrowing" & tract, "costHa"] <- 6000 * 2.47105
 		  } 
 		  if (is.na(cost_tractor_ridging) & tractor_ridger) {
-			costLMO[costLMO$operation == "ridging" & "tract", "costHa"] <- 6000 * 2.47105
+			costLMO[costLMO$operation == "ridging" & tract, "costHa"] <- 6000 * 2.47105
 		  }
 		  if (is.na(cost_weeding1)) {
 			costLMO[costLMO$operation == "weeding1", "costHa"] <- 30000 * 2.47105
@@ -218,7 +218,7 @@ run_akilimo <- function(json) {
     cassUW <- from_json("cassUW", body, default_value = 1000)
     cassUP <- from_json("cassUP", body)
     maxInv <- from_json("maxInv", body, default_value = NA)
-    if (maxInv == 0) maxInv <- NA
+    if (!isTRUE(maxInv > 0)) maxInv <- NA
 
     user <- get_user(body)    
 	userField <- from_json("userField", body)
@@ -251,6 +251,9 @@ run_akilimo <- function(json) {
     rootUP <- cassUP / cass_denominator
 
     # Define unit conversion factors to hectares
+	areaUnits[areaUnits == "ekari"] <- "acre"
+	areaUnits[areaUnits == "hekta"] <- "ha"
+	
     unit_factors <- c(ha=1, acre=2.47105, are=100, m2=10000)
 
     # Fallback to 10000 (i.e., square meters) if unit is unknown or missing
@@ -376,15 +379,12 @@ run_akilimo <- function(json) {
 		rootUP_p2 <- cassUP_p2 / cass_denominator
 
 		result <- process_SP(
-			SPP = SPP, SPH = SPH, PD_window = PD_window, HD_window = HD_window,
-			areaHa = areaHa, country = country, lat = lat, lon = lon, PD = PD, HD = HD,
-			saleSF = saleSF, nameSF = nameSF, FCY = FCY,
-			rootUP = rootUP, rootUP_m1 = rootUP_m1, rootUP_m2 = rootUP_m2,
+			SPP = SPP, SPH = SPH, PD_window = PD_window, HD_window = HD_window,	areaHa = areaHa,
+			country = country, lat = lat, lon = lon, PD = PD, HD = HD, saleSF = saleSF, nameSF = nameSF,
+			FCY = FCY, rootUP = rootUP, rootUP_m1 = rootUP_m1, rootUP_m2 = rootUP_m2, 
 			rootUP_p1 = rootUP_p1, rootUP_p2 = rootUP_p2, user = user, userField = userField,
-			area = area, areaUnits = areaUnits, maxInv = maxInv,
-			ploughing = ploughing, ridging = ridging, method_ploughing = method_ploughing,
-			method_ridging = method_ridging, CMP = CMP, riskAtt = riskAtt,
-			cassPD = cassPD, cassUW = cassUW, cassUP = cassUP,
+			area = area, areaUnits = areaUnits, maxInv = maxInv, ploughing = ploughing, ridging = ridging, method_ploughing = method_ploughing,	method_ridging = method_ridging, CMP = CMP, 
+			riskAtt = riskAtt, cassPD = cassPD, cassUW = cassUW, cassUP = cassUP,
 			cassUP_m1 = cassUP_m1, cassUP_m2 = cassUP_m2, cassUP_p1 = cassUP_p1, cassUP_p2 = cassUP_p2
 		)
     }
