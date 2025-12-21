@@ -207,6 +207,7 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
     # ds <- droplevels(ds[ds$PD >= Sys.Date(),])
     ds$plw <- as.numeric(format(ds$PD, format = "%W")) + 1
     ds$haw <- round(as.numeric(ds$HD - ds$PD) / 7)
+
     ds <- merge(ds, yld)
 
     #converting dry yields to fresh root yields
@@ -230,7 +231,7 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
       SF <- SF[SF$starchFactory == nameSF,]
       price <- NULL
       for (i in 1:nrow(ds)) {
-        price <- c(price, max(SF[SF$minStarch < ds[i,]$SC,]$price))
+        price <- c(price, max(SF[SF$minStarch < ds[i,"SC"], "price"]))
       }
       ds$rootUP <- price
       ds <- subset(ds, select = -SC)
@@ -264,14 +265,15 @@ process_SP <- function(
 
 
 	success <- FALSE
+	res <- NULL
 	if (PD_window == 0 && HD_window == 0) {
 		recText <- if (country %in% c("NG", "GH")) {
 			"AKILIMO provides advice for schedule planting if only at least your planting or harvest time or both are flexible. Please provide this information and you will be advised when the best time is for your location."
 		} else {
 			"AKILIMO hutoa ushauri wa upandaji wa ratiba ikiwa angalau wakati wako wa upandaji au wakati wa kuvuna au zote mbili zinabadilika. Tafadhali toa habari hii na utashauriwa wakati mzuri wa kupanda na kuvuna kwa eneo lako"
 		}
-		res <- NULL
-
+	} else if ((HD - PD) <= 30) {
+		recText <- "Planting date should be at least 1 month after planting date."
 	} else {
 
 		res <- getSPrecommendations(
