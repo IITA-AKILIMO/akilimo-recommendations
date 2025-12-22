@@ -1,6 +1,6 @@
 #!/usr/bin/Rscript --vanilla
 
-pks <- c("plumber", "limSolve", "tidyr", "webshot", "httr", "mailR")
+pks <- c("plumber", "limSolve", "ncdf4", "webshot", "httr", "mailR")
 
 # perhaps: leaflet, mapview, flexdashboard, lubridate, grid, rJava
 

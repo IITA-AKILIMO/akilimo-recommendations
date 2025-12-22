@@ -34,9 +34,7 @@ getPPrecommendations <- function(areaHa, costLMO,
   ds$RP <- ds$RY * areaHa
 
   #calculating total cost, gross and net revenue
-  ds$TC <- (ds$cost_ploughing +
-    ds$cost_ridging +
-    ds$cost_weeding) * areaHa
+  ds$TC <- (ds$cost_ploughing + ds$cost_ridging + ds$cost_weeding) * areaHa
   ds$GR <- ds$RP * rootUP
   ds$NR <- ds$GR - ds$TC
 
@@ -128,7 +126,7 @@ getPPrecText <- function(ds, country = c("NG", "TZ", "RW")) {
 }
 
 
-process_PP <- function( PP, country, areaHa, costLMO, ploughing, ridging,
+process_PP <- function(PP, country, areaHa, costLMO, ploughing, ridging,
 		method_ploughing, method_ridging, FCY, rootUP, riskAtt, user,
 		userField, area, areaUnits, PD, HD, lat, lon, cassPD, cassUW, maxInv) {
 
