@@ -22,6 +22,7 @@ cellFromLonLat <- function(lon, lat, res=0.05) {
 get_WLY_15M_ncdf <- function(country, lon, lat) {
 
 	cell <- cellFromLonLat(lon, lat)
+	if (country == "BI") return(NULL)
 	
 	f <- paste0("data/yield/", country, "_WLY_LINTUL_2020SP.nc")
 	nc <- ncdf4::nc_open(f)
