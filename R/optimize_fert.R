@@ -137,25 +137,27 @@ optim_NR <- function(fertRate, rootUP, QID, CY, fertilizer, invest, HD, country,
 #' @param fertilizer
 #' @author Meklit
 #' @export
-Rerun_25kgKa_try <- function(rootUP, rdd, fertilizer, QID, onlyFert, country, WLY = WLY, DCY = DCY, HD = HD, areaHa = areaHa) {
+rerun_25kgha <- function(rootUP, rdd, fertilizer, QID, onlyFert25, country, WLY = WLY, DCY = DCY, HD = HD, areaHa=areaHa) {
+	
+    fertilizer <- fertilizer[fertilizer$type %in% names(onlyFert25),]
+	fert25 <- onlyFert25[match(names(onlyFert25), fertilizer$type)]
+	fert <- unlist(fert25)
+	
+	rec <- c(sum(fert * fertilizer$N_cont), 
+			sum(fert * fertilizer$P_cont),
+			sum(fert * fertilizer$K_cont))
 
 	QID$WLY <- WLY
-	fertilizer <- merge(fertilizer, onlyFert, by = 'type')
-	N <- as.vector(fertilizer$rate %*% fertilizer$N_cont)
-	P <- as.vector(fertilizer$rate %*% fertilizer$P_cont)
-	K <- as.vector(fertilizer$rate %*% fertilizer$K_cont)
-	rec <- c(N, P, K)
-
 	TY <- QUEFTS(QID, rec) #dry wt yield in kg/ha
 
 	rdd$CurrentY <- getRFY(HD = HD, RDY = DCY, country = country) * areaHa / 1000
 	rdd$TargetY <- getRFY(HD = HD, RDY = TY, country = country) * areaHa / 1000
-	rdd$TC <- round((sum(fertilizer$price * fertilizer$rate)) * areaHa, -2)
+	rdd$TC <- round(sum(fertilizer$price * fert) * areaHa, -2)
 
 	nr <- round((rdd$TargetY - rdd$CurrentY) * rootUP, -2)
 	rdd$NR <- nr - rdd$TC
 
-	rdd <- subset(rdd, select = c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
+#	rdd <- subset(rdd, select = c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
 	if (rdd$NR <= 0 | rdd$TargetY <= rdd$CurrentY) {
 		rdd$N <- rdd$P <- rdd$K <- rdd$TC <- rdd$NR <- 0
 		rdd$TargetY <- rdd$CurrentY

@@ -73,6 +73,8 @@ getFRrecText <- function(ds, country, fertilizers, rootUP) {
 				add_more(paste0(tr$werec[2], "\n", paste0(tr$kgof[2], 
 					fertilizerRates, tr$of[2], fertilizerTypes, collapse = "\n")), ci)
 			}
+		
+		gsub("[ ]+", " ", recom)
 
       #TODO: This only provides the minimal information to return to the user. We may consider adding following information:
       #1. Split regime - how should this fertilizer application be distributed over time?
@@ -82,7 +84,6 @@ getFRrecText <- function(ds, country, fertilizers, rootUP) {
       #5. Possible issues with the input data - very high fertilizer prices or very low root price, very low or very high FCY, very low or very high WY,...
   }
 
-	gsub("[ ]+", " ", recom)
 }
 
 
@@ -214,10 +215,8 @@ getFRrecommendations <- function(lat, lon, HD, PD, maxInv, fertilizers, rootUP, 
     WLY <- WLYdata$water_limited_yield ## DM in kg/ha
     DCY <- WLYdata$Current_Yield ## DM in kg/ha
 
-
     ## 2. change investment from given areaHa to 1ha
     InvestHa <- (maxInv / areaHa)
-
 
     ## 3. optimize the fertilizer recommendation for maxInv in local currency and provide expected target yield in kg
     fert_optim <- run_Optim_NG2(rootUP = rootUP, QID = SoilData, fertilizer = fertilizers, 
@@ -225,57 +224,45 @@ getFRrecommendations <- function(lat, lon, HD, PD, maxInv, fertilizers, rootUP, 
 			lat = lat, lon = lon, areaHa=areaHa, HD = HD, DCY = DCY, WLY = WLY, country = country)
 
     if (fert_optim$NR == 0) { ## no fertilizer recommendation
-      fertilizer_rates <- NULL
-      return(list(recommendations = fert_optim, fertilizer_rates = fertilizer_rates))
+		fertilizer_rates <- NULL  # c(0,0,0) ?
+		return(list(recommendations = fert_optim, fertilizer_rates = fertilizer_rates))
     } else {
       fertinfo <- subset(fert_optim, select = c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
       onlyFert <- subset(fert_optim, select = -c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
 
       ## 4. remove ferilizer application < 25 kg/ha and re run the TY and NR calculation
-      RecomperHa <- onlyFert / areaHa
-      RecomperHa2 <- go_there(RecomperHa)
+      recom_ha <- onlyFert / areaHa
+	  above25 <- recom_ha > 25
 
-      onlyFert2 <- droplevels(RecomperHa2[RecomperHa2$rate > 25,])
-
-      if (nrow(onlyFert2) == 0) { ## if all fertilizer recom < 25 kg/ha all will be set to 0
+      if (!any(above25)) { 
+## if all fertilizer recom < 25 kg/ha all will be set to 0
         fertinfo$N <- fertinfo$P <- fertinfo$K <- fertinfo$NR <- fertinfo$TC <- 0
         fertinfo$TargetY <- fertinfo$CurrentY
-        fertilizer_rates <- NULL
-        return(list(recommendations = fertinfo, fertilizer_rates = fertilizer_rates))
-      } else if (ncol(onlyFert) == nrow(onlyFert2)) { ## if all fertilizer recom are >= 25 kg/ha they will be kept and only checked for NR >= 18% of invest
-        Reset_fert_Cont <- fert_optim
-        GPS_fertRecom <- NRabove18Cost(ds = Reset_fert_Cont, riskAtt = riskAtt)
-        rec <- subset(GPS_fertRecom, select = c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
-        frates <- subset(GPS_fertRecom, select = -c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
-#        frates2 <- tidyr::gather(frates, type, rate)
-        frates2 <- go_there(frates)
-        return(list(recommendations = rec, fertilizer_rates = frates2))
-
+        return(list(recommendations=fertinfo, fertilizer_rates=NULL))
+      } else if (all(above25)) { 
+## all fertilizer recom are >= 25 kg/ha. Check for NR >= 18% of investment
+		fertRecom <- NRabove18Cost(ds = fert_optim, riskAtt = riskAtt)
+        rec <- subset(fertRecom, select = c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
+        frates <- subset(fertRecom, select = -c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
+        return(list(recommendations=rec, fertilizer_rates=go_there(frates)))
       } else {
-	  ## when some fertilizer recom are dropped b/c < 25 kg/ha, ty and NR should be recalculated
-##      fert25 <- tidyr::spread(onlyFert2, type, rate) 
-		fert25 <- as.list(onlyFert2$rate)
-		names(fert25) <- onlyFert2$type
-		fert25 <- as.data.frame(fert25)
-	
-        fert_optim2 <- cbind(fertinfo, fert25)
-        fertilizer <- fertilizers[fertilizers$type %in% onlyFert2$type,]
-        Reset_fert_Cont <- Rerun_25kgKa_try(rootUP = rootUP, rdd = fert_optim2, 
-				fertilizer = fertilizer, QID = SoilData, onlyFert = onlyFert2, 
-				country = country, WLY = WLY, DCY = DCY, HD = HD, areaHa = areaHa)
-        if (Reset_fert_Cont$NR <= 0) { ## after rerunning after avoiding <25KG/ha fertilizers, if NR <=0
-          fertilizer_rates <- NULL
-          return(list(recommendations = Reset_fert_Cont, fertilizer_rates = fertilizer_rates))
-        } else {
-#          print("The elesae happens here you know")
-          GPS_fertRecom <- NRabove18Cost(ds = Reset_fert_Cont, riskAtt = riskAtt)
-          rec <- subset(GPS_fertRecom, select = c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
-          frates <- subset(GPS_fertRecom, select = -c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
-#          frates2 <- tidyr::gather(frates, type, rate)
-          frates2 <- go_there(frates)
-		  
-          return(list(recommendations = rec, fertilizer_rates = frates2))
+## Fertilizers < 25 kg/ha are dropped. ty and NR are recalculated
+## RH: conceptually it would be better to optimize again?
 
+		fert25 <- recom_ha[, above25]
+		onlyFert25 <- onlyFert[, above25]
+        rdd <- cbind(fertinfo, onlyFert25)
+        fert25rec <- rerun_25kgha(rootUP = rootUP, rdd=rdd, 
+				fertilizer = fertilizers, QID = SoilData, onlyFert25 = onlyFert25, 
+				country = country, WLY = WLY, DCY = DCY, HD = HD, areaHa = areaHa)
+
+        if (fert25rec$NR <= 0) { 
+			return(list(recommendations = fert25rec, fertilizer_rates = NULL))
+        } else {
+#          print("The else happens here")
+          fertRecom <- NRabove18Cost(ds = fert25rec, riskAtt = riskAtt)
+          rec <- subset(fertRecom, select = c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
+          return(list(recommendations = rec, fertilizer_rates = go_there(onlyFert25), note="below 25kg only"))
         }
       }
     }
@@ -322,8 +309,8 @@ process_FR <- function(lat, lon, HD, maxInv, fertilizers, rootUP, areaHa, countr
 			country,
 			"NG" = tr$frnotrec[1],
 			"GH" = tr$frnotrec[1],
-			"RW" = tr$frnotrec[2],
-			"TZ" = tr$frnotrec[3],
+			"TZ" = tr$frnotrec[2],
+			"RW" = tr$frnotrec[3],
 			"No recommendation available"
 		)
 	}

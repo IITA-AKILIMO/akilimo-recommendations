@@ -1,10 +1,12 @@
 
 run_akilimo <- function(json) {
-
+	
+	aki_version <- "20251222"
 	dir.create("temp", FALSE, FALSE)
-
-    # Parse JSON body
-    body <- tryCatch(jsonlite::fromJSON(json), error = function(e) NULL)
+    body <- try(jsonlite::fromJSON(json))
+	if (inherits(body, "try-error")) {
+		return(list(status = jsonlite::unbox("404 - bad request"), data=NULL))
+    }
 
     # extract parameters from the JSON payload
     country <- from_json("country", body)
@@ -224,7 +226,7 @@ run_akilimo <- function(json) {
 	result$recom <- result$data$message <- NULL
 
 	result$data$rec_type <- jsonlite::unbox(result$data$rec_type)
-    list(status=jsonlite::unbox("success"), data=result$data)
+    list(status=jsonlite::unbox("success"), version=jsonlite::unbox(aki_version), data=result$data)
 
 }  
 

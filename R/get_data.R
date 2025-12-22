@@ -77,8 +77,6 @@ get_data <- function(x, country, FCY, lon, lat) {
 		lon <- round5min(lon)
 		soil <- soil[round(soil$lon, 3)==lon & round(soil$lat,3)==lat, ]
 		if (nrow(soil) == 0) return(soil)
-		#soil$location <- paste(soil$lat, soil$lon, sep = "_")
-		#soil$Zone <- country
 		soil <- soil[, c("lat", "lon", "soilN", "soilP", "soilK")]
 		soil$rec_N <- 0.5
 		soil$rec_P <- 0.15
@@ -97,26 +95,24 @@ get_data <- function(x, country, FCY, lon, lat) {
 		soil$rel_K <- soil$soilK / soil$soilN
 		long2lon(soil)
 	} else if (x == "WLY_365") {
+		fix_cn <- function(cn) {
+			cn[cn == "plantingDate"] <- "pl_Date"
+			cn[cn == "weekNr"] <- "PlweekNr"
+			gsub("WLY_", "", cn)
+		}
 		if (country == "NG") {
 			w <- readRDS(data_path("yield/Nigeria_WLY_LINTUL_2020.RDS"))
 		} else if (country == "TZ") {
 			w <- readRDS(data_path("yield/Tanzania_WLY_LINTUL_2020.RDS"))
 		} else if (country == "RW") {
 			w <- readRDS(data_path("yield/Rwanda_WLY_LINTUL.RDS"))
-			w$pl_Date <- w$plantingDate
-			w$PlweekNr <- w$weekNr
-			colnames(w) <- gsub("WLY_", "", colnames(w))
+			colnames(w) <- fix_cn(colnames(w))
 		} else if (country == "GH") {
 			w <- readRDS(data_path("yield/Ghana_WLY_LINTUL.RDS"))
-			w$pl_Date <- w$plantingDate
-			w$PlweekNr <- w$weekNr
-			colnames(w) <- gsub("WLY_", "", colnames(w))
+			colnames(w) <- fix_cn(colnames(w))
 		} else if (country == "BI") {
 			w <- readRDS(data_path("yield/Burundi_WLY_LINTUL.RDS"))
-			w$pl_Date <- w$plantingDate
-			w$PlweekNr <- w$weekNr
-			colnames(w) <- gsub("WLY_", "", colnames(w))
-			#w$location <- paste(w$lat, w$long, sep = "_")
+			colnames(w) <- fix_cn(colnames(w))
 		} else {
 			stop(paste("WLY_365", "not available for", country))
 		}
@@ -125,23 +121,9 @@ get_data <- function(x, country, FCY, lon, lat) {
 		lat <- round5min(lat)
 		lon <- round5min(lon)
 		w[round(w$lon,3)==lon & round(w$lat,3)==lat, ]
-
-	} else if (x == "WLY_15M") {
-#		if (country == "NG") {
-#			w <- readRDS(data_path("yield/Nigeria_WLY_LINTUL_2020_Server.RDS"))
-#		} else if (country == "TZ") {
-#			w <- readRDS(data_path("yield/Tanzania_WLY_LINTUL_2020_Server.RDS"))
-#		} else if (country == "GH") {
-#			w <- readRDS(data_path("yield/Ghana_WLY_LINTUL_SP.RDS"))
-		#} else if (country == "BI") {
-		#	w <- readRDS(data_path("yield/Burundi_WLY_LINTUL_SP.RDS"))
-#		} else {
-			stop(paste("WLY_15M", "not available")) # for", country))
-		}
-		long2lon(w)
 	} else if (x == "WLY_15M_ncdf") {
 		get_WLY_15M_ncdf(country, lon, lat)
 	} else {
-		stop("no such data")
+		stop(paste("no such data:", x))
 	}
 }
