@@ -87,6 +87,51 @@ getFRrecText <- function(ds, country, fertilizers, rootUP) {
 }
 
 
+#' after setting fertilizer recommendation <25 kg/ha Urea, MOP or Nafaka, target yield with the remaining recommended fertilizer is  re-estimated  and
+#'  total cost, gross and net revenue are re calcuated.
+#' @param rootUP cassava root price
+#' @param zone
+#' @param wdd has dry wt
+#' @param rdd has fresh wt
+#' @param fertilizer
+#' @author Meklit
+#' @export
+rerun_25kgha <- function(rootUP, rdd, fertilizer, QID, onlyFert25, country, WLY = WLY, DCY = DCY, HD = HD, areaHa=areaHa) {
+	
+    fertilizer <- fertilizer[fertilizer$type %in% names(onlyFert25),]
+	fert25 <- onlyFert25[match(names(onlyFert25), fertilizer$type)]
+	fert <- unlist(fert25)
+	
+	rec <- c(sum(fert * fertilizer$N_cont), 
+			sum(fert * fertilizer$P_cont),
+			sum(fert * fertilizer$K_cont))
+
+	QID$WLY <- WLY
+	TY <- QUEFTS(QID, rec) #dry wt yield in kg/ha
+
+	rdd$CurrentY <- getRFY(HD = HD, RDY = DCY, country = country) * areaHa / 1000
+	rdd$TargetY <- getRFY(HD = HD, RDY = TY, country = country) * areaHa / 1000
+	rdd$TC <- round(sum(fertilizer$price * fert) * areaHa, -2)
+
+	nr <- round((rdd$TargetY - rdd$CurrentY) * rootUP, -2)
+	rdd$NR <- nr - rdd$TC
+
+#	rdd <- subset(rdd, select = c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
+	if (rdd$NR <= 0 | rdd$TargetY <= rdd$CurrentY) {
+		rdd$N <- rdd$P <- rdd$K <- rdd$TC <- rdd$NR <- 0
+		rdd$TargetY <- rdd$CurrentY
+	} else {
+		## NPK rate for user land size
+		NPK_user <- rec * areaHa
+		rdd$N <- NPK_user[1]
+		rdd$P <- NPK_user[2]
+		rdd$K <- NPK_user[3]
+	}
+
+	return(rdd)
+}
+
+
 
 ### see if profit is > (0.18 * total cost) + total cost
 ## if not set the recommnedation to zero
@@ -105,9 +150,7 @@ NRabove18Cost <- function(ds, riskAtt) {
   dNRmin <- as.numeric(dNRmin)
   if (ds$NR < ds$TC * dNRmin) {
     fertRecom <- subset(ds, select = c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
-    fertRecom$N <- 0
-    fertRecom$P <- 0
-    fertRecom$K <- 0
+    fertRecom$N <- fertRecom$P <- fertRecom$K <- 0
     fertRecom$TC <- 0
     fertRecom$NR <- 0
     fertRecom$TargetY <- fertRecom$CurrentY
@@ -116,12 +159,11 @@ NRabove18Cost <- function(ds, riskAtt) {
     onlyFert <- subset(ds, select = -c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
     onlyFert[] <- 0
 
-    fertRecom <- cbind(fertRecom, onlyFert)
-    ds <- fertRecom
+    ds <- cbind(fertRecom, onlyFert)
+	row.names(ds) <- NULL
   }
 
-  row.names(ds) <- NULL
-  return(ds)
+  ds
 }
 
 
@@ -253,7 +295,7 @@ getFRrecommendations <- function(lat, lon, HD, PD, maxInv, fertilizers, rootUP, 
 		onlyFert25 <- onlyFert[, above25]
         rdd <- cbind(fertinfo, onlyFert25)
         fert25rec <- rerun_25kgha(rootUP = rootUP, rdd=rdd, 
-				fertilizer = fertilizers, QID = SoilData, onlyFert25 = onlyFert25, 
+				fertilizer = fertilizers, QID = SoilData, onlyFert25 = fert25, 
 				country = country, WLY = WLY, DCY = DCY, HD = HD, areaHa = areaHa)
 
         if (fert25rec$NR <= 0) { 
