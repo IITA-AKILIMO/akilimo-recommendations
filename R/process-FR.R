@@ -202,7 +202,7 @@ getFRrecommendations <- function(lat, lon, HD, PD, maxInv, fertilizers, rootUP, 
 
     ## get CY
     #WLYdata$Current_Yield <- QUEFTS_no_fertilizer(soil=SoilData, country=country, wlyd=WLYdata$water_limited_yield)
-	Qinw <- data.frame(SoilData, WLY=WLYdata$water_limited_yield, water_limited_yield=WLYdata$water_limited_yield)
+	Qinw <- data.frame(SoilData, WLY=WLYdata$water_limited_yield)
 	WLYdata$Current_Yield <- QUEFTS(Qinw, c(0,0,0), HI=.55)
 
 #	SoilData$WLY <- SoilData$water_limited_yield <- WLYdata$water_limited_yield

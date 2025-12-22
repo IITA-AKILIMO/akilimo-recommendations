@@ -146,11 +146,11 @@ QUEFTS <- function(QID, rec, HI=0.52) {
 # apparantly this is considered "current" yield. Because (for NG and TZ) the NPK supply 
 # was estimated from current yield? But there is no evidence that no fertilizer was used? 
 
-QUEFTS_no_fertilizer <- function(soil, country, wlyd) {
-	Qinw <- data.frame(soil, WLY=wlyd, water_limited_yield=wlyd)
-	QUEFTS(Qinw, c(0,0,0), HI=.55)
+#QUEFTS_no_fertilizer <- function(soil, country, wlyd) {
+#	Qinw <- data.frame(soil, WLY=wlyd, water_limited_yield=wlyd)
+#	QUEFTS(Qinw, c(0,0,0), HI=.55)
 # this should not be needed:
 	#CurrentYield <- QUEFTS(Qinw, c(0,0,0), HI=.55)
 	#min(CurrentYield, wlyd)
-}
+#}
 

@@ -127,16 +127,16 @@ get_data <- function(x, country, FCY, lon, lat) {
 		w[round(w$lon,3)==lon & round(w$lat,3)==lat, ]
 
 	} else if (x == "WLY_15M") {
-		if (country == "NG") {
-			w <- readRDS(data_path("yield/Nigeria_WLY_LINTUL_2020_Server.RDS"))
-		} else if (country == "TZ") {
-			w <- readRDS(data_path("yield/Tanzania_WLY_LINTUL_2020_Server.RDS"))
-		} else if (country == "GH") {
-			w <- readRDS(data_path("yield/Ghana_WLY_LINTUL_SP.RDS"))
+#		if (country == "NG") {
+#			w <- readRDS(data_path("yield/Nigeria_WLY_LINTUL_2020_Server.RDS"))
+#		} else if (country == "TZ") {
+#			w <- readRDS(data_path("yield/Tanzania_WLY_LINTUL_2020_Server.RDS"))
+#		} else if (country == "GH") {
+#			w <- readRDS(data_path("yield/Ghana_WLY_LINTUL_SP.RDS"))
 		#} else if (country == "BI") {
 		#	w <- readRDS(data_path("yield/Burundi_WLY_LINTUL_SP.RDS"))
-		} else {
-			stop(paste("WLY_15M", "not available for", country))
+#		} else {
+			stop(paste("WLY_15M", "not available")) # for", country))
 		}
 		long2lon(w)
 	} else if (x == "WLY_15M_ncdf") {
