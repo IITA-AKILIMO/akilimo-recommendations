@@ -75,10 +75,11 @@ run_akilimo <- function(json) {
     unit_factors <- c(ha=1, acre=2.47105, are=100, m2=10000, string=1000)
 
     # Fallback to 10000 (i.e., square meters) if unit is unknown or missing
-    conversion_factor2 <- unit_factors[[areaUnits]]
-    if (is.null(conversion_factor2)) conversion_factor2 <- 10000
+	## seems rather risky!!
+    area_conversion_factor <- unit_factors[[areaUnits]]
+    if (is.null(area_conversion_factor)) area_conversion_factor <- 10000
     # Calculate area in hectares
-    areaHa <- area / conversion_factor2
+    areaHa <- area / area_conversion_factor
 
     # Ensure PD and HD are Date objects
     PD <- as.Date(PD)
@@ -174,7 +175,9 @@ run_akilimo <- function(json) {
 		method_harrowing <- from_json("method_harrowing", body)
 		method_ridging <- from_json("method_ridging", body)
 
-		costLMO <- get_costLMO(body, country, areaHa, areaUnits, ploughing, harrowing, ridging, method_ploughing, method_harrowing, method_ridging)
+		costLMO <- get_costLMO(body, country, areaHa, areaUnits, ploughing, harrowing, ridging,
+								method_ploughing, method_harrowing, method_ridging)
+								
 		result <- process_PP(
 			PP = PP, country = country, areaHa = areaHa, costLMO = costLMO,
 			ploughing = ploughing, ridging = ridging,
@@ -302,7 +305,8 @@ get_costLMO <- function(body, country, areaHa, areaUnits, ploughing, harrowing, 
 
     # Determine area basis for cost calculation
 	cost_LMO_areaBasis <- from_json("cost_LMO_areaBasis", body, default_value = "areaUnit")
-    area_basis <- switch(cost_LMO_areaBasis, "areaField" = areaHa, 
+    area_basis <- switch(cost_LMO_areaBasis, 
+			"areaUnit" = areaHa, 
 			"acre" = 0.404686, "ha" = 1, 0.0001)  # fallback default (likely m²)
 
 # for getWMrecommendations 
