@@ -227,7 +227,7 @@ run_akilimo <- function(json) {
 
 	# it would be clearer to use "message" instead of recommendation
 	#r$data$message <- jsonlite::unbox(r$data$message)
-	result$recommendation <- jsonlite::unbox(gsub("[ ]+", " ", result$message)
+	result$recommendation <- jsonlite::unbox(gsub("[ ]+", " ", result$message))
 	result$message <- NULL
 	result$rec_type <- jsonlite::unbox(result$rec_type)
 	
