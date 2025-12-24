@@ -122,8 +122,6 @@ getSPrecText <- function(ds, country, PD, HD) {
       #5. Possible issues with the input data - especially if user provides unrealistic prices.
     }
   }
-
-  gsub("[ ]+", " ", rec)
 }
 
 
@@ -315,8 +313,10 @@ process_SP <- function(
 		}
 	}
 
-	list(recom=success, data=list(recommendations=res, fertilizer_rates=NULL, 
-							message=recText, rec_type="SP"))
+#	list(recom=success, data=list(recommendations=res, fertilizer_rates=NULL, 
+#							message=recText, rec_type="SP"))
+
+	list(rec_type="SP", message=recText, data=res)
 
 #  return(list(SPrecom = SPrecom, plumberRes = res, recText = recText))
 #  return(list(SPrecom = SPrecom, plumberRes = list(rec=res, dummy="dummy to prevent bug in test 10"), recText = recText)) 

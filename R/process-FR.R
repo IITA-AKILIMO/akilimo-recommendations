@@ -74,8 +74,6 @@ getFRrecText <- function(ds, country, fertilizers, rootUP) {
 					fertilizerRates, tr$of[2], fertilizerTypes, collapse = "\n")), ci)
 			}
 		
-		gsub("[ ]+", " ", recom)
-
       #TODO: This only provides the minimal information to return to the user. We may consider adding following information:
       #1. Split regime - how should this fertilizer application be distributed over time?
       #2. Best application method - furrow or full ring application.
@@ -357,5 +355,5 @@ process_FR <- function(lat, lon, HD, maxInv, fertilizers, rootUP, areaHa, countr
 		)
 	}
 
-	list(recom = FRrecom, data=c(response, message = recText, rec_type="FR"))
+	list(rec_type="FP", message=recText, data=response)
 }

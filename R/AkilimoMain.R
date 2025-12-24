@@ -47,7 +47,6 @@ run_akilimo <- function(json) {
 #    }
 
 	selected_key <- unique(c("FR", "PP", "IC", "SP", "SP")[c(FR, PP, IC, SPP, SPH)])
-	message(paste0(selected_key, ": ", country, ", planting: ", PD, ", harvest: ", HD))
     #riskAtt <- 0
 
     PD <- as.Date(PD, format = "%Y-%m-%d")
@@ -84,6 +83,8 @@ run_akilimo <- function(json) {
     # Ensure PD and HD are Date objects
     PD <- as.Date(PD)
     HD <- as.Date(HD)
+
+	message(paste0(selected_key, ": ", country, ", planting: ", PD, ", harvest: ", HD))
 
 #	result <- list()
     if (FR) {
@@ -174,6 +175,8 @@ run_akilimo <- function(json) {
 		method_ploughing <- from_json("method_ploughing", body)
 		method_harrowing <- from_json("method_harrowing", body)
 		method_ridging <- from_json("method_ridging", body)
+		if (method_ploughing == "NA") method_ploughing <- "N/A"
+		method_ridging <- ifelse(method_ridging == "NA", "N/A", tolower(method_ridging))
 
 		costLMO <- get_costLMO(body, country, areaHa, areaUnits, ploughing, harrowing, ridging,
 								method_ploughing, method_harrowing, method_ridging)
@@ -222,15 +225,14 @@ run_akilimo <- function(json) {
 		return(list(status = jsonlite::unbox("error"), data = data))
     }
 
-	result$data <- c(request_token = request_token, result$data)
 	# it would be clearer to use "message" instead of recommendation
 	#r$data$message <- jsonlite::unbox(r$data$message)
-	result$data$recommendation <- jsonlite::unbox(result$data$message)
-	result$recom <- result$data$message <- NULL
-
-	result$data$rec_type <- jsonlite::unbox(result$data$rec_type)
-    list(status=jsonlite::unbox("success"), version=jsonlite::unbox(aki_version), data=result$data)
-
+	result$recommendation <- jsonlite::unbox(gsub("[ ]+", " ", result$message)
+	result$message <- NULL
+	result$rec_type <- jsonlite::unbox(result$rec_type)
+	
+	
+	c(list(status = jsonlite::unbox("success"), version = jsonlite::unbox(aki_version)), result)
 }  
 
 
@@ -327,8 +329,6 @@ get_costLMO <- function(body, country, areaHa, areaUnits, ploughing, harrowing, 
 		cost_manual_ridging <- from_json("cost_manual_ridging", body, default_value = NA)
 		cost_weeding1 <- from_json("cost_weeding1", body, default_value = NA)
 		cost_weeding2 <- from_json("cost_weeding2", body, default_value = NA)
-		if (method_ploughing == "NA") method_ploughing <- "N/A"
-		if (method_ridging == "NA") method_ridging <- "N/A"
 		if (cost_manual_ploughing == 0) cost_manual_ploughing <- NA
 		if (cost_manual_harrowing == 0) cost_manual_harrowing <- NA
 		if (cost_manual_ridging == 0) cost_manual_ridging <- NA

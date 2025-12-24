@@ -163,9 +163,7 @@ getICrecText <- function(x, maizePD) {
                    paste0("Plant your maize intercrop at low density: 1 m between rows and 50 cm within row (20,000 plants per hectare)."))
   }
 
-  rec <- paste0(recF, recD)
-  gsub("[ ]+", " ", rec)
-
+  paste0(recF, recD)
 
   #TODO: This only provides the minimal information to return to the user. We may consider adding following information:
   #1. Make sure they grow the right maize variety (should be mature in 95 days max), and the right cassava variety. Should also make recommendations on the right cassava variety.
@@ -242,7 +240,10 @@ process_IC_TZ <- function(IC, country, areaHa, FCY, tuberUP, rootUP, fertilizers
   }
 
   #return(list(ICrecom = ICrecom, plumberRes = res, recText = recText))
-  list(recom = ICrecom, data=c(res, message=recText, rec_type="IC"))
+  #list(recom = ICrecom, data=c(res, message=recText, rec_type="IC"))
+
+	list(rec_type="SP", message=recText, data=res)
+  
 }
 
 
@@ -391,15 +392,13 @@ getCISrecText <- function(d) {
 
   }
 
-  rec <- paste0(recIC, recF)
+  paste0(recIC, recF)
 
   #TODO: This only provides the minimal information to return to the user. We may consider adding following information:
   #1. Make sure they grow the right sweet potato variety (Mayai), and the right cassava variety (Kizimbani).
   #2. We purposefully did not include recommendations on the exact yield increases as the data is rather weak to justify this. Can be added later when more data is available.
   #3. Some explanation included on why fertilizer is not recommended, or why intercropping is not recommended - need to evaluate if this is not too cryptic.
   #4. Possible issues with the input data - especially if user provides unrealistic prices for sweet potato/cassava produce / fertilizers.
-
-  gsub("[ ]+", " ", rec)
 
 }
 
