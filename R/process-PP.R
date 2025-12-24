@@ -17,7 +17,7 @@ getPPrecommendations <- function(areaHa, costLMO,
                      ifelse(ds$method_ridging == "manual",
                       costLMO[costLMO$operation == "ridging" & costLMO$method == "manual", "costHa"],
                       costLMO[costLMO$operation == "ridging" & costLMO$method == "tractor", "costHa"]))
-#  ds <- na.omit(ds)
+  ds <- na.omit(ds)
   #adding cost saving for weeding
 # this seems wrong (and can lead to negative costs)
 #  ds$cost_weeding <- ifelse(ds$ridging, -costLMO[costLMO$operation == "weeding1",]$costHa, 0)
@@ -77,7 +77,7 @@ getPPrecommendations <- function(areaHa, costLMO,
   #minimal required net revenue increase from fertilizer needed (taking into account risk attitude of user)
   # ds$dNRmin <- ds$TC * ifelse(riskAtt == 0, 2.8, ifelse(riskAtt == 1, 2, 1.2))
   ds$dNRmin <- ds$TC * ifelse(riskAtt == 0, 1.8, ifelse(riskAtt == 1, 1, 0.2))
-  ds <- ds[ds$NR > ds$dNRmin,]
+  ds <- ds[ds$CP | (ds$NR > ds$dNRmin),]
   ds
 }
 

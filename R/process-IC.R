@@ -207,7 +207,8 @@ process_IC_NG <- function(
     ICrecom <- FALSE
   }
 
-  list(recom = ICrecom, data=c(res, message=recText, rec_type="IC"))
+	list(rec_type="IC", message=recText, res)
+
 }
 
 # Process recommendations for Tanzania (TZ)
@@ -242,7 +243,7 @@ process_IC_TZ <- function(IC, country, areaHa, FCY, tuberUP, rootUP, fertilizers
   #return(list(ICrecom = ICrecom, plumberRes = res, recText = recText))
   #list(recom = ICrecom, data=c(res, message=recText, rec_type="IC"))
 
-	list(rec_type="SP", message=recText, data=res)
+	list(rec_type="IC", message=recText, res)
   
 }
 

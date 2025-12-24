@@ -355,5 +355,5 @@ process_FR <- function(lat, lon, HD, maxInv, fertilizers, rootUP, areaHa, countr
 		)
 	}
 
-	list(rec_type="FP", message=recText, data=response)
+	c(rec_type="FR", message=recText, response)
 }
