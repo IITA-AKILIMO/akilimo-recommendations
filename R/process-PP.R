@@ -1,30 +1,29 @@
 
-#SHORT DEF:   Function to obtain tillage recommendations (step 4 of 6 steps).
-#RETURNS:     dataframe with cost benefit for various combinations of ploughing and ridging.
-#DESCRIPTION: Function to obtain recommendations on ploughing and ridging. Returns a dataframe with all possible combinations of
-#             ploughing (none, manual, tractor) and ridging (none, manual, tractor), ordered by decreasing net returns and increasing
-#             tillage intensity (riding then ploughing)
-#INPUT:       See Cassava Crop Manager function for details
+
 getPPrecommendations <- function(areaHa, costLMO,
 		#select one
         ploughing, ridging, method_ploughing, method_ridging,
         FCY, rootUP, riskAtt) {
   #creating ploughing and ridging scenarios
 
-  ds <- expand.grid(method_ploughing = c("N/A", "manual", "tractor"), method_ridging = c("N/A", "manual", "tractor"))
-  ds$ploughing <- ifelse(ds$method_ploughing == "N/A", FALSE, TRUE)
-  ds$ridging <- ifelse(ds$method_ridging == "N/A", FALSE, TRUE)
+  ds <- expand.grid(method_ploughing = c("N/A", "manual", "tractor"), method_ridging = c("N/A", "manual", "tractor"), stringsAsFactors = FALSE)
+  ds$ploughing <- ds$method_ploughing != "N/A"
+  ds$ridging <- ds$method_ridging != "N/A"
   ds$cost_ploughing <- ifelse(ds$method_ploughing == "N/A", 0,
                        ifelse(ds$method_ploughing == "manual",
-                        costLMO[costLMO$operation == "ploughing" & costLMO$method == "manual",]$costHa,
-                        costLMO[costLMO$operation == "ploughing" & costLMO$method == "tractor",]$costHa))
+                        costLMO[costLMO$operation == "ploughing" & costLMO$method == "manual", "costHa"],
+                        costLMO[costLMO$operation == "ploughing" & costLMO$method == "tractor", "costHa"]))
   ds$cost_ridging <- ifelse(ds$method_ridging == "N/A", 0,
                      ifelse(ds$method_ridging == "manual",
-                      costLMO[costLMO$operation == "ridging" & costLMO$method == "manual",]$costHa,
-                      costLMO[costLMO$operation == "ridging" & costLMO$method == "tractor",]$costHa))
-  ds <- na.omit(ds)
+                      costLMO[costLMO$operation == "ridging" & costLMO$method == "manual", "costHa"],
+                      costLMO[costLMO$operation == "ridging" & costLMO$method == "tractor", "costHa"]))
+#  ds <- na.omit(ds)
   #adding cost saving for weeding
-  ds$cost_weeding <- ifelse(ds$ridging, -costLMO[costLMO$operation == "weeding1",]$costHa, 0)
+# this seems wrong (and can lead to negative costs)
+#  ds$cost_weeding <- ifelse(ds$ridging, -costLMO[costLMO$operation == "weeding1",]$costHa, 0)
+  w1 <- costLMO$operation == "weeding1"
+  w2 <- costLMO$operation == "weeding2"
+  ds$cost_weeding <- ifelse(ds$ridging, costLMO[w2, "costHa"], costLMO[w1, "costHa"] + costLMO[w2, "costHa"])
 
   #adding expected yields
   yd <- expand.grid(ploughing = c(FALSE, TRUE), ridging = c(TRUE, FALSE), YL = c("low", "high"))
@@ -38,39 +37,48 @@ getPPrecommendations <- function(areaHa, costLMO,
   ds$GR <- ds$RP * rootUP
   ds$NR <- ds$GR - ds$TC
 
-  #minimal required net revenue increase from fertilizer needed (taking into account risk attitude of user)
-  # ds$dNRmin <- ds$TC * ifelse(riskAtt == 0, 2.8, ifelse(riskAtt == 1, 2, 1.2))
-  ds$dNRmin <- ds$TC * ifelse(riskAtt == 0, 1.8, ifelse(riskAtt == 1, 1, 0.2))
-  ds <- droplevels(ds[ds$NR > ds$dNRmin,])
 
-  ds <- subset(ds, select = -c(cost_ploughing, cost_ridging, cost_weeding, YL, RY))
-  ds <- ds[order(-ds$NR, ds$ridging, ds$ploughing),] #order by decreasing net revenue, increasing ridging and increasing ploughing so that recommendation is first row
+#  ds <- subset(ds, select = -c(cost_ploughing, cost_ridging, cost_weeding, YL, RY))
+  #order by decreasing net revenue, increasing ridging and increasing ploughing so that recommendation is first row
+  ds <- ds[order(-ds$NR, ds$ridging, ds$ploughing),]
 
   #comparing to current practice
   # Create a logical column 'CP' based on conditions
-  ds$CP <- with(ds, ploughing == ploughing &
-    method_ploughing == method_ploughing &
-    ridging == ridging &
-    method_ridging == method_ridging)
+  # bad!
+  #ds$CP <- with(ds, ploughing == ploughing &
+  #  method_ploughing == method_ploughing &
+  #  ridging == ridging &
+  #  method_ridging == method_ridging)
 
-  # Calculate the differences only for rows where 'CP' is TRUE
-  if (any(ds$CP)) {
-    cp_values <- ds[ds$CP,]
+  ds$CP <-  ifelse(ds$ploughing, ploughing & ds$method_ploughing == method_ploughing, !ploughing) &
+			ifelse(ds$ridging, ridging & ds$method_ridging == method_ridging, !ridging)     
 
-    ds$dTC <- ds$TC - cp_values$TC
-    ds$dRP <- ds$RP - cp_values$RP
-    ds$dGR <- ds$GR - cp_values$GR
-    ds$dNR <- ds$NR - cp_values$NR
-  } else {
-    # Handle case where no rows match the 'CP' condition
-    ds$dTC <- ds$TC
-    ds$dRP <- ds$RP
-    ds$dGR <- ds$GR
-    ds$dNR <- ds$NR
-  }
+# Calculate the differences only for rows where 'CP' is TRUE
+# bad: there must be one that is true...
+#  if (any(ds$CP)) {
+#    cp_values <- ds[ds$CP,]
+#    ds$dTC <- ds$TC - cp_values$TC
+#    ds$dRP <- ds$RP - cp_values$RP
+#    ds$dGR <- ds$GR - cp_values$GR
+#    ds$dNR <- ds$NR - cp_values$NR
+#  } else {
+#    # Handle case where no rows match the 'CP' condition
+#    ds$dTC <- ds$TC
+#    ds$dRP <- ds$RP
+#    ds$dGR <- ds$GR
+#    ds$dNR <- ds$NR
+#  }
 
-  return(ds)
+  ds$dTC <- ds$TC - ds$TC[ds$CP]
+  ds$dRP <- ds$RP - ds$RP[ds$CP]
+  ds$dGR <- ds$GR - ds$GR[ds$CP]
+  ds$dNR <- ds$NR - ds$NR[ds$CP]
 
+  #minimal required net revenue increase from fertilizer needed (taking into account risk attitude of user)
+  # ds$dNRmin <- ds$TC * ifelse(riskAtt == 0, 2.8, ifelse(riskAtt == 1, 2, 1.2))
+  ds$dNRmin <- ds$TC * ifelse(riskAtt == 0, 1.8, ifelse(riskAtt == 1, 1, 0.2))
+  ds <- ds[ds$NR > ds$dNRmin,]
+  ds
 }
 
 
@@ -123,6 +131,14 @@ getPPrecText <- function(ds, country = c("NG", "TZ", "RW")) {
 	
     paste(recT, rcost, tr$thank[1])
   }
+
+  #TODO: This only provides the minimal information to return to the user. We may consider adding following information:
+  #1. Beware that planting on flat may not be advisable in your specific conditions. You should ridge if the land is sometimes very wet (water-logging problems), if controlling weed is very challenging, if the soil is very clayey, or if you plan to harvest during the dry season.
+  #2. We currently do not consider costs and benefits of harrowing - we have not investigated this.
+  #3. Explicit reasons underlying recommendations (driven by cost-saving or revenue increase).
+  #4. Our selection of the best option may differ from the one by the farmer. A farmer may be willing to choose an option that has a lower net revenue change than the recommended, but also a lower cost.
+  #5. Possible issues with the input data - especially if user provides unrealistic prices.
+  
 }
 
 
@@ -148,6 +164,6 @@ process_PP <- function(PP, country, areaHa, costLMO, ploughing, ridging,
     ploughing = ploughing, ridging = ridging, method_ploughing = method_ploughing, method_ridging = method_ridging)
 
   #list(PPrecom = TRUE, plumberRes = res, recText = recText)
-    list(recom = TRUE, data=c(res, message=recText, rec_type="PP"))
+	list(rec_type="PP", message=recText, data=res)
 
 }
