@@ -107,7 +107,7 @@ getICrecommendations <- function(areaHa, CMP, cobUP, fertilizers, riskAtt = c(0,
     rec$reason_F <- "Your soil is very fertile. It is likely that your maize yield will not improve much after fertilizer application. Plant maize at high density (40,000 plants per hectare) and sow the seeds at 25 cm within rows."
   }
 
-  list(recommendations=rec, fertilizer_rates=fertilizer_rates)
+  list(data=rec, fertilizer_rates=fertilizer_rates)
 }
 
 
@@ -115,7 +115,7 @@ getICrecommendations <- function(areaHa, CMP, cobUP, fertilizers, riskAtt = c(0,
 #' @param maizePD mmaize product
 getICrecText <- function(x, maizePD) {
 
-	ds <- x[["recommendations"]]
+	ds <- x[["data"]]
 	fs <- x[["fertilizer_rates"]]
   if (!ds$rec_F) {
     #trans
@@ -203,11 +203,11 @@ process_IC_NG <- function(
 	fertilizerAdviseTable(FR = FALSE, IC = TRUE, country = country, areaUnits = areaUnits)
     ICrecom <- TRUE
   } else {
-    recText <- res$recommendations$reason_F
+    recText <- res$data$reason_F
     ICrecom <- FALSE
   }
 
-	list(rec_type="IC", message=recText, res)
+	list(rec_type="IC", recommendation=recText, res)
 
 }
 
@@ -236,14 +236,14 @@ process_IC_TZ <- function(IC, country, areaHa, FCY, tuberUP, rootUP, fertilizers
 
 	  ICrecom <- TRUE
   } else {
-    recText <- res$recommendations$reason_F
+    recText <- res$data$reason_F
     ICrecom <- FALSE
   }
 
   #return(list(ICrecom = ICrecom, plumberRes = res, recText = recText))
   #list(recom = ICrecom, data=c(res, message=recText, rec_type="IC"))
 
-	list(rec_type="IC", message=recText, res)
+	list(rec_type="IC", recommendation=recText, data=res)
   
 }
 
@@ -346,7 +346,7 @@ getCISrecommendations <- function(areaHa = 1, FCY = 11,
   } else {
 	fertilizer_rates <- data.frame(type = "", rate = 0)[0,]
   }
-  list(recommendations=rec, fertilizer_rates=fertilizer_rates)
+  list(data=rec, fertilizer_rates=fertilizer_rates)
 
 }
 
@@ -358,7 +358,7 @@ getCISrecommendations <- function(areaHa = 1, FCY = 11,
 #' @return the advice as text to print in app
 getCISrecText <- function(d) {
 
-	ds <- d[["recommendations"]]
+	ds <- d[["data"]]
 
   if (!ds$rec_IC) {
     # recIC <- "Intercropping is not recommended. Growing a cassava monocrop will give you a higher profit.\n"

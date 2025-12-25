@@ -217,11 +217,11 @@ getFRrecomMarkdown <- function(lat, lon, PD, HD, maxInv, fertilizers, GPS_fertRe
 FR_MarkdownText <- function(rr, fertilizers, user, country, userField,
 			area, areaUnits, PD, HD, lat, lon, rootUP, cassPD, cassUW, maxInv) {
   #
-  bags_total = round(rr$rec$TargetY, digits = 1)
-  totalSalePrice = rr$rec$TC + rr$rec$NR
-  revenue = rr$rec$NR
-  current_yield = rr$rec$CurrentY
-  sum_total = rr$rec$TC
+  bags_total = round(rr$data$TargetY, digits = 1)
+  totalSalePrice = rr$data$TC + rr$data$NR
+  revenue = rr$data$NR
+  current_yield = rr$data$CurrentY
+  sum_total = rr$data$TC
 
   currency <- get_currency(country)
 
@@ -285,12 +285,12 @@ IC_MarkdownText <- function(rr, fertilizers, user, country, userField,
           maizeUW, maizePD, cassUW, maizeUP, nameSF, saleSF, riskAtt) {
 
 
-  current_yield = rr$rec$dMP ## this is increase in maize yield
-  totalSalePrice = rr$rec$dTC + rr$rec$dNR
-  revenue = rr$rec$dNR
-  sum_total = rr$rec$dTC
+  current_yield = rr$data$dMP ## this is increase in maize yield
+  totalSalePrice = rr$data$dTC + rr$data$dNR
+  revenue = rr$data$dNR
+  sum_total = rr$data$dTC
   currency <- get_currency(country)
-  dMP <- rr$rec$dMP
+  dMP <- rr$data$dMP
 
   message(paste("Processing IC_MarkdownText  with risk attitutde", riskAtt))
   MarkDownTextD <- data.frame(name = user$Name, country = country, phone = user$PhoneNr, 
@@ -366,7 +366,7 @@ IC_MarkdownText <- function(rr, fertilizers, user, country, userField,
       }
     }
 
-    MarkDownTextD <- cbind(MarkDownTextD, ff, rr$rec)
+    MarkDownTextD <- cbind(MarkDownTextD, ff, rr$data)
     write.csv(MarkDownTextD, "./temp/IC_MarkDownText.csv", row.names = FALSE)
   }
 }
@@ -376,10 +376,10 @@ CIS_MarkdownText <- function(rr, fertilizers, user, country, userField, area, ar
                              PD, HD, lat, lon, rootUP, cassPD, cassUW, maxInv,
                              sweetPotatoUP, sweetPotatoPD, tuberUP, sweetPotatoUW) {
 
-  #current_yield = rr$rec$dMP ## this is increase in maize yield
-  totalSalePrice = rr$rec$dTC + rr$rec$dNR
-  revenue = rr$rec$dNR
-  sum_total = rr$rec$dTC
+  #current_yield = rr$data$dMP ## this is increase in maize yield
+  totalSalePrice = rr$data$dTC + rr$data$dNR
+  revenue = rr$data$dNR
+  sum_total = rr$data$dTC
   currency <- get_currency(country)
 
   MarkDownTextD <- data.frame(name = user$Name, country = country, phone = user$PhoneNr, 
@@ -435,7 +435,7 @@ CIS_MarkdownText <- function(rr, fertilizers, user, country, userField, area, ar
       }
     }
 
-    MarkDownTextD <- cbind(MarkDownTextD, ff, rr$rec)
+    MarkDownTextD <- cbind(MarkDownTextD, ff, rr$data)
     write.csv(MarkDownTextD, "./temp/CIS_MarkDownText.csv", row.names = FALSE)
   }
 }

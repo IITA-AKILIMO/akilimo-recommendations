@@ -13,7 +13,7 @@ getFRrecText <- function(ds, country, fertilizers, rootUP) {
   
 	tr <- get_data("TRNS")
 
-	rec <- ds$rec
+	rec <- ds$data
 	frate <- ds$fertilizer_rates
 
 	ci <- ifelse(country %in% c("NG", "GH", "BI"), 1, 
@@ -42,13 +42,13 @@ getFRrecText <- function(ds, country, fertilizers, rootUP) {
       bagshalf <- ifelse(bagshalf >= 0.25 & bagshalf <= 0.75, 0.5, ifelse(bagshalf < 0.25, 0, 1))
       bags <- Bagsfull + bagshalf
 
-      sum_total = ds$rec$TC
+      sum_total = ds$data$TC
       fertilizers_recom <- fertilizers[fertilizers$type %in% ds$fertilizer_rates$type,]
       fertilizers_recom <- merge(fertilizers_recom, ds$fertilizer_rates, by = 'type')
       fertilizers_recom$rate <- round(fertilizers_recom$rate, digits = 0)
       fertilizers_recom$cost <- round(fertilizers_recom$rate, digits = 0) * fertilizers_recom$price
       sum_total <- sum(fertilizers_recom$cost)
-      totalSalePrice <- round(ds$rec$TC + ds$rec$NR, digits = 0)
+      totalSalePrice <- round(ds$data$TC + ds$data$NR, digits = 0)
       revenue <- totalSalePrice - sum_total
       revenue <- round(revenue, -2)
 
@@ -224,7 +224,7 @@ getFRrecommendations <- function(lat, lon, HD, PD, maxInv, fertilizers, rootUP, 
 		} else {
 			rec <- "Hatuna mapendekezo yoyote  kwa eneo lako kwa sababu eneo lako liko nje la eneo ambalo AKILIMO linafanya kazi kwa sasa"
 		}
-		return(list(message = rec, fertilizer_rates = NA, failed=TRUE))  
+		return(list(recommendation = rec, fertilizer_rates = NA, failed=TRUE))  
 	} else {
 
 		WLYdata <- wlypd[, c("lat", "lon", "pl_Date", HD2)]
@@ -233,13 +233,13 @@ getFRrecommendations <- function(lat, lon, HD, PD, maxInv, fertilizers, rootUP, 
 		WLYdata$daysOnField <- had
 		WLYdata <- WLYdata[, c("lat", "lon", "water_limited_yield", "pl_Date", "zone", "daysOnField")]
 
-    ## get soil NPK
-    if (country %in% c("NG", "TZ")) {
-		# SoilData <- Rfmodel_Wrapper(FCY = FCY, country = country, lat = lat2, lon = lon2)
-		SoilData <- get_data("RF_soil", FCY=FCY, lat=lat, lon=lon)
-    } else {
-		SoilData <- get_data("soil_NPK", country, FCY, lon=lon, lat=lat)
-    }
+		## get soil NPK
+		if (country %in% c("NG", "TZ")) {
+			# SoilData <- Rfmodel_Wrapper(FCY = FCY, country = country, lat = lat2, lon = lon2)
+			SoilData <- get_data("RF_soil", FCY=FCY, lat=lat, lon=lon)
+		} else {
+			SoilData <- get_data("soil_NPK", country, FCY, lon=lon, lat=lat)
+		}
 
     ## get CY
     #WLYdata$Current_Yield <- QUEFTS_no_fertilizer(soil=SoilData, country=country, wlyd=WLYdata$water_limited_yield)
@@ -265,7 +265,7 @@ getFRrecommendations <- function(lat, lon, HD, PD, maxInv, fertilizers, rootUP, 
 
     if (fert_optim$NR == 0) { ## no fertilizer recommendation
 		fertilizer_rates <- NULL  # c(0,0,0) ?
-		return(list(recommendations = fert_optim, fertilizer_rates = fertilizer_rates))
+		return(list(data = fert_optim, fertilizer_rates = fertilizer_rates))
     } else {
       fertinfo <- subset(fert_optim, select = c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
       onlyFert <- subset(fert_optim, select = -c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
@@ -278,13 +278,13 @@ getFRrecommendations <- function(lat, lon, HD, PD, maxInv, fertilizers, rootUP, 
 ## if all fertilizer recom < 25 kg/ha all will be set to 0
         fertinfo$N <- fertinfo$P <- fertinfo$K <- fertinfo$NR <- fertinfo$TC <- 0
         fertinfo$TargetY <- fertinfo$CurrentY
-        return(list(recommendations=fertinfo, fertilizer_rates=NULL))
+        return(list(data=fertinfo, fertilizer_rates=NULL))
       } else if (all(above25)) { 
 ## all fertilizer recom are >= 25 kg/ha. Check for NR >= 18% of investment
 		fertRecom <- NRabove18Cost(ds = fert_optim, riskAtt = riskAtt)
         rec <- subset(fertRecom, select = c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
         frates <- subset(fertRecom, select = -c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
-        return(list(recommendations=rec, fertilizer_rates=go_there(frates)))
+        return(list(data=rec, fertilizer_rates=go_there(frates)))
       } else {
 ## Fertilizers < 25 kg/ha are dropped. ty and NR are recalculated
 ## RH: conceptually it would be better to optimize again?
@@ -297,12 +297,12 @@ getFRrecommendations <- function(lat, lon, HD, PD, maxInv, fertilizers, rootUP, 
 				country = country, WLY = WLY, DCY = DCY, HD = HD, areaHa = areaHa)
 
         if (fert25rec$NR <= 0) { 
-			return(list(recommendations = fert25rec, fertilizer_rates = NULL))
+			return(list(data = fert25rec, fertilizer_rates = NULL))
         } else {
 #          print("The else happens here")
           fertRecom <- NRabove18Cost(ds = fert25rec, riskAtt = riskAtt)
           rec <- subset(fertRecom, select = c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
-          return(list(recommendations = rec, fertilizer_rates = go_there(onlyFert25), note="below 25kg only"))
+          return(list(data = rec, fertilizer_rates = go_there(onlyFert25), note="below 25kg only"))
         }
       }
     }
@@ -330,9 +330,9 @@ process_FR <- function(lat, lon, HD, maxInv, fertilizers, rootUP, areaHa, countr
 	if (isTRUE(response$failed)) {
 	#no_fr_recommendation_countries <- c("NG", "GH", "TZ", "RW")
     #if (country %in% no_fr_recommendation_countries) {
-		recText <- response$rec
+		recText <- response$data
     #} # else ? {}
-	} else if (response$rec$NR > 0) {	
+	} else if (response$data$NR > 0) {	
 		FRrecom <- TRUE
 		recText <- getFRrecText(ds = response, country=country, fertilizers=fertilizers, rootUP=rootUP)
 		write.csv(recText, './temp/FR_recText.csv', row.names = FALSE)
@@ -343,17 +343,18 @@ process_FR <- function(lat, lon, HD, maxInv, fertilizers, rootUP, areaHa, countr
 			lat = lat, lon = lon, rootUP = rootUP, cassPD = cassPD, cassUW = cassUW, maxInv = maxInv
 		)
 
-		fertilizerAdviseTable(FR = TRUE, IC = FALSE, country = country, areaUnits = areaUnits)
+		#fertilizerAdviseTable(FR = TRUE, IC = FALSE, country = country, areaUnits = areaUnits)
 	} else {
-		recText <- switch(
-			country,
-			"NG" = tr$frnotrec[1],
-			"GH" = tr$frnotrec[1],
-			"TZ" = tr$frnotrec[2],
-			"RW" = tr$frnotrec[3],
-			"No recommendation available"
-		)
+		recText <- ifelse(country=="TZ", tr$frnotrec[2], tr$frnotrec[1])
+#		recText <- switch(
+#			country,
+#			"NG" = tr$frnotrec[1],
+#			"GH" = tr$frnotrec[1],
+#			"TZ" = tr$frnotrec[2],
+#			"RW" = tr$frnotrec[3],
+#			"No recommendation available"
+#		)
 	}
 
-	c(rec_type="FR", message=recText, response)
+	c(rec_type="FR", recommendation=recText, response)
 }

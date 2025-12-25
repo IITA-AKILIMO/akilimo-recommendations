@@ -77,6 +77,7 @@ getPPrecommendations <- function(areaHa, costLMO,
   #minimal required net revenue increase from fertilizer needed (taking into account risk attitude of user)
   # ds$dNRmin <- ds$TC * ifelse(riskAtt == 0, 2.8, ifelse(riskAtt == 1, 2, 1.2))
   ds$dNRmin <- ds$TC * ifelse(riskAtt == 0, 1.8, ifelse(riskAtt == 1, 1, 0.2))
+  # needs refinement. Use the cheapest solution of all are above threshold
   ds <- ds[ds$CP | (ds$NR > ds$dNRmin),]
   ds
 }
@@ -164,6 +165,6 @@ process_PP <- function(PP, country, areaHa, costLMO, ploughing, ridging,
     ploughing = ploughing, ridging = ridging, method_ploughing = method_ploughing, method_ridging = method_ridging)
 
   #list(PPrecom = TRUE, plumberRes = res, recText = recText)
-	list(rec_type="PP", message=recText, data=res)
+	list(rec_type="PP", recommendation=recText, data=res)
 
 }
