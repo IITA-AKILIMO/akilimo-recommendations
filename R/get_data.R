@@ -57,12 +57,6 @@ get_data <- function(x, country, FCY, lon, lat) {
 		read.csv(data_path("input/starchPrices.csv"))
 	} else if (x == "dry_matter") {
 		read.csv(data_path("input/fd2.csv"))
-	} else if (x == "RF_soil") {
-		CONc <- as.integer(cut(FCY, breaks = c(-Inf, 7.5, 15, 22.5, 30, Inf), right=FALSE))
-		p <- get_data("predicted_soil_properties")
-		lat <- round5min(lat)
-		lon <- round5min(lon)
-		p[p$CONclass == CONc & p$lon == lon & p$lat == lat, ]		
 	} else if (x == "soil_NPK-4") {
 		out <- readRDS(data_path("soil/SoilData_4Country.RDS"))
 		out <- long2lon(out)
@@ -70,21 +64,30 @@ get_data <- function(x, country, FCY, lon, lat) {
 		lon <- round5min(lon)
 		out[out$lon == lon & out$lat == lat, ]
 	} else if (x == "soil_NPK") {
-		fcyy <- cut(FCY, breaks=c(-Inf, 7.5, 15, 22.5, 30, Inf), right=FALSE, labels=paste0("FCY", 1:5))
-		f <- data_path(paste0("soil/", country, "_", fcyy, "_soilNPK.RDS"))
-		soil <- readRDS(f)
-		lat <- round5min(lat)
-		lon <- round5min(lon)
-		soil <- soil[round(soil$lon, 3)==lon & round(soil$lat,3)==lat, ]
-		if (nrow(soil) == 0) return(soil)
-		soil <- soil[, c("lat", "lon", "soilN", "soilP", "soilK")]
-		soil$rec_N <- 0.5
-		soil$rec_P <- 0.15
-		soil$rec_K <- 0.5
-		soil$rel_N <- 1
-		soil$rel_P <- soil$soilP / soil$soilN
-		soil$rel_K <- soil$soilK / soil$soilN
-		soil
+
+		Yclass <- as.integer(cut(FCY, breaks = c(-Inf, 7.5, 15, 22.5, 30, Inf), right=FALSE))
+
+		if (country %in% c("NG", "TZ")) {
+			p <- get_data("predicted_soil_properties")
+			lat <- round5min(lat)
+			lon <- round5min(lon)
+			p[p$CONclass == Yclass & p$lon == lon & p$lat == lat, ]		
+		} else {
+			f <- data_path(paste0("soil/", country, "_FCY", Yclass, "_soilNPK.RDS"))
+			soil <- readRDS(f)
+			lat <- round5min(lat)
+			lon <- round5min(lon)
+			soil <- soil[round(soil$lon, 3)==lon & round(soil$lat,3)==lat, ]
+			if (nrow(soil) == 0) return(soil)
+			soil <- soil[, c("lat", "lon", "soilN", "soilP", "soilK")]
+			soil$rec_N <- 0.5
+			soil$rec_P <- 0.15
+			soil$rec_K <- 0.5
+			soil$rel_N <- 1
+			soil$rel_P <- soil$soilP / soil$soilN
+			soil$rel_K <- soil$soilK / soil$soilN
+			soil
+		}
 	} else if (x == "predicted_soil_properties") {
 		soil <- readRDS(data_path("soil/predicted_soil_properties.rds"))
 		soil$rec_N <- 0.5

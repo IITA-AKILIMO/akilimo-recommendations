@@ -177,7 +177,7 @@ getFRrecommendations <- function(lat, lon, HD, PD, maxInv, fertilizers, rootUP, 
 	had <- as.numeric(difftime(HD, PD, units = "days"))  # Age in days
 	#haw <- round(had / 7)                                # Age in weeks
 
-  ## get WLY:get PDand HD to the closest daes fr which we have WLY
+## get WLY:get PDand HD to the closest daes fr which we have WLY
 	WLY_365 <- get_data("WLY_365", country=country, lon=lon, lat=lat)
 	
 	#wlyPD <- unique(WLY_365$pl_Date)
@@ -191,73 +191,63 @@ getFRrecommendations <- function(lat, lon, HD, PD, maxInv, fertilizers, rootUP, 
 
   #  wlypd <- WLY_365[WLY_365$lon==lon2 & WLY_365$lat == lat2 & WLY_365$pl_Date == PD2, ]
 	if (nrow(wlypd) == 0) {
-		return(list(data = NULL, fertilizer_rates = NULL))
-		
-	} else {
+		return(list(data = NULL, fertilizer_rates = NULL))	
+	} 
 
-		WLYdata <- wlypd[, c("lat", "lon", "pl_Date", HD2)]
-		colnames(WLYdata) <- c("lat", "lon", "pl_Date", "water_limited_yield")
-		WLYdata$zone <- country
-		WLYdata$daysOnField <- had
-		WLYdata <- WLYdata[, c("lat", "lon", "water_limited_yield", "pl_Date", "zone", "daysOnField")]
+	WLYdata <- wlypd[, c("lat", "lon", "pl_Date", HD2)]
+	colnames(WLYdata) <- c("lat", "lon", "pl_Date", "WLY")
+	WLYdata$country <- country
+	WLYdata$daysOnField <- had
+	WLYdata <- WLYdata[, c("lat", "lon", "WLY", "pl_Date", "country", "daysOnField")]
 
-		## get soil NPK
-		if (country %in% c("NG", "TZ")) {
-			# SoilData <- Rfmodel_Wrapper(FCY = FCY, country = country, lat = lat2, lon = lon2)
-			SoilData <- get_data("RF_soil", FCY=FCY, lat=lat, lon=lon)
-		} else {
-			SoilData <- get_data("soil_NPK", country, FCY, lon=lon, lat=lat)
-		}
+	## get soil NPK
+	SoilData <- get_data("soil_NPK", country, FCY, lon=lon, lat=lat)
 
-    ## get CY
-    #WLYdata$Current_Yield <- QUEFTS_no_fertilizer(soil=SoilData, country=country, wlyd=WLYdata$water_limited_yield)
-	Qinw <- data.frame(SoilData, WLY=WLYdata$water_limited_yield)
+## get CY
+	Qinw <- data.frame(SoilData, WLY=WLYdata$WLY)
 	WLYdata$Current_Yield <- QUEFTS(Qinw, c(0,0,0), HI=.55)
 
-#	SoilData$WLY <- SoilData$water_limited_yield <- WLYdata$water_limited_yield
-#	WLYdata$Current_Yield <- QUEFTS(SoilData, c(0,0,0), HI=0.52)
     WLYdata$weekNr <- pw
 
     #############################
     ## 1. get WLY, CY, fert recom and soil data
-    WLY <- WLYdata$water_limited_yield ## DM in kg/ha
+    WLY <- WLYdata$WLY ## DM in kg/ha
     DCY <- WLYdata$Current_Yield ## DM in kg/ha
 
     ## 2. change investment from given areaHa to 1ha
     InvestHa <- (maxInv / areaHa)
 
-    ## 3. optimize the fertilizer recommendation for maxInv in local currency and provide expected target yield in kg
+## 3. optimize the fertilizer recommendation for maxInv in local currency and provide expected target yield in kg
     fert_optim <- run_Optim_NG2(rootUP = rootUP, QID = SoilData, fertilizer = fertilizers, 
 			invest = InvestHa, plDate = WLYdata$pl_Date, WLYData = WLYdata, 
 			lat = lat, lon = lon, areaHa=areaHa, HD = HD, DCY = DCY, WLY = WLY, country = country)
 
     if (fert_optim$NR == 0) { ## no fertilizer recommendation
-		fertilizer_rates <- NULL  # c(0,0,0) ?
-		return(list(data = fert_optim, fertilizer_rates = fertilizer_rates))
-    } else {
-		vn <- c("lat", "lon", "plDate", "N", "P", "K", "WLY", "CurrentY", "TargetY", "TC", "NR")
-		fertinfo <- fert_optim[vn]
-		onlyFert <- fert_optim[!(names(fert_optim) %in% vn)]
+		return(list(data = fert_optim, fertilizer_rates = NULL))
+    } 
+	
+	vn <- c("lat", "lon", "plDate", "N", "P", "K", "WLY", "CurrentY", "TargetY", "TC", "NR")
+	fertinfo <- fert_optim[vn]
+	onlyFert <- fert_optim[!(names(fert_optim) %in% vn)]
 
-      ## 4. remove ferilizer application < 25 kg/ha and re run the TY and NR calculation
-      recom_ha <- onlyFert / areaHa
-	  above25 <- recom_ha > 25
+## 4. remove ferilizer application < 25 kg/ha and re run the TY and NR calculation
+	recom_ha <- onlyFert / areaHa
+	above25 <- recom_ha > 25
 
-      if (!any(above25)) { 
+	if (!any(above25)) { 
 ## if all fertilizer recom < 25 kg/ha all will be set to 0
-        fertinfo$N <- fertinfo$P <- fertinfo$K <- fertinfo$NR <- fertinfo$TC <- 0
-        fertinfo$TargetY <- fertinfo$CurrentY
-        return(list(data=fertinfo, fertilizer_rates=NULL))
-      } else if (all(above25)) { 
+		fertinfo$N <- fertinfo$P <- fertinfo$K <- fertinfo$NR <- fertinfo$TC <- 0
+		fertinfo$TargetY <- fertinfo$CurrentY
+		return(list(data=fertinfo, fertilizer_rates=NULL))
+	} else if (all(above25)) { 
 ## all fertilizer recom are >= 25 kg/ha. Check for NR >= 18% of investment
 		fertRecom <- NRabove18Cost(ds = fert_optim, riskAtt = riskAtt)
 		rec <- fertRecom[vn]
 		frates <- fertRecom[!(names(fertRecom) %in% vn)]
-        return(list(data=rec, fertilizer_rates=go_there(frates)))
-      } else {
+		return(list(data=rec, fertilizer_rates=go_there(frates)))
+	} else {
 ## Fertilizers < 25 kg/ha are dropped. ty and NR are recalculated
 ## RH: conceptually it would be better to optimize again?
-
 		fert25 <- recom_ha[, above25]
 		onlyFert25 <- onlyFert[, above25]
         rdd <- cbind(fertinfo, onlyFert25)
@@ -268,20 +258,13 @@ getFRrecommendations <- function(lat, lon, HD, PD, maxInv, fertilizers, rootUP, 
         if (fert25rec$NR <= 0) { 
 			return(list(data = fert25rec, fertilizer_rates = NULL))
         } else {
-#          print("The else happens here")
 			fertRecom <- NRabove18Cost(ds = fert25rec, riskAtt = riskAtt)
 			rec <- fertRecom[vn]
 			return(list(data = rec, fertilizer_rates = go_there(onlyFert25), note="below 25kg only"))
-        }
-      }
-    }
-  }
+		}
+	}
 }
 
-
-process <- function(...) {
-	return(list(...))
-}
 
 
 process_FR <- function(lat, lon, HD, maxInv, fertilizers, rootUP, areaHa, country, FCY, 
