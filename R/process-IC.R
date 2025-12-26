@@ -207,7 +207,9 @@ process_IC_NG <- function(
     ICrecom <- FALSE
   }
 
-	list(rec_type="IC", recommendation=recText, res)
+	c(list(type="IC", recommendation=recText) , res)
+
+#	list(rec_type="IC", recommendation=recText, res)
 
 }
 
@@ -243,7 +245,7 @@ process_IC_TZ <- function(IC, country, areaHa, FCY, tuberUP, rootUP, fertilizers
   #return(list(ICrecom = ICrecom, plumberRes = res, recText = recText))
   #list(recom = ICrecom, data=c(res, message=recText, rec_type="IC"))
 
-	list(rec_type="IC", recommendation=recText, data=res)
+	c(list(rec_type="IC", recommendation=recText) , res)
   
 }
 
