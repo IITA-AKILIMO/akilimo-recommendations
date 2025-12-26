@@ -14,3 +14,7 @@ ScriptPackage
 akilimo-api.service
 data/*
 temp/*
+tests/old/*
+tests/app/*
+tests/request/*
+tests/response/*
