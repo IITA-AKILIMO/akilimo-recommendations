@@ -17,11 +17,13 @@ test <- function(i, x) {
 	a <- tinytest::expect_equal(x$recommendation, y$recommendation)
 	if (!a) {
 		print(a)
+		stop()
 		return(FALSE)
 	} 
 	b <- tinytest::expect_equivalent(x$data, y$data, tolerance=0.1)
 	if (!b) {
 		print(b)
+		stop()
 		return(FALSE)
 	}
 	TRUE
