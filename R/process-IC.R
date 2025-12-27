@@ -107,7 +107,7 @@ getICrecommendations <- function(areaHa, CMP, cobUP, fertilizers, riskAtt = c(0,
     rec$reason_F <- "Your soil is very fertile. It is likely that your maize yield will not improve much after fertilizer application. Plant maize at high density (40,000 plants per hectare) and sow the seeds at 25 cm within rows."
   }
 
-  list(recommendations=rec, fertilizer_rates=fertilizer_rates)
+  list(data=rec, fertilizer_rates=fertilizer_rates)
 }
 
 
@@ -115,7 +115,7 @@ getICrecommendations <- function(areaHa, CMP, cobUP, fertilizers, riskAtt = c(0,
 #' @param maizePD mmaize product
 getICrecText <- function(x, maizePD) {
 
-	ds <- x[["recommendations"]]
+	ds <- x[["data"]]
 	fs <- x[["fertilizer_rates"]]
   if (!ds$rec_F) {
     #trans
@@ -163,9 +163,7 @@ getICrecText <- function(x, maizePD) {
                    paste0("Plant your maize intercrop at low density: 1 m between rows and 50 cm within row (20,000 plants per hectare)."))
   }
 
-  rec <- paste0(recF, recD)
-  gsub("[ ]+", " ", rec)
-
+  paste0(recF, recD)
 
   #TODO: This only provides the minimal information to return to the user. We may consider adding following information:
   #1. Make sure they grow the right maize variety (should be mature in 95 days max), and the right cassava variety. Should also make recommendations on the right cassava variety.
@@ -205,11 +203,14 @@ process_IC_NG <- function(
 	fertilizerAdviseTable(FR = FALSE, IC = TRUE, country = country, areaUnits = areaUnits)
     ICrecom <- TRUE
   } else {
-    recText <- res$recommendations$reason_F
+    recText <- res$data$reason_F
     ICrecom <- FALSE
   }
 
-  list(recom = ICrecom, data=c(res, message=recText, rec_type="IC"))
+	c(list(type="IC", recommendation=recText) , res)
+
+#	list(rec_type="IC", recommendation=recText, res)
+
 }
 
 # Process recommendations for Tanzania (TZ)
@@ -237,12 +238,15 @@ process_IC_TZ <- function(IC, country, areaHa, FCY, tuberUP, rootUP, fertilizers
 
 	  ICrecom <- TRUE
   } else {
-    recText <- res$recommendations$reason_F
+    recText <- res$data$reason_F
     ICrecom <- FALSE
   }
 
   #return(list(ICrecom = ICrecom, plumberRes = res, recText = recText))
-  list(recom = ICrecom, data=c(res, message=recText, rec_type="IC"))
+  #list(recom = ICrecom, data=c(res, message=recText, rec_type="IC"))
+
+	c(list(rec_type="IC", recommendation=recText) , res)
+  
 }
 
 
@@ -344,7 +348,7 @@ getCISrecommendations <- function(areaHa = 1, FCY = 11,
   } else {
 	fertilizer_rates <- data.frame(type = "", rate = 0)[0,]
   }
-  list(recommendations=rec, fertilizer_rates=fertilizer_rates)
+  list(data=rec, fertilizer_rates=fertilizer_rates)
 
 }
 
@@ -356,7 +360,7 @@ getCISrecommendations <- function(areaHa = 1, FCY = 11,
 #' @return the advice as text to print in app
 getCISrecText <- function(d) {
 
-	ds <- d[["recommendations"]]
+	ds <- d[["data"]]
 
   if (!ds$rec_IC) {
     # recIC <- "Intercropping is not recommended. Growing a cassava monocrop will give you a higher profit.\n"
@@ -391,15 +395,13 @@ getCISrecText <- function(d) {
 
   }
 
-  rec <- paste0(recIC, recF)
+  paste0(recIC, recF)
 
   #TODO: This only provides the minimal information to return to the user. We may consider adding following information:
   #1. Make sure they grow the right sweet potato variety (Mayai), and the right cassava variety (Kizimbani).
   #2. We purposefully did not include recommendations on the exact yield increases as the data is rather weak to justify this. Can be added later when more data is available.
   #3. Some explanation included on why fertilizer is not recommended, or why intercropping is not recommended - need to evaluate if this is not too cryptic.
   #4. Possible issues with the input data - especially if user provides unrealistic prices for sweet potato/cassava produce / fertilizers.
-
-  gsub("[ ]+", " ", rec)
 
 }
 
