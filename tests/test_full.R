@@ -6,7 +6,6 @@ if (this == "LAPTOP-IVSPBGCA") {
 	akpath <- "."
 }
 setwd(akpath)
-
 srcdir <- file.path(akpath, "R")
 testdir <- file.path(akpath, "tests")
 
@@ -36,7 +35,7 @@ run <- function(i) {
 	run_akilimo(json)
 }
 
-for (f in grep("api", list.files(srcdir, pattern="\\.R$"), invert=TRUE, value=TRUE)) source(file.path(srcdir, f))
+for (f in list.files(srcdir, pattern="\\.R$", full=TRUE)) source(file.path(srcdir, f))
 
 n <- 3203
 out <- lapply(1:n, \(i) {r <- run(i); test(i, r)})

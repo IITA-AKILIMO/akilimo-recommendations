@@ -6,22 +6,6 @@ get_currency <- function(country) {
 }
 
 
-# to replace plyr::ddply (and the need for the plyr package)
-# not used anymore 
-dd_ply <- function(X, index, fun, ...) {
-	s <- split(X, X[index])
-	out <- lapply(s, fun, ...)
-	value <- do.call(rbind, out)
-	d <- data.frame(X[index], value)
-	rownames(d) <- NULL
-	d
-	#idx <- X[index]
-	#idx$value <- as.vector(tapply(X=X, INDEX=as.list(idx), FUN=fun, ...))
-	#idx
-}
-
-
-
 #SHORT DEF:   Function to convert root DM yield into root fresh matter yield (RFY)
 #RETURNS:     RFY: root fresh yield in the same units as root DM yield input
 #DESCRIPTION: Function to predict root FM yield based on date of harvest and country, using data from gravimetric starch measurements conducted across ACAI trials.

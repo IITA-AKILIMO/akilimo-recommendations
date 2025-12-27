@@ -26,7 +26,7 @@ run <- function(i) {
 	run_akilimo(json)
 }
 
-for (f in grep("api", list.files(srcdir, pattern="\\.R$"), invert=TRUE, value=TRUE)) source(file.path(srcdir, f))
+for (f in list.files(srcdir, pattern="\\.R$", full=TRUE)) source(file.path(srcdir, f))
 
 out <- lapply(1:29, \(i) {r <- run(i); test(i, r); r})
 
