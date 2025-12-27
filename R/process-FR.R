@@ -194,11 +194,10 @@ getFRrecommendations <- function(lat, lon, HD, PD, maxInv, fertilizers, rootUP, 
 		return(list(data = NULL, fertilizer_rates = NULL))	
 	} 
 
-	WLYdata <- wlypd[, c("lat", "lon", "pl_Date", HD2)]
-	colnames(WLYdata) <- c("lat", "lon", "pl_Date", "WLY")
-	WLYdata$country <- country
+	WLYdata <- wlypd[, c("lat", "lon", HD2, "pl_Date")]
+	colnames(WLYdata)[3] <- "WLY"
 	WLYdata$daysOnField <- had
-	WLYdata <- WLYdata[, c("lat", "lon", "WLY", "pl_Date", "country", "daysOnField")]
+    WLYdata$weekNr <- pw
 
 	## get soil NPK
 	SoilData <- get_data("soil_NPK", country, FCY, lon=lon, lat=lat)
@@ -207,20 +206,19 @@ getFRrecommendations <- function(lat, lon, HD, PD, maxInv, fertilizers, rootUP, 
 	Qinw <- data.frame(SoilData, WLY=WLYdata$WLY)
 	WLYdata$Current_Yield <- QUEFTS(Qinw, c(0,0,0), HI=.55)
 
-    WLYdata$weekNr <- pw
-
     #############################
     ## 1. get WLY, CY, fert recom and soil data
-    WLY <- WLYdata$WLY ## DM in kg/ha
-    DCY <- WLYdata$Current_Yield ## DM in kg/ha
+#    WLY <- WLYdata$WLY ## DM in kg/ha
+#    DCY <- WLYdata$Current_Yield ## DM in kg/ha
 
     ## 2. change investment from given areaHa to 1ha
     InvestHa <- (maxInv / areaHa)
 
 ## 3. optimize the fertilizer recommendation for maxInv in local currency and provide expected target yield in kg
     fert_optim <- run_Optim_NG2(rootUP = rootUP, QID = SoilData, fertilizer = fertilizers, 
-			invest = InvestHa, plDate = WLYdata$pl_Date, WLYData = WLYdata, 
-			lat = lat, lon = lon, areaHa=areaHa, HD = HD, DCY = DCY, WLY = WLY, country = country)
+			invest = InvestHa, WLYData = WLYdata, 
+			lat = lat, lon = lon, areaHa=areaHa, HD = HD, country = country)
+
 
     if (fert_optim$NR == 0) { ## no fertilizer recommendation
 		return(list(data = fert_optim, fertilizer_rates = NULL))
@@ -251,9 +249,9 @@ getFRrecommendations <- function(lat, lon, HD, PD, maxInv, fertilizers, rootUP, 
 		fert25 <- recom_ha[, above25]
 		onlyFert25 <- onlyFert[, above25]
         rdd <- cbind(fertinfo, onlyFert25)
-        fert25rec <- rerun_25kgha(rootUP = rootUP, rdd=rdd, 
-				fertilizer = fertilizers, QID = SoilData, onlyFert25 = fert25, 
-				country = country, WLY = WLY, DCY = DCY, HD = HD, areaHa = areaHa)
+        fert25rec <- rerun_25kgha(rootUP = rootUP, rdd=rdd, fertilizer = fertilizers, 
+				QID = SoilData, onlyFert25 = fert25, country = country, 
+				WLY=WLYdata$WLY, DCY=WLYdata$Current_Yield, HD = HD, areaHa = areaHa)
 
         if (fert25rec$NR <= 0) { 
 			return(list(data = fert25rec, fertilizer_rates = NULL))

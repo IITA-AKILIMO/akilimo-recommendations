@@ -14,14 +14,18 @@
 #' @param WLY water limitied yeild
 #' @param DCY dry current wt, the output of QUEFTS
 #' @param country
-run_Optim_NG2 <- function(rootUP, QID, fertilizer, invest, plDate, WLYData, lat, lon, areaHa, HD, WLY, DCY, country) {
+run_Optim_NG2 <- function(rootUP, QID, fertilizer, invest, WLYData, lat, lon, areaHa, HD, country) {
+
+	DCY <- WLYData$Current_Yield
+	QID$WLY <- WLY <- WLYData$WLY
+	plDate  <- WLYData$pl_Date
 
 ## input of CY and WLY are in dry wt in KG/ha
-	QID$WLY <- WLY
 	initial <- rep(0, nrow(fertilizer))
 	lowerST <- rep(0, nrow(fertilizer))
 
 ## both CY and TY should be changed to user land size in ton/ha and fresh wt
+
 	CY_user <- ((getRFY(HD = HD, RDY = DCY, country = "NG")) / 1000) * areaHa ## TZ model is extrememly high
 	WLY_user <- ((getRFY(HD = HD, RDY = WLY, country = "NG")) / 1000) * areaHa
 
