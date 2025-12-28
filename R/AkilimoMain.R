@@ -1,7 +1,7 @@
 
 run_akilimo <- function(json) {
 	
-	aki_version <- "20251222"
+	aki_version <- "20251228"
 	dir.create("temp", FALSE, FALSE)
     body <- try(jsonlite::fromJSON(json))
 	if (inherits(body, "try-error")) {
