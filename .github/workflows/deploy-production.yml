@@ -1,12 +1,4 @@
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
-#
-# See https://github.com/r-lib/actions/tree/master/examples#readme for
-# additional example workflows available for the R community.
-
-name: R
+name: SHH Service deployemnt
 
 on:
   push:
@@ -22,6 +14,12 @@ env:
   SERVICE_NAME: "akilimo-api.service"
   NGINX_TEST_CMD: "sudo nginx -t"
   NGINX_RESTART_CMD: "sudo systemctl restart nginx"
+  QUIET_PERIOD: "60" # seconds to wait after last commit
+
+# Ensure only one deployment for main runs at a time
+concurrency:
+  group: deploy-main
+  cancel-in-progress: true
 
 jobs:
   deploy:
@@ -31,10 +29,24 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Smart debounce wait
+        run: |
+          echo "Starting smart debounce for $QUIET_PERIOD seconds..."
+          last_commit_time=$(git log -1 --format=%ct)
+          current_time=$(date +%s)
+          elapsed=$((current_time - last_commit_time))
+          wait_time=$((QUIET_PERIOD - elapsed))
+          
+          if [ $wait_time -gt 0 ]; then
+            echo "Last commit was $elapsed seconds ago. Waiting $wait_time more seconds..."
+            sleep $wait_time
+          else
+            echo "Last commit was $elapsed seconds ago. No wait needed."
+          fi
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.4
         env:
-          # Use the secret if it exists, otherwise fallback to workflow env
           APP_DIR: ${{ secrets.APP_DIR_OVERRIDE || env.APP_DIR }}
           BRANCH: ${{ github.ref_name }}
           SERVICE_NAME: ${{ secrets.SERVICE_NAME_OVERRIDE || env.SERVICE_NAME }}
