@@ -36,5 +36,5 @@ pr$handle(
 		})
 	}
 )
-pr_run(pr, port = 8000)
+pr_run(pr, host = "0.0.0.0", port = 8000)
 
