@@ -1,0 +1,72 @@
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+#
+# See https://github.com/r-lib/actions/tree/master/examples#readme for
+# additional example workflows available for the R community.
+
+name: R
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+env:
+  APP_DIR: "/home/akilimo/projects/new_akilimo"   # default fallback
+  SERVICE_NAME: "akilimo-api.service"
+  NGINX_TEST_CMD: "nginx -t"
+  NGINX_RESTART_CMD: "sudo systemctl restart nginx"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.4
+        env:
+          # Use the secret if it exists, otherwise fallback to workflow env
+          APP_DIR: ${{ secrets.APP_DIR_OVERRIDE || env.APP_DIR }}
+          BRANCH: ${{ github.ref_name }}
+          SERVICE_NAME: ${{ secrets.SERVICE_NAME_OVERRIDE || env.SERVICE_NAME }}
+          NGINX_TEST_CMD: ${{ env.NGINX_TEST_CMD }}
+          NGINX_RESTART_CMD: ${{ env.NGINX_RESTART_CMD }}
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          envs: APP_DIR, BRANCH, SERVICE_NAME, NGINX_TEST_CMD, NGINX_RESTART_CMD
+          script: |
+            set -e
+
+            echo "Deploying branch: $BRANCH"
+            echo "Deployment directory: $APP_DIR"
+            echo "Service: $SERVICE_NAME"
+
+            cd $APP_DIR
+            git fetch origin
+            git checkout $BRANCH
+            git pull origin $BRANCH
+
+            echo "Reloading systemd daemon..."
+            sudo systemctl daemon-reload
+
+            echo "Restarting service $SERVICE_NAME..."
+            sudo systemctl restart $SERVICE_NAME
+
+            echo "Testing Nginx configuration..."
+            $NGINX_TEST_CMD
+
+            echo "Restarting Nginx..."
+            $NGINX_RESTART_CMD
+
+            echo "Deployment completed successfully 🚀"
