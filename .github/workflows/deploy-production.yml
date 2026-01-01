@@ -20,7 +20,7 @@ permissions:
 env:
   APP_DIR: "/home/akilimo/projects/new_akilimo"   # default fallback
   SERVICE_NAME: "akilimo-api.service"
-  NGINX_TEST_CMD: "nginx -t"
+  NGINX_TEST_CMD: "sudo nginx -t"
   NGINX_RESTART_CMD: "sudo systemctl restart nginx"
 
 jobs:
