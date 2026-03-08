@@ -1,10 +1,10 @@
-# Akilimo R Recommendations Engine
+# AKILIMO R Recommendation Engine
 
-This guide covers the deployment and management of the Akilimo R API as a systemd service on Linux systems.
+This guide covers the deployment and management of the AKILIMO R API as a systemd service on Linux systems.
 
 ## Overview
 
-The Akilimo R API runs as a managed systemd service, providing automatic restarts, resource management, logging, and security hardening. This ensures reliable operation in production environments.
+The AKILIMO R API runs as a managed systemd service, providing automatic restarts, resource management, logging, and security hardening. This ensures reliable operation in production environments.
 
 ## Prerequisites
 

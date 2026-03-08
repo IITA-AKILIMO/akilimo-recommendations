@@ -1,0 +1,84 @@
+name: SHH Service deployemnt
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+env:
+  APP_DIR: "/home/akilimo/projects/new_akilimo"   # default fallback
+  SERVICE_NAME: "akilimo-api.service"
+  NGINX_TEST_CMD: "sudo nginx -t"
+  NGINX_RESTART_CMD: "sudo systemctl restart nginx"
+  QUIET_PERIOD: "60" # seconds to wait after last commit
+
+# Ensure only one deployment for main runs at a time
+concurrency:
+  group: deploy-main
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Smart debounce wait
+        run: |
+          echo "Starting smart debounce for $QUIET_PERIOD seconds..."
+          last_commit_time=$(git log -1 --format=%ct)
+          current_time=$(date +%s)
+          elapsed=$((current_time - last_commit_time))
+          wait_time=$((QUIET_PERIOD - elapsed))
+          
+          if [ $wait_time -gt 0 ]; then
+            echo "Last commit was $elapsed seconds ago. Waiting $wait_time more seconds..."
+            sleep $wait_time
+          else
+            echo "Last commit was $elapsed seconds ago. No wait needed."
+          fi
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.4
+        env:
+          APP_DIR: ${{ secrets.APP_DIR_OVERRIDE || env.APP_DIR }}
+          BRANCH: ${{ github.ref_name }}
+          SERVICE_NAME: ${{ secrets.SERVICE_NAME_OVERRIDE || env.SERVICE_NAME }}
+          NGINX_TEST_CMD: ${{ env.NGINX_TEST_CMD }}
+          NGINX_RESTART_CMD: ${{ env.NGINX_RESTART_CMD }}
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          envs: APP_DIR, BRANCH, SERVICE_NAME, NGINX_TEST_CMD, NGINX_RESTART_CMD
+          script: |
+            set -e
+
+            echo "Deploying branch: $BRANCH"
+            echo "Deployment directory: $APP_DIR"
+            echo "Service: $SERVICE_NAME"
+
+            cd $APP_DIR
+            git fetch origin
+            git checkout $BRANCH
+            git pull origin $BRANCH
+
+            echo "Reloading systemd daemon..."
+            sudo systemctl daemon-reload
+
+            echo "Restarting service $SERVICE_NAME..."
+            sudo systemctl restart $SERVICE_NAME
+
+            echo "Testing Nginx configuration..."
+            $NGINX_TEST_CMD
+
+            echo "Restarting Nginx..."
+            $NGINX_RESTART_CMD
+
+            echo "Deployment completed successfully 🚀"
