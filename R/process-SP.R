@@ -112,19 +112,20 @@ getSPrecText <- function(ds, country, PD, HD) {
       }
 
 
-      #TODO: This only provides the minimal information to return to the user. We may consider adding following information:
-      #1. Risks of harvesting later (especially in CBSD-affected areas)
-      #2. Importance of using the right varieties
-      #3. Reasons underlying recommendations (driven by yield, price or both)
-      #4. Implications on agronomic practices, requirements for ridging, fertilizer application,...
-      #5. Possible issues with the input data - especially if user provides unrealistic prices.
+      # NOTE: recommendation text is minimal. Future enhancements could include:
+      # 1. Risks of harvesting later (especially in CBSD-affected areas)
+      # 2. Importance of using the right varieties
+      # 3. Reasons underlying recommendations (driven by yield, price, or both)
+      # 4. Implications on agronomic practices, requirements for ridging, fertilizer application
+      # 5. Possible issues with the input data — especially unrealistic prices
     }
   }
+  rec
 }
 
 
 
-## schedule planting and harvest dates is absed on searching highest return on investemnt within 1- or 2-months window around the user intended plant/harvest dates;
+## schedule planting and harvest dates is based on searching highest return on investemnt within 1- or 2-months window around the user intended plant/harvest dates;
 ## For every location,pecalculated INS for the FCY class and WLY are sourced and then current yield is modelled,
 ## a data frame is created constituting relevant planting and harvest windows, for every combination predicted yield is scaled
 ## based on farmer-reported current yield relative to modelled current and Water linited Yield and for every
