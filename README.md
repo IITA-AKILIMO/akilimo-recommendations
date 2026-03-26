@@ -11,35 +11,25 @@ git clone https://github.com/masgeek/akilimo-recommendations.git
 cd akilimo-recommendations
 ```
 
-### 2. Install R dependencies
+### 2. Run the setup script
 
-```r
-install.packages(c(
-  "plumber", "limSolve", "ncdf4", "httr",
-  "webshot", "mailR", "knitr", "leaflet", "tinytest"
-))
-```
-
-### 3. Download runtime data
-
-All spatial and input data files are hosted on Zenodo. See [SETUP.md](SETUP.md) for full instructions.
+The `setup.sh` script installs all system packages, R packages, Python tooling, and downloads runtime data from Zenodo in one step:
 
 ```bash
-cd scripts
-cp .env.example .env
-# Set ZENODO_RECORD_ID in .env, then:
-poetry install
-poetry run setup-data
+chmod +x setup.sh
+./setup.sh
 ```
 
-### 4. Start the API
+For manual installation or non-Debian systems, see [SETUP.md](SETUP.md).
+
+### 3. Start the API
 
 ```bash
 Rscript api.R
 # API listens on http://0.0.0.0:8000
 ```
 
-### 5. Run a test request
+### 4. Run a test request
 
 ```bash
 curl -X POST http://localhost:8000/compute --data "@./tests/input/in_1.json"
@@ -110,7 +100,7 @@ sudo journalctl -u akilimo-api.service -f
 
 ## Data Management (maintainers)
 
-See [SETUP.md](SETUP.md) for the full data publishing workflow.
+Runtime data is hosted on Zenodo record **19231022**. See [SETUP.md](SETUP.md) for the full publishing workflow.
 
 ```bash
 cd scripts
