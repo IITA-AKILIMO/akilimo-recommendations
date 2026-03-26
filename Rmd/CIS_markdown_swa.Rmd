@@ -55,7 +55,7 @@ source("AkilimoFunctions_dev.R")
 #out.width = "40500px",
 
 #knitr::include_graphics("/home/akilimo/projects/akilimo_recommendation/net/Akilimo Dashboard IC.png")
-knitr::include_graphics("Akilimo Dashboard CIS.png")
+knitr::include_graphics("net/Akilimo Dashboard CIS.png")
 ```
 
 

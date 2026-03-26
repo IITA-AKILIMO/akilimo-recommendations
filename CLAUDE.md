@@ -6,6 +6,41 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 R-based REST API for agricultural (cassava farming) recommendations. Supported countries: Nigeria (NG), Tanzania (TZ), Rwanda (RW), Ghana (GH), Burundi (BI).
 
+## First-Time Setup
+
+All runtime data files are hosted exclusively on **Zenodo** (images, CSVs, soil data, yield data). Setup scripts live in `scripts/` and are managed with Poetry.
+
+```bash
+cd scripts
+cp .env.example .env
+# edit .env: set ZENODO_RECORD_ID
+
+poetry install
+poetry run setup-data
+```
+
+Re-running is safe — already-extracted files are preserved.
+
+### Publishing data files (maintainers only)
+
+```bash
+cd scripts
+cp .env.example .env
+# edit .env: set ZENODO_TOKEN (required)
+
+poetry install
+
+# 1. Bundle all four data directories → dist/*.tar.gz
+poetry run bundle-assets
+
+# 2. Upload all bundles to Zenodo
+poetry run upload-zenodo --new         # first time → prints deposit ID
+poetry run upload-zenodo               # update draft (uses ZENODO_DEPOSIT_ID from .env)
+
+# 3. Publish the deposit in the Zenodo UI → copy record ID to .env:
+#    ZENODO_RECORD_ID=1234567
+```
+
 ## Commands
 
 ### Start the API
