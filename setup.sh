@@ -85,74 +85,8 @@ fi
 info "Installing R packages..."
 require_cmd Rscript
 
-Rscript - <<'EOF'
-pkgs <- c(
-  # API framework
-  "plumber",
-
-  # Optimisation / modelling
-  "limSolve",
-
-  # Spatial / climate data
-  "ncdf4",
-
-  # HTTP / notifications
-  "httr",
-  "mailR",
-
-  # Report generation
-  "webshot",
-  "knitr",
-  "rmarkdown",
-
-  # Mapping
-  "leaflet",
-  "mapview",
-
-  # Data wrangling
-  "jsonlite",
-  "tidyr",
-  "dplyr",
-  "plyr",
-  "lubridate",
-
-  # Visualisation / tables
-  "ggplot2",
-  "kableExtra",
-  "scales",
-  "png",
-
-  # Machine learning
-  "randomForest",
-
-  # Testing
-  "tinytest"
-)
-
-missing <- pkgs[!pkgs %in% rownames(installed.packages())]
-if (length(missing) > 0) {
-  message("Installing: ", paste(missing, collapse = ", "))
-  install.packages(missing, repos = "https://cloud.r-project.org", quiet = TRUE)
-} else {
-  message("All R packages already installed.")
-}
-
-# Configure rJava (needed by mailR) — reconfigures R's Java environment
-tryCatch({
-  rJava::.jinit()
-  message("rJava: OK")
-}, error = function(e) {
-  message("rJava init failed — run: sudo R CMD javareconf")
-})
-
-# Configure webshot (needs phantomjs or chromium)
-if (!webshot::is_phantomjs_installed()) {
-  message("Installing phantomjs via webshot...")
-  webshot::install_phantomjs()
-}
-
-message("R package setup complete.")
-EOF
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+Rscript "$SCRIPT_DIR/install_packages.R"
 
 success "R packages ready."
 
