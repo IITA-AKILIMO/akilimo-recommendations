@@ -18,14 +18,18 @@ pr$handle(
 	method = "POST",
 	path = "/compute",
 	handler = function(req, res) {
-		tryCatch({ run_akilimo(req$postBody)}, error = 
+		tryCatch({ run_akilimo(req$postBody)}, error =
 		function(e) {
 			res$status <- 500
-			print(e)
+			message("ERROR: ", e$message)
+			token <- tryCatch(
+				jsonlite::unbox(jsonlite::fromJSON(req$postBody)[["request_token"]]),
+				error = function(e2) jsonlite::unbox(NA_character_)
+			)
 			data <- list(
-				request_token = jsonlite::unbox(request_token),
+				request_token = token,
 				message = jsonlite::unbox(e$message),
-				trace = jsonlite::unbox(capture.output(e))
+				trace = jsonlite::unbox(paste(capture.output(traceback()), collapse = "\n"))
 			)
 			list(status = jsonlite::unbox("error"), data = data)
 		})

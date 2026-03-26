@@ -68,9 +68,9 @@ filename   <- file.path("temp", paste0("personalized_info_", safe_phone, ".csv")
 
 ---
 
-## 2. Logic Errors
+## 2. Logic Errors ✓ Resolved
 
-### 2.1 `substr()` arguments reversed — HIGH
+### 2.1 `substr()` arguments reversed — HIGH ✓ Fixed
 
 **File:** `R/sms_email.R` line 26
 
@@ -86,7 +86,7 @@ As written, this will either error or silently return the wrong value on every S
 
 ---
 
-### 2.2 Undefined variable `listofPDFs` — HIGH
+### 2.2 Undefined variable `listofPDFs` — HIGH ✓ Fixed
 
 **File:** `R/sms_email.R` line 89
 
@@ -94,7 +94,7 @@ The condition references `listofPDFs`, but the variable in scope is `PDFs`. This
 
 ---
 
-### 2.3 Scalar vs. vector comparison in soil-prep logic — HIGH
+### 2.3 Scalar vs. vector comparison in soil-prep logic — HIGH ✓ Fixed
 
 **File:** `process-PP.R` lines 53–54
 
@@ -107,7 +107,7 @@ ds$CP <- ifelse(ds$ploughing, ploughing & ds$method_ploughing == method_ploughin
 
 ---
 
-### 2.4 Ambiguous `SP` duplication in key vector — MEDIUM
+### 2.4 Ambiguous `SP` duplication in key vector — MEDIUM ✓ Fixed
 
 **File:** `R/AkilimoMain.R` line 49
 
@@ -125,9 +125,9 @@ selected_key <- unique(key_map[flags])
 
 ---
 
-## 3. Error Handling
+## 3. Error Handling ✓ Resolved
 
-### 3.1 `request_token` potentially undefined in error handler — HIGH
+### 3.1 `request_token` potentially undefined in error handler — HIGH ✓ Fixed
 
 **File:** `api.R` lines 26–35
 
@@ -144,7 +144,7 @@ If `run_akilimo` throws before `request_token` is assigned, the error handler it
 
 ---
 
-### 3.2 Silent `NULL` returns from data loading — MEDIUM
+### 3.2 Silent `NULL` returns from data loading — MEDIUM ✓ Fixed
 
 **File:** `R/get_data.R` lines 29, 81, 193–195
 
@@ -161,7 +161,7 @@ if (length(off) != 1) {
 
 ---
 
-### 3.3 Silent fallback for unknown area units — MEDIUM
+### 3.3 Silent fallback for unknown area units — MEDIUM ✓ Fixed
 
 **File:** `R/AkilimoMain.R` lines 78–79
 
@@ -175,9 +175,9 @@ An unrecognised unit silently defaults to hectares (10000 m²). The comment ackn
 
 ---
 
-## 4. Code Duplication
+## 4. Code Duplication ✓ Resolved (4.1, 4.2)
 
-### 4.1 Country × product price table as nested `if` blocks — HIGH
+### 4.1 Country × product price table as nested `if` blocks — HIGH ✓ Fixed
 
 **File:** `R/AkilimoMain.R` lines 272–296
 
@@ -204,7 +204,7 @@ cassUP <- price_table[[country]][[cassPD]]
 
 ---
 
-### 4.2 Tillage cost blocks duplicated per country — HIGH
+### 4.2 Tillage cost blocks duplicated per country — HIGH ✓ Fixed
 
 **File:** `R/AkilimoMain.R` lines 357–406
 

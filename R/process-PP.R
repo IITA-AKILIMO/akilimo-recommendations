@@ -50,8 +50,12 @@ getPPrecommendations <- function(areaHa, costLMO,
   #  ridging == ridging &
   #  method_ridging == method_ridging)
 
-  ds$CP <-  ifelse(ds$ploughing, ploughing & ds$method_ploughing == method_ploughing, !ploughing) &
-			ifelse(ds$ridging, ridging & ds$method_ridging == method_ridging, !ridging)     
+  # Mark the row that matches the farmer's current practice.
+  # ds$ploughing / ds$ridging are column vectors; ploughing / ridging are scalar flags from the request.
+  ds$CP <- (ds$ploughing == ploughing) &
+           (ds$ridging   == ridging)   &
+           ifelse(ploughing, ds$method_ploughing == method_ploughing, TRUE) &
+           ifelse(ridging,   ds$method_ridging   == method_ridging,   TRUE)
 
 # Calculate the differences only for rows where 'CP' is TRUE
 # bad: there must be one that is true...

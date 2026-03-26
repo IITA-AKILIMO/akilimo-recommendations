@@ -5,7 +5,7 @@ run_akilimo <- function(json) {
 	dir.create("temp", FALSE, FALSE)
     body <- try(jsonlite::fromJSON(json))
 	if (inherits(body, "try-error")) {
-		return(list(status = jsonlite::unbox("404 - bad request"), data=NULL))
+		return(list(status = jsonlite::unbox("400 - bad request"), data=NULL))
     }
 
     # extract parameters from the JSON payload
@@ -46,7 +46,9 @@ run_akilimo <- function(json) {
 #		country <- "BU" #use non standard country code for Burundi
 #    }
 
-	selected_key <- unique(c("FR", "PP", "IC", "SP", "SP")[c(FR, PP, IC, SPP, SPH)])
+	flag_to_key  <- c(FR = "FR", PP = "PP", IC = "IC", SPP = "SP", SPH = "SP")
+	active_flags <- c(FR = FR, PP = PP, IC = IC, SPP = SPP, SPH = SPH)
+	selected_key <- unique(flag_to_key[active_flags])
     #riskAtt <- 0
 
     PD <- as.Date(PD, format = "%Y-%m-%d")
@@ -73,10 +75,13 @@ run_akilimo <- function(json) {
 	
     unit_factors <- c(ha=1, acre=2.47105, are=100, m2=10000, string=1000)
 
-    # Fallback to 10000 (i.e., square meters) if unit is unknown or missing
-	## seems rather risky!!
     area_conversion_factor <- unit_factors[[areaUnits]]
-    if (is.null(area_conversion_factor)) area_conversion_factor <- 10000
+    if (is.null(area_conversion_factor)) {
+        return(list(
+            status = jsonlite::unbox("400 - bad request"),
+            data   = list(message = jsonlite::unbox(paste("Unknown areaUnits:", areaUnits)))
+        ))
+    }
     # Calculate area in hectares
     areaHa <- area / area_conversion_factor
 
@@ -269,33 +274,20 @@ get_cassUPUW <- function(cassUP, cassUW, cassPD, country, saleSF, nameSF) {
 		cassUP <- max(SF$price)
 		cassUW <- 1000
     } else if (cassUP == 0) {
-		if (country == "NG") {
-			  if (cassPD == "roots") { cassUP <- 12000; cassUW <- 1000 }
-			  if (cassPD == "chips") { cassUP <- 36000; cassUW <- 1000 }
-			  if (cassPD == "flour") { cassUP <- 38400; cassUW <- 1000 }
-			  if (cassPD == "gari") { cassUP <- 42000; cassUW <- 1000 }
-		} else if (country == "TZ") {
-			  if (cassPD == "roots") { cassUP <- 180000; cassUW <- 1000 }
-			  if (cassPD == "chips") { cassUP <- 540000; cassUW <- 1000 }
-			  if (cassPD == "flour") { cassUP <- 576000; cassUW <- 1000 }
-			  if (cassPD == "gari") { cassUP <- 630000; cassUW <- 1000 }
-		} else if (country == "GH") {
-			  if (cassPD == "roots") { cassUP <- 450; cassUW <- 1000 }
-			  if (cassPD == "chips") { cassUP <- 450; cassUW <- 1000 }
-			  if (cassPD == "flour") { cassUP <- 450; cassUW <- 1000 }
-			  if (cassPD == "gari") { cassUP <- 450; cassUW <- 1000 }
-		} else if (country == "RW") {
-			  if (cassPD == "roots") { cassUP <- 75000; cassUW <- 1000 }
-			  if (cassPD == "chips") { cassUP <- 75000; cassUW <- 1000 }
-			  if (cassPD == "flour") { cassUP <- 75000; cassUW <- 1000 }
-			  if (cassPD == "gari") { cassUP <- 75000; cassUW <- 1000 }
-		} else if (country == "BI") {
-			  if (cassPD == "roots") { cassUP <- 700000; cassUW <- 1000 }
-			  if (cassPD == "chips") { cassUP <- 700000; cassUW <- 1000 }
-			  if (cassPD == "flour") { cassUP <- 700000; cassUW <- 1000 }
-			  if (cassPD == "gari") { cassUP <- 700000; cassUW <- 1000 }
+		# Default cassava prices (per 1000 kg) by country and product type
+		default_cass_prices <- list(
+			NG = c(roots = 12000,  chips = 36000,  flour = 38400,  gari = 42000),
+			TZ = c(roots = 180000, chips = 540000,  flour = 576000, gari = 630000),
+			GH = c(roots = 450,    chips = 450,     flour = 450,    gari = 450),
+			RW = c(roots = 75000,  chips = 75000,   flour = 75000,  gari = 75000),
+			BI = c(roots = 700000, chips = 700000,  flour = 700000, gari = 700000)
+		)
+		country_prices <- default_cass_prices[[country]]
+		if (!is.null(country_prices) && !is.null(country_prices[[cassPD]])) {
+			cassUP <- country_prices[[cassPD]]
+			cassUW <- 1000
 		} else {
-			# error
+			warning(paste("No default cassava price for country:", country, "product:", cassPD))
 		}
 	}
 	c(cassUP, cassUW )
@@ -353,56 +345,41 @@ get_costLMO <- function(body, country, areaHa, areaUnits, ploughing, harrowing, 
 		man <- costLMO$method == "manual"
 		tract <- costLMO$method == "tractor"
 
-		if (country == "NG") {
-		  if (is.na(cost_manual_ploughing)) {
-			costLMO[costLMO$operation == "ploughing" & man, "costHa"] <- 17000 * 2.47105
-		  }
-		  if (is.na(cost_manual_harrowing)) {
-			costLMO[costLMO$operation == "harrowing" & man, "costHa"] <- 15000 * 2.47105
-		  }  
-		  if (is.na(cost_manual_ridging)) {
-			costLMO[costLMO$operation == "ridging" & man, "costHa"] <- 12000 * 2.47105
-		  }
-		  if (is.na(cost_tractor_ploughing) & tractor_plough) {
-			costLMO[costLMO$operation == "ploughing" & tract, "costHa"] <- 6000 * 2.47105
-		  }
-		  if (is.na(cost_tractor_harrowing) & tractor_harrow) {
-			costLMO[costLMO$operation == "harrowing" & tract, "costHa"] <- 6000 * 2.47105
-		  } 
-		  if (is.na(cost_tractor_ridging) & tractor_ridger) {
-			costLMO[costLMO$operation == "ridging" & tract, "costHa"] <- 6000 * 2.47105
-		  }
-		  if (is.na(cost_weeding1)) {
-			costLMO[costLMO$operation == "weeding1", "costHa"] <- 30000 * 2.47105
-		  }
-		  if (is.na(cost_weeding2)) {
-			costLMO[costLMO$operation == "weeding2", "costHa"] <- 30000 * 2.47105
-		  }
-		} else if (country == "TZ") {
-		  if (is.na(cost_manual_ploughing)) {
-			costLMO[costLMO$operation == "ploughing" & man, "costHa"] <- 175000 * 2.47105
-		  }
-		  if (is.na(cost_manual_harrowing)) {
-			costLMO[costLMO$operation == "harrowing" & man, "costHa"] <- 150000 * 2.47105
-		  }
-		  if (is.na(cost_manual_ridging)) {
-			costLMO[costLMO$operation == "ridging" & man, "costHa"] <- 225000 * 2.47105
-		  }
-		  if (is.na(cost_tractor_ploughing) & tractor_plough) {
-			costLMO[costLMO$operation == "ploughing" & tract, "costHa"] <- 150000 * 2.47105
-		  }
-		  if (is.na(cost_tractor_harrowing) & tractor_harrow) {
-			costLMO[costLMO$operation == "harrowing" & tract, "costHa"] <- 100000 * 2.47105
-		  }
-		  if (is.na(cost_tractor_ridging) & tractor_ridger) {
-			costLMO[costLMO$operation == "ridging" & tract, "costHa"] <- 115000 * 2.47105
-		  }
-		  if (is.na(cost_weeding1)) {
-			costLMO[costLMO$operation == "weeding1", "costHa"] <- 60000 * 2.47105
-		  }
-		  if (is.na(cost_weeding2)) {
-			costLMO[costLMO$operation == "weeding2", "costHa"] <- 45000 * 2.47105
-		  }
+		# Conversion factor: cost per acre → cost per hectare
+		ACRES_PER_HA <- 2.47105
+
+		# Default land management operation costs (per acre) by country
+		default_lmo_costs <- list(
+			NG = list(
+				manual_ploughing  = 17000, manual_harrowing  = 15000, manual_ridging  = 12000,
+				tractor_ploughing =  6000, tractor_harrowing =  6000, tractor_ridging =  6000,
+				weeding1          = 30000, weeding2          = 30000
+			),
+			TZ = list(
+				manual_ploughing  = 175000, manual_harrowing  = 150000, manual_ridging  = 225000,
+				tractor_ploughing = 150000, tractor_harrowing = 100000, tractor_ridging = 115000,
+				weeding1          =  60000, weeding2          =  45000
+			)
+		)
+
+		lmo <- default_lmo_costs[[country]]
+		if (!is.null(lmo)) {
+		  if (is.na(cost_manual_ploughing))
+			costLMO[costLMO$operation == "ploughing" & man,   "costHa"] <- lmo$manual_ploughing  * ACRES_PER_HA
+		  if (is.na(cost_manual_harrowing))
+			costLMO[costLMO$operation == "harrowing" & man,   "costHa"] <- lmo$manual_harrowing  * ACRES_PER_HA
+		  if (is.na(cost_manual_ridging))
+			costLMO[costLMO$operation == "ridging"   & man,   "costHa"] <- lmo$manual_ridging    * ACRES_PER_HA
+		  if (is.na(cost_tractor_ploughing) & tractor_plough)
+			costLMO[costLMO$operation == "ploughing" & tract, "costHa"] <- lmo$tractor_ploughing * ACRES_PER_HA
+		  if (is.na(cost_tractor_harrowing) & tractor_harrow)
+			costLMO[costLMO$operation == "harrowing" & tract, "costHa"] <- lmo$tractor_harrowing * ACRES_PER_HA
+		  if (is.na(cost_tractor_ridging)   & tractor_ridger)
+			costLMO[costLMO$operation == "ridging"   & tract, "costHa"] <- lmo$tractor_ridging   * ACRES_PER_HA
+		  if (is.na(cost_weeding1))
+			costLMO[costLMO$operation == "weeding1",          "costHa"] <- lmo$weeding1          * ACRES_PER_HA
+		  if (is.na(cost_weeding2))
+			costLMO[costLMO$operation == "weeding2",          "costHa"] <- lmo$weeding2          * ACRES_PER_HA
 		}
 
 		if (any(!is.na(c(cost_manual_ploughing, cost_manual_harrowing, cost_manual_ridging,

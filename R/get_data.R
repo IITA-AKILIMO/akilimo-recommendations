@@ -23,11 +23,19 @@ get_WLY_15M_ncdf <- function(country, lon, lat) {
 
 	cell <- cellFromLonLat(lon, lat)
 	if (country == "BI") return(NULL)
-	
+
 	f <- paste0("data/yield/", country, "_WLY_LINTUL_2020SP.nc")
+	if (!file.exists(f)) {
+		warning(sprintf("NetCDF file not found: %s", f))
+		return(NULL)
+	}
 	nc <- ncdf4::nc_open(f)
 	off <- which(nc$dim$cell$vals == cell)
-	if (length(off) != 1) return(NULL)
+	if (length(off) != 1) {
+		ncdf4::nc_close(nc)
+		warning(sprintf("Cell %d not found in %s (lon=%.3f, lat=%.3f)", cell, f, lon, lat))
+		return(NULL)
+	}
 	
 	x <- ncdf4::ncvar_get(nc, varid=NA, start=c(1,1,off), count=c(-1,-1,1))
 	ncdf4::nc_close(nc)
@@ -78,7 +86,10 @@ get_data <- function(x, country, FCY, lon, lat) {
 			lat <- round5min(lat)
 			lon <- round5min(lon)
 			soil <- soil[round(soil$lon, 3)==lon & round(soil$lat,3)==lat, ]
-			if (nrow(soil) == 0) return(soil)
+			if (nrow(soil) == 0) {
+				warning(sprintf("No soil data for country=%s FCY-class=%d lon=%.3f lat=%.3f", country, Yclass, lon, lat))
+				return(soil)
+			}
 			soil <- soil[, c("lat", "lon", "soilN", "soilP", "soilK")]
 			soil$rec_N <- 0.5
 			soil$rec_P <- 0.15
