@@ -69,6 +69,25 @@ This installs all 21 required packages, downloads phantomjs for `webshot`, and c
 | Windows | Install JDK from [adoptium.net](https://adoptium.net), set `JAVA_HOME`, re-run the script |
 | macOS | `brew install openjdk`, then `sudo R CMD javareconf` |
 
+### Environment configuration
+
+There are two separate `.env` files — one per subsystem:
+
+| File | Used by | Copy from |
+|------|---------|-----------|
+| `.env` (project root) | R API — server path, SMS/email credentials | `.env.example` |
+| `scripts/.env` | Python data scripts — Zenodo tokens and metadata | `scripts/.env.example` |
+
+```bash
+# R API credentials
+cp .env.example .env
+
+# Python / Zenodo config
+cp scripts/.env.example scripts/.env
+```
+
+Neither file is committed (both matched by `.gitignore`).
+
 ### Python data scripts
 
 Requires Python 3.13+ and [Poetry](https://python-poetry.org/docs/#installation).

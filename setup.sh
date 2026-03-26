@@ -91,6 +91,15 @@ Rscript "$SCRIPT_DIR/install_packages.R"
 success "R packages ready."
 
 # ---------------------------------------------------------------------------
+# R API environment file
+# ---------------------------------------------------------------------------
+
+if [ ! -f "$SCRIPT_DIR/.env" ]; then
+  cp "$SCRIPT_DIR/.env.example" "$SCRIPT_DIR/.env"
+  info "Created .env from .env.example — edit it to set AKILIMO_ROOT, Plivo, and email credentials."
+fi
+
+# ---------------------------------------------------------------------------
 # 3. Python / Poetry setup
 # ---------------------------------------------------------------------------
 
