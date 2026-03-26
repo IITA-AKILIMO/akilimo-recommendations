@@ -62,7 +62,6 @@ Check off each item after the fix is committed.
 - [ ] **LOG-11** `process-IC.R:168–176` — known bug: maize output shown in cobs even when `maizePD == "grain"`
 - [ ] **LOG-12** `process-SP.R:184–188` — `getSPrecommendations` runs QUEFTS in an O(n) row loop; could be vectorised
 - [x] **ERR-6** `AkilimoMain.R:57–58` — malformed PD/HD date strings produce silent `NA`; fixed by API-3 (date format check added to `validate_request`)
-- [ ] **ERR-7** `misc.R` — `getWMrecommendations` not yet wired into any request path; kept for planned future feature
 - [x] **ERR-8** `misc.R:10–21` — `dd_ply` is explicitly marked "not used anymore"; removed
 - [ ] **QUA-3** Multiple files — magic numbers (13.5, 1.5, 2.5, 7.64, etc.) with no named constants or comments
 - [ ] **QUA-4** `fertilizers.R:42–47` — fertilizer NPK content table hardcoded in R source; should be a CSV in `data/input/`
@@ -80,3 +79,12 @@ Check off each item after the fix is committed.
 - [ ] **QUA-9** `get_data.R:188` — `get_data` signature should default-`NULL` unused arguments to avoid `R CMD check` warnings
 - [ ] **QUA-10** `process-IC.R`, `process-SP.R` — Swahili strings split between TRNS CSV and hardcoded literals
 - [ ] **MNT-3** `AkilimoMain.R:249` — no semantic versioning or changelog; `aki_version` date provides no compatibility signal
+
+---
+
+## Deferred Technical Debt (do not fix until scoped)
+
+- [ ] **DEBT-1** `misc.R` — `getWMrecommendations` exists but is not wired into any request path; reserved for a future weed-management feature
+- [ ] **PERF-4** `AkilimoMain.R:36–40` — `setup_temp_dir` deletes all temp files globally; concurrent requests corrupt each other's temp files; requires per-request subdirectories and passing temp path through all processor function signatures
+- [ ] **API-4** `AkilimoMain.R` — `dispatch_recommendations` uses `else if`; only the first `TRUE` flag is processed; architectural change required
+- [ ] **MNT-2** `process-FR.R:265` — functions with 11–20+ positional parameters; large refactor required

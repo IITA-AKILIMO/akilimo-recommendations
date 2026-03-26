@@ -43,6 +43,10 @@ getRDY <- function(HD, RFY, country) {
 }
 
 
+# DEFERRED (technical debt): getWMrecommendations is not wired into any request
+# path yet. Kept for a planned future weed-management feature. Do not remove or
+# call until the feature is scoped and implemented.
+#
 #SHORT DEF:   Function to obtain recommendations on land clearing (step 2 of 6 steps).
 #RETURNS:     dataframe with recommendations on whether to slash and/or to spray.
 #DESCRIPTION: Function to obtain recommendations on land clearing (slashing and spraying) based on decision tree in the paper-based tool
