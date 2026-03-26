@@ -43,44 +43,45 @@ sendEmailReport <- function(user, FR, IC, PP, SP, FRrecom, ICrecom, country, PPr
 
     PDFs <- NULL
     add_pdf <- function(f) {PDFs <<- c(PDFs, f); f}
+    phone <- safe_filename_part(user$PhoneNr)
 
     if (FR & (!IC) & FRrecom) {
-        if (country %in% c("NG", "GH") & file.exists(paste0("fertilizer_advice_", user$PhoneNr, ".pdf"))) {
-            fname <- add_pdf(paste0('./temp/fertilizer_advice_', user$PhoneNr, ".pdf"))
+        if (country %in% c("NG", "GH") & file.exists(paste0("fertilizer_advice_", phone, ".pdf"))) {
+            fname <- add_pdf(file.path("temp", paste0("fertilizer_advice_", phone, ".pdf")))
             webshot::rmdshot('./Rmd/FR_markdown_VFT.Rmd', file = fname, delay = 3)
         } else if (country == "TZ") {
-            fname <- add_pdf(paste0('./temp/fertilizer_advice_swa_', user$PhoneNr, ".pdf"))
+            fname <- add_pdf(file.path("temp", paste0("fertilizer_advice_swa_", phone, ".pdf")))
             webshot::rmdshot('./Rmd/FR_markdown_swa.Rmd', file = fname, delay = 3)
         }
     }
 
     if (FR & IC & ICrecom) {
         if (country == "NG" & file.exists("./temp/intercrop_advice_VFT.pdf")) {
-            fname <- add_pdf(paste0('./temp/intercrop_advice_', user$PhoneNr, ".pdf"))
+            fname <- add_pdf(file.path("temp", paste0("intercrop_advice_", phone, ".pdf")))
             webshot::rmdshot('./Rmd/IC_markdown_VFT.Rmd', file = fname, delay = 3)
         } else if (country == "TZ" & file.exists("CIS_VFT.pdf")) {
-            fname <- add_pdf(paste0('./temp/CIS_advice_', user$PhoneNr, ".pdf"))
+            fname <- add_pdf(file.path("temp", paste0("CIS_advice_", phone, ".pdf")))
             webshot::rmdshot('./Rmd/CIS_markdown_swa.Rmd', file = fname, delay = 3)
         }
     }
 
     if (PP & PPrecom) {
         if (country == "NG" & file.exists("PP_advice_VFT.pdf")) {
-            fname <- add_pdf(paste0('./temp/PP_advice_', user$PhoneNr, ".pdf"))
+            fname <- add_pdf(file.path("temp", paste0("PP_advice_", phone, ".pdf")))
             webshot::rmdshot('./Rmd/PP_markdownVFT.Rmd', file = fname, delay = 3)
         } else if (country == "TZ" & file.exists("PP_advice_swa.pdf")) {
-            fname <- add_pdf(paste0('./temp/PP_advice_swa_', user$PhoneNr, ".pdf"))
+            fname <- add_pdf(file.path("temp", paste0("PP_advice_swa_", phone, ".pdf")))
             webshot::rmdshot('./Rmd/PP_markdown_swa.Rmd', file = fname, delay = 3)
         }
     }
 
     if (SP & SPrecom) {
         if (country %in% c("NG", "GH") & file.exists("SP_advice_VFT.pdf")) {
-            fname <- add_pdf(paste0('./temp/SP_advice_', user$PhoneNr, ".pdf"))
+            fname <- add_pdf(file.path("temp", paste0("SP_advice_", phone, ".pdf")))
             webshot::rmdshot('./Rmd/SP_markdownVFT.Rmd', file = fname, delay = 3)
             if (file.exists("spgg.png")) file.remove("spgg.png")
         } else if (country == "TZ" & file.exists("SP_advice_swa.pdf")) {
-            fname <- add_pdf(paste0('./temp/SP_advice_swa_', user$PhoneNr, ".pdf"))
+            fname <- add_pdf(file.path("temp", paste0("SP_advice_swa_", phone, ".pdf")))
             webshot::rmdshot('./Rmd/SP_markdown_swa.Rmd', file = fname, delay = 3)
             if (file.exists("spgg.png")) file.remove("spgg.png")
         }
