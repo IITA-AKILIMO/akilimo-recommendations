@@ -81,7 +81,14 @@ get_fertilizers2 <- function(js, country) {
 	}
 
 	d_new <- get_new(js)
-	fd <- try(rbind(fd, d_new))
+	fd <- tryCatch(
+		rbind(fd, d_new),
+		error = function(e) {
+			warning("Failed to merge custom fertilizer data: ", e$message,
+					" — custom fertilizers ignored")
+			fd
+		}
+	)
 	rownames(fd) <- NULL
 	na <- rowSums(is.na(fd)) > 0
 	if (any(na)) {
