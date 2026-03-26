@@ -43,4 +43,34 @@ getRDY <- function(HD, RFY, country) {
 }
 
 
+#SHORT DEF:   Function to obtain recommendations on land clearing (step 2 of 6 steps).
+#RETURNS:     dataframe with recommendations on whether to slash and/or to spray.
+#DESCRIPTION: Function to obtain recommendations on land clearing (slashing and spraying) based on decision tree in the paper-based tool
+#INPUT:       See Cassava Crop Manager function for details
+
+getWMrecommendations <- function(fallowType = c(NA, "bush", "broad_leaves", "grass", "none"),
+                                 fallowHeight = c(NA, 100, 150, 200),
+                                 fallowGreen = c(NA, TRUE, FALSE),
+                                 problemWeeds = c(NA, TRUE, FALSE)) {
+  slash <- ifelse(fallowType == "bush" & fallowHeight > 100 |
+                    fallowType == "broad_leaves" & fallowGreen == FALSE |
+                    fallowType == "broad_leaves" &
+                      fallowGreen == TRUE &
+                      fallowHeight > 150 |
+                    fallowType == "grass" & fallowHeight > 150,
+                  TRUE, FALSE)
+
+  spray <- ifelse(fallowType == "bush" & fallowHeight <= 100 |
+                    fallowType == "broad_leaves" &
+                      fallowGreen == TRUE &
+                      fallowHeight <= 150 |
+                    fallowType == "grass" |
+                    fallowType == "none" & problemWeeds == TRUE,
+                  TRUE, FALSE)
+
+  ds <- data.frame(operation = c("slash", "spray"), rec = c(slash, spray))
+
+  return(ds)
+}
+
 

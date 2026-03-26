@@ -61,9 +61,9 @@ Check off each item after the fix is committed.
 - [ ] **LOG-10** `process-FR.R:121,128` — `NRabove18Cost` hardcodes column name list in `subset()`; fragile if columns change
 - [ ] **LOG-11** `process-IC.R:168–176` — known bug: maize output shown in cobs even when `maizePD == "grain"`
 - [ ] **LOG-12** `process-SP.R:184–188` — `getSPrecommendations` runs QUEFTS in an O(n) row loop; could be vectorised
-- [ ] **ERR-6** `AkilimoMain.R:57–58` — malformed PD/HD date strings produce silent `NA`; `validate_request` does not check date format
-- [ ] **ERR-7** `misc.R:67–91` — `getWMrecommendations` is dead code (never called)
-- [ ] **ERR-8** `misc.R:10–21` — `dd_ply` is explicitly marked "not used anymore"; should be removed
+- [x] **ERR-6** `AkilimoMain.R:57–58` — malformed PD/HD date strings produce silent `NA`; fixed by API-3 (date format check added to `validate_request`)
+- [ ] **ERR-7** `misc.R` — `getWMrecommendations` not yet wired into any request path; kept for planned future feature
+- [x] **ERR-8** `misc.R:10–21` — `dd_ply` is explicitly marked "not used anymore"; removed
 - [ ] **QUA-3** Multiple files — magic numbers (13.5, 1.5, 2.5, 7.64, etc.) with no named constants or comments
 - [ ] **QUA-4** `fertilizers.R:42–47` — fertilizer NPK content table hardcoded in R source; should be a CSV in `data/input/`
 - [ ] **QUA-5** Multiple files — `dNRmin` profitability threshold duplicated in IC (×2), FR, PP; should be a shared helper
