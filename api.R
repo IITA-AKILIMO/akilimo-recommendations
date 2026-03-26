@@ -24,6 +24,7 @@ pr$handle(
 		}, error = function(e) {
 			res$status <- 500L
 			message("ERROR: ", e$message)
+			message("TRACE: ", paste(capture.output(traceback()), collapse = "\n"))
 			token <- tryCatch(
 				jsonlite::unbox(jsonlite::fromJSON(req$postBody)[["request_token"]]),
 				error = function(e2) jsonlite::unbox(NA_character_)
@@ -32,8 +33,7 @@ pr$handle(
 				status = jsonlite::unbox("error"),
 				data   = list(
 					request_token = token,
-					message       = jsonlite::unbox(e$message),
-					trace         = jsonlite::unbox(paste(capture.output(traceback()), collapse = "\n"))
+					message       = jsonlite::unbox(e$message)
 				)
 			)
 		})
