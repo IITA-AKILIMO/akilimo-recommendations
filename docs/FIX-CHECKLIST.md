@@ -20,36 +20,36 @@ Check off each item after the fix is committed.
 ## Should-Fix (HIGH)
 
 ### Security
-- [ ] **SEC-1** `get_data.R:80` — `get_soil_data` interpolates `country` into a file path without re-validating inside the function
-- [ ] **SEC-2** `sms_email.R:48–49` — `user$PhoneNr` used in PDF filename without `safe_filename_part` sanitisation
-- [ ] **SEC-3** `api.R` — no rate-limiting or body-size cap; port 8000 open with no authentication
+- [x] **SEC-1** `get_data.R:80` — `get_soil_data` interpolates `country` into a file path without re-validating inside the function
+- [x] **SEC-2** `sms_email.R:48–49` — `user$PhoneNr` used in PDF filename without `safe_filename_part` sanitisation
+- [ ] **SEC-3** `api.R` — no rate-limiting or body-size cap; must be handled at the NGINX reverse-proxy level (`client_max_body_size`, connection rate limits)
 
 ### Logic
-- [ ] **LOG-4** `AkilimoMain.R:86–87` — division by zero if `cassUW == 0` after defaults; produces silent `Inf` for `rootUP`
-- [ ] **LOG-5** `AkilimoMain.R:130` — `if (maizeUW == 0)` check raises warning when `maizeUW` is already `NA`; should be `if (!is.na(maizeUW) && maizeUW == 0)`
-- [ ] **LOG-7** `AkilimoMain.R:161` — `tuberUP` computed before `sweetPotatoUP` default is applied; `tuberUP` is 0 when `sweetPotatoUP == 0`
+- [x] **LOG-4** `AkilimoMain.R:86–87` — division by zero if `cassUW == 0` after defaults; produces silent `Inf` for `rootUP`
+- [x] **LOG-5** `AkilimoMain.R:130` — `if (maizeUW == 0)` check raises warning when `maizeUW` is already `NA`; should be `if (!is.na(maizeUW) && maizeUW == 0)`
+- [x] **LOG-7** `AkilimoMain.R:161` — `tuberUP` computed before `sweetPotatoUP` default is applied; `tuberUP` is 0 when `sweetPotatoUP == 0`
 
 ### Error Handling
-- [ ] **ERR-2** `get_data.R:128–143` — NetCDF file handle leaks if `ncvar_get` throws; fix with `on.exit(ncdf4::nc_close(nc), add = TRUE)`
-- [ ] **ERR-3** `fertilizers.R:84` — `try(rbind(...))` silently swallows errors; use `tryCatch` with an explicit message
-- [ ] **ERR-4** `AkilimoMain.R` — IC request for GH/RW/BI returns `NULL` silently (no IC implementation for those countries); should return a clear 400
+- [x] **ERR-2** `get_data.R:128–143` — NetCDF file handle leaks if `ncvar_get` throws; fix with `on.exit(ncdf4::nc_close(nc), add = TRUE)`
+- [x] **ERR-3** `fertilizers.R:84` — `try(rbind(...))` silently swallows errors; use `tryCatch` with an explicit message
+- [x] **ERR-4** `AkilimoMain.R` — IC request for GH/RW/BI returns `NULL` silently (no IC implementation for those countries); should return a clear 400
 
 ### Performance
-- [ ] **PERF-1** `get_data.R:80–97` — soil RDS files for RW/GH/BI read fresh on every request; apply `cached_read`
-- [ ] **PERF-2** `get_data.R:99–108` — `predicted_soil_properties` RDS (large file, NG/TZ hot path) not cached; apply `cached_read`
-- [ ] **PERF-4** `AkilimoMain.R:36–40` — `setup_temp_dir` deletes all temp files globally; concurrent requests corrupt each other's temp files; use per-request subdirectory
+- [x] **PERF-1** `get_data.R:80–97` — soil RDS files for RW/GH/BI read fresh on every request; apply `cached_read`
+- [x] **PERF-2** `get_data.R:99–108` — `predicted_soil_properties` RDS (large file, NG/TZ hot path) not cached; apply `cached_read`
+- [ ] **PERF-4** `AkilimoMain.R:36–40` — `setup_temp_dir` deletes all temp files globally; concurrent requests corrupt each other's temp files; requires per-request subdirectories and passing temp path through all processor function signatures — deferred
 
 ### Code Quality
-- [ ] **QUA-2** `process-FR.R:276–283` — `FR_MarkdownText` call is fully commented out; no Rmd data written for FR; PDF/email for FR will use stale or missing data
+- [ ] **QUA-2** `process-FR.R:276–283` — `FR_MarkdownText` call is fully commented out; reason unknown; needs testing before uncommenting — deferred
 
 ### API Design
-- [ ] **API-1** `api.R:22–23` — HTTP status mapping only handles 400; other error paths return HTTP 200 with error JSON
-- [ ] **API-3** `AkilimoMain.R` — `validate_request` does not check `FCY` range, date formats, or bounds on financial fields
-- [ ] **API-4** `AkilimoMain.R` — `dispatch_recommendations` uses `else if`; only the first `TRUE` flag is processed even if multiple are set
+- [x] **API-1** `api.R:22–23` — resolved by ERR-4 fix; all remaining bad_request() paths correctly prefix status with "400" which is mapped to HTTP 400
+- [x] **API-3** `AkilimoMain.R` — `validate_request` now checks FCY range and PD/HD date format
+- [ ] **API-4** `AkilimoMain.R` — `dispatch_recommendations` uses `else if`; only the first `TRUE` flag is processed; architectural change deferred
 
 ### Maintainability
-- [ ] **MNT-1** `api.R:9` — `R/` directory sourced blindly in alphabetical order; load order is fragile and not dependency-declared
-- [ ] **MNT-2** `process-FR.R:265` — functions with 11–20+ positional parameters; consider passing the `params` list directly
+- [x] **MNT-1** `api.R:9` — `R/` directory sourced blindly in alphabetical order; replaced with explicit dependency-ordered source list
+- [ ] **MNT-2** `process-FR.R:265` — functions with 11–20+ positional parameters; large refactor deferred
 
 ---
 
