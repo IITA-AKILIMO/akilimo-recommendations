@@ -61,6 +61,10 @@ get_input_data <- function(x) {
 # Soil data (RDS files — looked up by coordinates)
 # ---------------------------------------------------------------------------
 get_soil_data <- function(x, country, FCY, lon, lat) {
+    VALID_COUNTRIES <- c("NG", "TZ", "RW", "GH", "BI")
+    if (!is.null(country) && !country %in% VALID_COUNTRIES)
+        stop(paste("Invalid country for soil lookup:", country))
+
     if (x == "soil_NPK-4") {
         out <- readRDS(data_path("soil/SoilData_4Country.RDS"))
         out <- long2lon(out)
@@ -78,7 +82,8 @@ get_soil_data <- function(x, country, FCY, lon, lat) {
             p[p$CONclass == Yclass & p$lon == lon & p$lat == lat, ]
         } else {
             f <- data_path(paste0("soil/", country, "_FCY", Yclass, "_soilNPK.RDS"))
-            soil <- readRDS(f)
+            cache_key <- paste0("soil_", country, "_FCY", Yclass)
+            soil <- cached_read(cache_key, function() readRDS(f))
             lat <- round5min(lat)
             lon <- round5min(lon)
             soil <- soil[round(soil$lon, 3)==lon & round(soil$lat,3)==lat, ]
@@ -97,14 +102,16 @@ get_soil_data <- function(x, country, FCY, lon, lat) {
         }
 
     } else if (x == "predicted_soil_properties") {
-        soil <- readRDS(data_path("soil/predicted_soil_properties.rds"))
-        soil$rec_N <- 0.5
-        soil$rec_P <- 0.15
-        soil$rec_K <- 0.5
-        soil$rel_N <- 1
-        soil$rel_P <- soil$soilP / soil$soilN
-        soil$rel_K <- soil$soilK / soil$soilN
-        long2lon(soil)
+        cached_read("predicted_soil_properties", function() {
+            soil <- readRDS(data_path("soil/predicted_soil_properties.rds"))
+            soil$rec_N <- 0.5
+            soil$rec_P <- 0.15
+            soil$rec_K <- 0.5
+            soil$rel_N <- 1
+            soil$rel_P <- soil$soilP / soil$soilN
+            soil$rel_K <- soil$soilK / soil$soilN
+            long2lon(soil)
+        })
 
     } else {
         stop(paste("no such soil data:", x))
@@ -126,15 +133,14 @@ get_WLY_15M_ncdf <- function(country, lon, lat) {
 		return(NULL)
 	}
 	nc <- ncdf4::nc_open(f)
+	on.exit(ncdf4::nc_close(nc), add = TRUE)
 	off <- which(nc$dim$cell$vals == cell)
 	if (length(off) != 1) {
-		ncdf4::nc_close(nc)
 		warning(sprintf("Cell %d not found in %s (lon=%.3f, lat=%.3f)", cell, f, lon, lat))
 		return(NULL)
 	}
 
 	x <- ncdf4::ncvar_get(nc, varid=NA, start=c(1,1,off), count=c(-1,-1,1))
-	ncdf4::nc_close(nc)
 
 	x <- data.frame(WLY=as.vector(t(x)), pl_Date=as.numeric(nc$dim$plant$vals),
 					daysOnField=as.numeric(rep(nc$dim$daysOnField$vals, each=ncol(x))))
