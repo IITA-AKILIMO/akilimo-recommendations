@@ -1,11 +1,6 @@
 #!/usr/bin/Rscript --vanilla
 
-this <- system('hostname', TRUE)
-if (this == "LAPTOP-IVSPBGCA") {
-	akpath <- "C:/github/omilika/akilimo-recommendations"
-} else {
-	akpath <- "."
-}
+akpath <- Sys.getenv("AKILIMO_ROOT", unset = ".")
 setwd(akpath)
 
 pks <- c("plumber", "limSolve", "ncdf4", "httr", "webshot", "mailR", "knitr", "leaflet")

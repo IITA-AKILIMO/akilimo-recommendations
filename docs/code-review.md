@@ -2,11 +2,13 @@
 
 Static analysis of the R codebase. Issues are grouped by category and ordered by severity.
 
+> **Security issues (section 1) resolved** in commit fixing `api.R`, `R/sms_email.R`, and `R/markdown.R`.
+
 ---
 
-## 1. Security
+## 1. Security ✓ Resolved
 
-### 1.1 Credentials stored in an RDS file — CRITICAL
+### 1.1 Credentials stored in an RDS file — CRITICAL ✓ Fixed
 
 **File:** `R/sms_email.R` lines 18, 90–98
 
@@ -25,7 +27,7 @@ AUTH_ID <- Sys.getenv("PLIVO_AUTH_ID")
 
 ---
 
-### 1.2 Hostname-based path configuration — HIGH
+### 1.2 Hostname-based path configuration — HIGH ✓ Fixed
 
 **File:** `api.R` lines 3–8
 
@@ -48,7 +50,7 @@ akpath <- Sys.getenv("AKILIMO_ROOT", unset = ".")
 
 ---
 
-### 1.3 Path injection via user-supplied phone number — HIGH
+### 1.3 Path injection via user-supplied phone number — HIGH ✓ Fixed
 
 **File:** `R/markdown.R` lines 237–238, 330–331, 398–399
 

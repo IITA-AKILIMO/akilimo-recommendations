@@ -1,7 +1,12 @@
 
 ### R markdown
 
-
+# Sanitise a user-supplied value before embedding it in a file path.
+# Keeps only digits, letters, hyphens and plus signs (covers phone numbers
+# like +234789123456) and strips any path traversal characters.
+safe_filename_part <- function(x) {
+    gsub("[^A-Za-z0-9+\\-]", "", as.character(x))
+}
 
 get_markdown_text <- function(FR, IC, country) {
 	if (FR & !IC) {
@@ -234,8 +239,7 @@ FR_MarkdownText <- function(rr, fertilizers, user, country, userField,
   MarkDownTextD$costcassava <- formatC(signif(MarkDownTextD$costcassava, digits = 4), format = "f", big.mark = ",", digits = 0)
   MarkDownTextD$maxinvest <- formatC(signif(MarkDownTextD$maxinvest, digits = 4), format = "f", big.mark = ",", digits = 0)
 
-  filename <- paste("./temp/personalized_info", user$PhoneNr, sep = "_")
-  filename <- paste0(filename, ".csv")
+  filename <- file.path("temp", paste0("personalized_info_", safe_filename_part(user$PhoneNr), ".csv"))
   write.csv(MarkDownTextD, filename, row.names = FALSE)
 
   fertilizers_recom <- fertilizers[fertilizers$type %in% rr$fertilizer_rates$type,]
@@ -327,8 +331,7 @@ IC_MarkdownText <- function(rr, fertilizers, user, country, userField,
                                        " kg of grain.", sep = "")
   }
 
-  filename <- paste("./temp/personalized_info", user$PhoneNr, sep = "_")
-  filename <- paste0(filename, ".csv")
+  filename <- file.path("temp", paste0("personalized_info_", safe_filename_part(user$PhoneNr), ".csv"))
   write.csv(MarkDownTextD, filename, row.names = FALSE)
 
   fertilizers_recom <- fertilizers[fertilizers$type %in% rr$fertilizer_rates$type,]
@@ -395,8 +398,7 @@ CIS_MarkdownText <- function(rr, fertilizers, user, country, userField, area, ar
   MarkDownTextD$maxinvest <- formatC(signif(MarkDownTextD$maxinvest, digits = 4), format = "f", big.mark = ",", digits = 0)
 
 
-  filename <- paste("./temp/personalized_info", user$PhoneNr, sep = "_")
-  filename <- paste0(filename, ".csv")
+  filename <- file.path("temp", paste0("personalized_info_", safe_filename_part(user$PhoneNr), ".csv"))
   write.csv(MarkDownTextD, filename, row.names = FALSE)
 
   fertilizers_recom <- fertilizers[fertilizers$type %in% rr$fertilizer_rates$type,]
@@ -451,8 +453,7 @@ PPSP_MarkdownText <- function(rr, fname, user, country, userField, area, areaUni
         email = user$Email, latitude = lat, longitude = lon, costcassava = rootUP, unitcassava = cassPD,
         maxinvest = maxInv, cassUW = cassUW, product = cassPD, currency = currency)
 
-  filename <- paste("./temp/personalized_info", user$PhoneNr, sep = "_")
-  filename <- paste0(filename, ".csv")
+  filename <- file.path("temp", paste0("personalized_info_", safe_filename_part(user$PhoneNr), ".csv"))
   write.csv(MarkDownTextD, filename, row.names = FALSE)
 
   fname2 <- paste(fname, "_MarkDownText.csv", sep = '')
