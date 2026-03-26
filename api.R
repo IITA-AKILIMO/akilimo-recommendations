@@ -6,7 +6,9 @@ setwd(akpath)
 pks <- c("plumber", "limSolve", "ncdf4", "httr", "webshot", "mailR", "knitr", "leaflet")
 
 srcdir <- file.path(akpath, "R")
-# Source in explicit dependency order so load sequence is not fragile
+# Source in explicit dependency order.
+# Only files in R/ (top-level) are loaded.
+# R/preprocess/ and the project-root old/ directory are intentionally excluded.
 for (f in c("misc.R", "get_data.R", "fertilizers.R", "quefts.R",
             "optimize_fert.R", "markdown.R", "sms_email.R",
             "process-FR.R", "process-IC.R", "process-PP.R", "process-SP.R",

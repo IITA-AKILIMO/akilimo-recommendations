@@ -6,6 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 R-based REST API for agricultural (cassava farming) recommendations. Supported countries: Nigeria (NG), Tanzania (TZ), Rwanda (RW), Ghana (GH), Burundi (BI).
 
+## Directories to Ignore
+
+- **`old/`** — archived/obsolete files; not part of the active codebase
+- **`R/preprocess/`** — offline data preparation scripts; not sourced by the API
+
+Do not analyse, modify, or source files from these directories.
+
 ## First-Time Setup
 
 All runtime data files are hosted exclusively on **Zenodo** (images, CSVs, soil data, yield data). Setup scripts live in `scripts/` and are managed with Poetry.
