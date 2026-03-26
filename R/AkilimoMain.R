@@ -29,6 +29,19 @@ validate_request <- function(body) {
         return(paste("Invalid or missing areaUnits — must be one of:", paste(VALID_AREA_UNITS, collapse = ", ")))
     if (!any(isTRUE(flags)))
         return("At least one recommendation flag must be TRUE (FR, IC, PP, SPP, or SPH)")
+
+    FCY <- body[["FCY"]]
+    if (!is.null(FCY) && (!is.numeric(FCY) || FCY <= 0 || FCY > 100))
+        return("Invalid FCY — must be a positive number up to 100 t/ha")
+
+    for (date_field in c("PD", "HD")) {
+        val <- body[[date_field]]
+        if (!is.null(val) && !is.na(val) && nchar(as.character(val)) > 0) {
+            if (is.na(as.Date(as.character(val), format = "%Y-%m-%d")))
+                return(paste(date_field, "must be a valid date in YYYY-MM-DD format"))
+        }
+    }
+
     NULL  # no error
 }
 
@@ -80,6 +93,10 @@ parse_request <- function(body) {
     UPUW   <- get_cassUPUW(cassUP, cassUW, cassPD, country, saleSF, nameSF)
     cassUP <- UPUW[1]
     cassUW <- UPUW[2]
+    if (!is.numeric(cassUW) || cassUW <= 0) {
+        warning("cassUW is zero or invalid; defaulting to 1000 kg")
+        cassUW <- 1000
+    }
 
     rootConv          <- data.frame(cassPD = c("roots", "chips", "flour", "gari"), conversion = c(1, 3, 3.2, 3.5))
     conversion_factor <- rootConv[rootConv$cassPD == cassPD, "conversion"]
@@ -127,7 +144,7 @@ dispatch_recommendations <- function(p, body) {
             maizePD <- from_json("maizePD", body, default_value = "fresh_cob")
             maizeUW <- from_json("maizeUW", body, default_value = NA)
             if (maizePD == "grain") maizeUW <- as.numeric(as.character(maizeUW))
-            if (maizeUW == 0) maizeUW <- NA
+            if (!is.na(maizeUW) && maizeUW == 0) maizeUW <- NA
 
             maizeUP <- from_json("maizeUP", body)
             if (maizeUP == 0) {
@@ -146,12 +163,24 @@ dispatch_recommendations <- function(p, body) {
                 cassPD = p$cassPD, maxInv = p$maxInv, maizeUP = maizeUP
             )
 
+        } else if (p$country %in% c("RW", "GH", "BI")) {
+            return(bad_request(paste(
+                "Intercropping (IC) recommendations are not yet available for country:", p$country,
+                "— supported countries are NG and TZ"
+            )))
+
         } else if (p$country == "TZ") {
 
             sweetPotatoPD <- from_json("sweetPotatoPD", body, default_value = "tubers")
             sweetPotatoUW <- from_json("sweetPotatoUW", body, default_value = NA)
             sweetPotatoUP <- from_json("sweetPotatoUP", body, default_value = NA)
-            if (sweetPotatoUW == 0) sweetPotatoUW <- 1000
+            if (!is.na(sweetPotatoUW) && sweetPotatoUW == 0) sweetPotatoUW <- 1000
+
+            # Apply price defaults BEFORE computing tuberUP to avoid dividing by zero price
+            if (is.na(sweetPotatoUP) || sweetPotatoUP == 0) {
+                sweetPotatoUW <- 1000
+                sweetPotatoUP <- if (sweetPotatoPD == "tubers") 120000 else 384000
+            }
 
             tuberConv <- data.frame(
                 sweetPotatoPD = c("tubers", "flour"),
@@ -159,11 +188,6 @@ dispatch_recommendations <- function(p, body) {
             )
             conversion_factor3 <- tuberConv[tuberConv$sweetPotatoPD == sweetPotatoPD, "conversion"]
             tuberUP <- sweetPotatoUP / sweetPotatoUW / conversion_factor3 * 1000
-
-            if (sweetPotatoUP == 0 && p$country == "TZ") {
-                sweetPotatoUW <- 1000
-                sweetPotatoUP <- if (sweetPotatoPD == "tubers") 120000 else 384000
-            }
 
             process_IC_TZ(
                 IC = p$IC, country = p$country, areaHa = p$areaHa, FCY = p$FCY,
