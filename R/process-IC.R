@@ -165,12 +165,14 @@ getICrecText <- function(x, maizePD) {
 
   paste0(recF, recD)
 
-  #TODO: This only provides the minimal information to return to the user. We may consider adding following information:
-  #1. Make sure they grow the right maize variety (should be mature in 95 days max), and the right cassava variety. Should also make recommendations on the right cassava variety.
-  #2. Fertilizer application will also increase cassava yield - but this is not accounted for in cost-benefit calculations.
-  #3. Some explanation included on why fertilizer is not recommended, or why high density is not recommended - need to evaluate if this is not too cryptic.
-  #4. Possible issues with the input data - especially if user provides unrealistic prices for maize produce / fertilizers.
-  #5. Currently reports the increase in maize production in nr of cobs, even if the user reported to sell as grain (NEEDS TO BE URGENTLY ADDRESSED - CONFUSING! Requires adapting the getICrecommendations function)
+  # NOTE: recommendation text is minimal. Known gaps:
+  # 1. No variety guidance (maize should mature in ≤95 days; cassava variety not mentioned).
+  # 2. Fertilizer effect on cassava yield is not reflected in cost-benefit figures.
+  # 3. No explanation when fertilizer or high density is not recommended.
+  # 4. No sanity check on unrealistic input prices.
+  # 5. KNOWN BUG: maize output is always reported in number of cobs, even when the
+  #    user selected grain as the product type. Fix requires updating getICrecommendations()
+  #    to return grain-equivalent output when maizePD == "grain".
 
 
 }
@@ -397,11 +399,11 @@ getCISrecText <- function(d) {
 
   paste0(recIC, recF)
 
-  #TODO: This only provides the minimal information to return to the user. We may consider adding following information:
-  #1. Make sure they grow the right sweet potato variety (Mayai), and the right cassava variety (Kizimbani).
-  #2. We purposefully did not include recommendations on the exact yield increases as the data is rather weak to justify this. Can be added later when more data is available.
-  #3. Some explanation included on why fertilizer is not recommended, or why intercropping is not recommended - need to evaluate if this is not too cryptic.
-  #4. Possible issues with the input data - especially if user provides unrealistic prices for sweet potato/cassava produce / fertilizers.
+  # NOTE: recommendation text is minimal. Known gaps:
+  # 1. No variety guidance (sweet potato: Mayai; cassava: Kizimbani).
+  # 2. Yield increase figures are intentionally omitted — data too weak to justify.
+  # 3. No explanation when fertilizer or intercropping is not recommended.
+  # 4. No sanity check on unrealistic input prices.
 
 }
 

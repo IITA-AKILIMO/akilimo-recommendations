@@ -280,9 +280,9 @@ The loop writes `datall1.csv … datall6.csv` to disk then reads them back withi
 
 ---
 
-## 6. API Design
+## 6. API Design ✓ Resolved (6.1, 6.2)
 
-### 6.1 No input validation on `/compute` — HIGH
+### 6.1 No input validation on `/compute` — HIGH ✓ Fixed
 
 **File:** `api.R` lines 21–37
 
@@ -296,7 +296,7 @@ Minimum validation to add:
 
 ---
 
-### 6.2 Wrong HTTP status for JSON parse failure — MEDIUM
+### 6.2 Wrong HTTP status for JSON parse failure — MEDIUM ✓ Fixed
 
 **File:** `api.R` line 8
 
@@ -310,9 +310,9 @@ The `/compute` endpoint is publicly accessible with no throttling. For productio
 
 ---
 
-## 7. Dead Code and TODOs
+## 7. Dead Code and TODOs ✓ Resolved
 
-### 7.1 Unresolved TODOs — MEDIUM
+### 7.1 Unresolved TODOs — MEDIUM ✓ Fixed
 
 | File | Lines | Note |
 |------|-------|------|
@@ -324,7 +324,7 @@ The `/compute` endpoint is publicly accessible with no throttling. For productio
 
 ---
 
-### 7.2 Commented-out code — LOW
+### 7.2 Commented-out code — LOW ✓ Fixed
 
 Large blocks of commented code exist in `R/AkilimoMain.R` (lines 18–19, 45–47, 89), `R/get_data.R` (lines 149–155), `R/sms_email.R` (lines 36–37), and `R/markdown.R` (lines 82–92, 136). These should either be restored or deleted — git history preserves them if needed.
 

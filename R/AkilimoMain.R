@@ -1,28 +1,64 @@
 
+bad_request <- function(msg) {
+    list(status = jsonlite::unbox("400 - bad request"),
+         data   = list(message = jsonlite::unbox(msg)))
+}
+
+validate_request <- function(body) {
+    VALID_COUNTRIES <- c("NG", "TZ", "RW", "GH", "BI")
+    VALID_AREA_UNITS <- c("ha", "acre", "ekari", "are", "m2", "string", "hekta")
+
+    country   <- body[["country"]]
+    lat       <- body[["lat"]]
+    lon       <- body[["lon"]]
+    area      <- body[["area"]]
+    areaUnits <- body[["areaUnits"]]
+    flags     <- c(body[["FR"]], body[["IC"]], body[["PP"]], body[["SPP"]], body[["SPH"]])
+
+    if (is.null(country)   || nchar(trimws(country)) == 0)
+        return("Missing required field: country")
+    if (!country %in% VALID_COUNTRIES)
+        return(paste("Invalid country:", country, "— must be one of:", paste(VALID_COUNTRIES, collapse = ", ")))
+    if (is.null(lat) || !is.numeric(lat) || lat < -90  || lat > 90)
+        return("Invalid or missing lat — must be numeric between -90 and 90")
+    if (is.null(lon) || !is.numeric(lon) || lon < -180 || lon > 180)
+        return("Invalid or missing lon — must be numeric between -180 and 180")
+    if (is.null(area) || !is.numeric(area) || area <= 0)
+        return("Invalid or missing area — must be a positive number")
+    if (is.null(areaUnits) || !areaUnits %in% VALID_AREA_UNITS)
+        return(paste("Invalid or missing areaUnits — must be one of:", paste(VALID_AREA_UNITS, collapse = ", ")))
+    if (!any(isTRUE(flags)))
+        return("At least one recommendation flag must be TRUE (FR, IC, PP, SPP, or SPH)")
+    NULL  # no error
+}
+
+
 run_akilimo <- function(json) {
-	
-	aki_version <- "20251222"
-	dir.create("temp", FALSE, FALSE)
-	# Clean up temp files from any previous request
-	old_files <- list.files("temp", full.names = TRUE)
-	if (length(old_files) > 0) suppressWarnings(file.remove(old_files))
+
+    aki_version <- "20251222"
+    dir.create("temp", FALSE, FALSE)
+    # Clean up temp files from any previous request
+    old_files <- list.files("temp", full.names = TRUE)
+    if (length(old_files) > 0) suppressWarnings(file.remove(old_files))
+
     body <- try(jsonlite::fromJSON(json))
-	if (inherits(body, "try-error")) {
-		return(list(status = jsonlite::unbox("400 - bad request"), data=NULL))
+    if (inherits(body, "try-error")) {
+        return(bad_request("Malformed JSON body"))
     }
 
+    err <- validate_request(body)
+    if (!is.null(err)) return(bad_request(err))
+
     # extract parameters from the JSON payload
-    country <- from_json("country", body)
-    lat <- from_json("lat", body)
-    lon <- from_json("lon", body)
-    area <- from_json("area", body)
+    country   <- from_json("country", body)
+    lat       <- from_json("lat", body)
+    lon       <- from_json("lon", body)
+    area      <- from_json("area", body)
     areaUnits <- from_json("areaUnits", body)
 
-    # not used?
-	#intercrop <- from_json("intercrop", body, default_value = FALSE)
-    IC <- from_json("IC", body, default_value = FALSE)
-    FR <- from_json("FR", body, default_value = FALSE)
-    PP <- from_json("PP", body, default_value = FALSE)
+    IC  <- from_json("IC",  body, default_value = FALSE)
+    FR  <- from_json("FR",  body, default_value = FALSE)
+    PP  <- from_json("PP",  body, default_value = FALSE)
     SPP <- from_json("SPP", body, default_value = FALSE)
     SPH <- from_json("SPH", body, default_value = FALSE)
 
@@ -45,14 +81,9 @@ run_akilimo <- function(json) {
 	userField <- from_json("userField", body)
 	riskAtt <- from_json("riskAtt", body, default_value = 0)
 
-#    if (country == "BI") {
-#		country <- "BU" #use non standard country code for Burundi
-#    }
-
 	flag_to_key  <- c(FR = "FR", PP = "PP", IC = "IC", SPP = "SP", SPH = "SP")
 	active_flags <- c(FR = FR, PP = PP, IC = IC, SPP = SPP, SPH = SPH)
 	selected_key <- unique(flag_to_key[active_flags])
-    #riskAtt <- 0
 
     PD <- as.Date(PD, format = "%Y-%m-%d")
     HD <- as.Date(HD, format = "%Y-%m-%d")
@@ -94,7 +125,6 @@ run_akilimo <- function(json) {
 
 	message(paste0(selected_key, ": ", country, ", planting: ", PD, ", harvest: ", HD))
 
-#	result <- list()
     if (FR) {
 
 		fertilizers <- get_fertilizers2(body, country)
@@ -225,16 +255,9 @@ run_akilimo <- function(json) {
     request_token <- jsonlite::unbox(from_json("request_token", body))
 
     if (is.null(selected_key)) {
-		res$status <- 404
-		data <- list(
-			request_token = request_token,
-			message = jsonlite::unbox("No valid recommendation found")
-		)
-		return(list(status = jsonlite::unbox("error"), data = data))
+        return(bad_request("No valid recommendation found"))
     }
 
-	# it would be clearer to use "message" instead of recommendation
-	#r$data$message <- jsonlite::unbox(r$data$message)
 	result$recommendation <- jsonlite::unbox(gsub("[ ]+", " ", result$recommendation))
 	result$rec_type <- jsonlite::unbox(result$rec_type)
 	

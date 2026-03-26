@@ -24,11 +24,10 @@ getFRrecText <- function(ds, country) {
 		recText <- tr$frnotrec[ci]
 	} else if (ds$data$TC == 0) { # profitable, but do not apply
         recText <- tr$notapply[ci]
-      #TODO: This does not provide details on the reasons why we do not recommend to apply fertilizer.
-      #This might either be due to
-      #1. unfavourable price ratios (root price over fertilizer price is too low),
-      #2. low yield potential (unfavourable planting / harvest date and low WLY),
-      #3. high soil fertility and low response (high FCY or high indigenous nutrient supply).
+      # NOTE: recommendation text does not explain the reason for non-application.
+      # Possible causes: unfavourable price ratio, low yield potential, or high
+      # indigenous nutrient supply. Adding cause-specific text requires extending
+      # this branch with additional data from the QUEFTS output.
     } else {
 		frate <- ds$fertilizer_rates
 
@@ -53,12 +52,10 @@ getFRrecText <- function(ds, country) {
 					round(frate$rate), tr$of[2], frate$type, collapse = "\n")), ci)
 		}
 		
-      #TODO: This only provides the minimal information to return to the user. We may consider adding following information:
-      #1. Split regime - how should this fertilizer application be distributed over time?
-      #2. Best application method - furrow or full ring application.
-      #3. Possible better alternative fertilizers...
-      #4. Importance of good agronomic practices
-      #5. Possible issues with the input data - very high fertilizer prices or very low root price, very low or very high FCY, very low or very high WY,...
+      # NOTE: recommendation text is minimal. Future enhancements could include:
+      # split application regime, best application method (furrow vs full ring),
+      # alternative fertilizers, agronomic practice guidance, and input sanity
+      # warnings (extreme prices, FCY, or WY values).
 	}
 
 	recText

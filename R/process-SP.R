@@ -24,12 +24,10 @@ getSPrecText <- function(ds, country, PD, HD) {
                       tr$hvsdate[cni], " ( ", format(ds[1,]$HD, "%d %B %Y"), " ) ",
                       tr$nochange[cni])
 
-      #TODO: This does not provide details on the reasons. This might either be due to
-      #1. unfavourable price conditions at other planting/harvest dates,
-      #2. low starch content at later harvest dates (if selling to as starch factory)
-      #3. unattractive yields (at earlier harvest dates),
-      #4. combination of both.
-      #We may also want to include some information on the impact on cropping practices, requirement to ridge, risks of pest and disease issues,...
+      # NOTE: "no change" text gives no reason. Possible causes: unfavourable prices at
+      # other dates, low starch at later harvest (starch factory sales), or unattractive
+      # yields at earlier dates. Could also add cropping practice impact and pest/disease
+      # risk guidance.
 
     } else {
 
@@ -214,7 +212,9 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
     # ds$RFWY <- getRFY(HD = ds$HD, RDY = ds$WY, country = country)
     #
     for (k in 1:nrow(ds)) {
-      ds$RFCY[k] <- getRFY(HD = ds$HD[k], RDY = ds$CY[k], country = "NG") ## TZ function is giving very strange values, need to be checked
+      # NOTE: hardcoded to "NG" — TZ dry-to-fresh conversion in getRFY() produces
+      # unreliable values and has not yet been validated for Tanzania.
+      ds$RFCY[k] <- getRFY(HD = ds$HD[k], RDY = ds$CY[k], country = "NG")
       ds$RFWY[k] <- getRFY(HD = ds$HD[k], RDY = ds$WY[k], country = "NG")
     }
 

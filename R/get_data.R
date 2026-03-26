@@ -144,7 +144,6 @@ get_data <- function(x, country, FCY, lon, lat) {
 		} else {
 			stop(paste("WLY_365", "not available for", country))
 		}
-		# should be fixed in files.
 		w <- long2lon(w)
 		lat <- round5min(lat)
 		lon <- round5min(lon)
