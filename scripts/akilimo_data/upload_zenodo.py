@@ -68,7 +68,10 @@ def _upload_file(bucket_url: str, filepath: Path, token: str) -> bool:
         response = requests.put(
             f"{bucket_url}/{filepath.name}",
             data=ProgressReader(fh, bar),
-            headers={"Authorization": f"Bearer {token}"},
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Length": str(size),
+            },
             timeout=600,
         )
 
