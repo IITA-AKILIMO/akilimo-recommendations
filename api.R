@@ -6,7 +6,13 @@ setwd(akpath)
 pks <- c("plumber", "limSolve", "ncdf4", "httr", "webshot", "mailR", "knitr", "leaflet")
 
 srcdir <- file.path(akpath, "R")
-for (f in list.files(srcdir, pattern="\\.R$")) source(file.path(srcdir, f))
+# Source in explicit dependency order so load sequence is not fragile
+for (f in c("misc.R", "get_data.R", "fertilizers.R", "quefts.R",
+            "optimize_fert.R", "markdown.R", "sms_email.R",
+            "process-FR.R", "process-IC.R", "process-PP.R", "process-SP.R",
+            "AkilimoMain.R")) {
+    source(file.path(srcdir, f))
+}
 
 library(plumber)
 
