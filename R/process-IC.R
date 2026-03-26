@@ -209,9 +209,7 @@ process_IC_NG <- function(
     ICrecom <- FALSE
   }
 
-	c(list(type="IC", recommendation=recText) , res)
-
-#	list(rec_type="IC", recommendation=recText, res)
+	c(list(rec_type="IC", recommendation=recText) , res)
 
 }
 
