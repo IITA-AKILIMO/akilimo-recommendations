@@ -22,7 +22,7 @@ Check off each item after the fix is committed.
 ### Security
 - [x] **SEC-1** `get_data.R:80` — `get_soil_data` interpolates `country` into a file path without re-validating inside the function
 - [x] **SEC-2** `sms_email.R:48–49` — `user$PhoneNr` used in PDF filename without `safe_filename_part` sanitisation
-- [ ] **SEC-3** `api.R` — no rate-limiting or body-size cap; must be handled at the NGINX reverse-proxy level (`client_max_body_size`, connection rate limits)
+- [x] **SEC-3** `api.R` — rate-limiting and body-size cap handled at the NGINX reverse-proxy level (`client_max_body_size`, connection rate limits)
 
 ### Logic
 - [x] **LOG-4** `AkilimoMain.R:86–87` — division by zero if `cassUW == 0` after defaults; produces silent `Inf` for `rootUP`
