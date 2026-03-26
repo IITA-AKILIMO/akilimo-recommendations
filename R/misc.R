@@ -34,7 +34,7 @@ getRFY <- function(HD, RDY, country) {
   d <- as.numeric(strftime(HD, format = "%j"))
   #data.frame with day of the year (dayNr = [1..366]) and %DM (DMCont = [0..100], by country)
   fd <- get_data("dry_matter")
-  DC <- merge(data.frame(dayNr = d), fd[fd$country == "NG",], sort = FALSE)$DMCont
+  DC <- merge(data.frame(dayNr = d), fd[fd$country == country,], sort = FALSE)$DMCont
   RFY <- RDY / DC * 100
   return(RFY)
 
