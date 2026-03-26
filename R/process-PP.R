@@ -119,7 +119,7 @@ getPPrecText <- function(ds, country = c("NG", "TZ", "RW")) {
   if (ds[1,]$CP) {
       paste0(tr$optim[cni],
              ifelse(ds[1,]$method_ploughing == "N/A", tr$no[cni], ds[1,]$method_ploughing), paste(tr$plo[cni]),
-             ifelse(ds[1,]$method_ridging == "N/A", tr$no[cni], ds[cni,]$method_ridging), paste(tr$ridg[cni]), "\n", " ", tr$decnet[cni])
+             ifelse(ds[1,]$method_ridging == "N/A", tr$no[cni], ds[1,]$method_ridging), paste(tr$ridg[cni]), "\n", " ", tr$decnet[cni])
   } else {
     recT <- if (ds[1,]$ploughing && ds[1,]$ridging) {
       if (country == "TZ") {
