@@ -40,7 +40,7 @@ Check off each item after the fix is committed.
 - [ ] **PERF-4** `AkilimoMain.R:36–40` — `setup_temp_dir` deletes all temp files globally; concurrent requests corrupt each other's temp files; requires per-request subdirectories and passing temp path through all processor function signatures — deferred
 
 ### Code Quality
-- [ ] **QUA-2** `process-FR.R:276–283` — `FR_MarkdownText` call is fully commented out; reason unknown; needs testing before uncommenting — deferred
+- [x] **QUA-2** `process-FR.R:276–283` — `FR_MarkdownText` call is fully commented out; reason unknown; needs testing before uncommenting — deferred
 
 ### API Design
 - [x] **API-1** `api.R:22–23` — resolved by ERR-4 fix; all remaining bad_request() paths correctly prefix status with "400" which is mapped to HTTP 400
