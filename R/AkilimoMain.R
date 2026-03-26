@@ -3,6 +3,9 @@ run_akilimo <- function(json) {
 	
 	aki_version <- "20251222"
 	dir.create("temp", FALSE, FALSE)
+	# Clean up temp files from any previous request
+	old_files <- list.files("temp", full.names = TRUE)
+	if (length(old_files) > 0) suppressWarnings(file.remove(old_files))
     body <- try(jsonlite::fromJSON(json))
 	if (inherits(body, "try-error")) {
 		return(list(status = jsonlite::unbox("400 - bad request"), data=NULL))

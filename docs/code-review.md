@@ -212,7 +212,7 @@ Identical cost structures (ploughing, harrowing, ridging) are written out separa
 
 ---
 
-### 4.3 `markdown.R` report-building logic repeated 3× — MEDIUM
+### 4.3 `markdown.R` report-building logic repeated 3× — MEDIUM ✓ Fixed
 
 **File:** `R/markdown.R` — `FR_MarkdownText()`, `IC_MarkdownText()`, `CIS_MarkdownText()`
 
@@ -226,7 +226,7 @@ Extract the shared structure into a helper and let each function supply only wha
 
 ---
 
-### 4.4 Fertilizer → colour mapping as `if-else` chain — MEDIUM
+### 4.4 Fertilizer → colour mapping as `if-else` chain — MEDIUM ✓ Fixed
 
 **File:** `R/markdown.R` lines 43–71
 
@@ -245,9 +245,9 @@ fertColCode  <- fert_colours[[dat[, 1]]]
 
 ---
 
-## 5. Performance
+## 5. Performance ✓ Resolved (5.1, 5.3)
 
-### 5.1 Data files read on every request — MEDIUM
+### 5.1 Data files read on every request — MEDIUM ✓ Fixed
 
 **File:** `R/get_data.R`, `R/AkilimoFunctions_5D.R`
 
@@ -272,7 +272,7 @@ The loop writes `datall1.csv … datall6.csv` to disk then reads them back withi
 
 ---
 
-### 5.3 Temp directory never cleaned up — LOW
+### 5.3 Temp directory never cleaned up — LOW ✓ Fixed
 
 **File:** `R/AkilimoMain.R` line 5; `R/markdown.R`
 

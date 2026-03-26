@@ -1,5 +1,17 @@
 
-data_path <- function(f) file.path("./data/", f)	
+data_path <- function(f) file.path("./data/", f)
+
+# ---------------------------------------------------------------------------
+# In-memory cache for static data files (loaded once per server process)
+# ---------------------------------------------------------------------------
+.data_cache <- new.env(parent = emptyenv())
+
+cached_read <- function(key, loader) {
+    if (!exists(key, envir = .data_cache, inherits = FALSE)) {
+        assign(key, loader(), envir = .data_cache)
+    }
+    get(key, envir = .data_cache, inherits = FALSE)
+}
 
 long2lon <- function(x) {
 	cn <- names(x)
@@ -52,19 +64,21 @@ get_WLY_15M_ncdf <- function(country, lon, lat) {
 get_data <- function(x, country, FCY, lon, lat) {
 	
 	if (x == "TRNS") {
-		TRNS <- read.csv(data_path("input/translations_TEST.csv"), stringsAsFactors = FALSE)
-		unquote <- function(x) gsub(pattern = "\"", replacement = "", x)
-		data.frame(lapply(TRNS, unquote))
+		cached_read("TRNS", function() {
+			TRNS <- read.csv(data_path("input/translations_TEST.csv"), stringsAsFactors = FALSE)
+			unquote <- function(x) gsub(pattern = "\"", replacement = "", x)
+			data.frame(lapply(TRNS, unquote))
+		})
 	} else if (x == "default_prices") {
-		out <- read.csv(data_path("input/Default_prices.csv"))
-		out$Country[out$Country == "BU"] <- "BI"
-		out
-		# guess price for missing item
-		#rbind(out, data.frame(Country="NG", Item="NPK201226", Price=15000))
+		cached_read("default_prices", function() {
+			out <- read.csv(data_path("input/Default_prices.csv"))
+			out$Country[out$Country == "BU"] <- "BI"
+			out
+		})
 	} else if (x == "starch_prices") {
-		read.csv(data_path("input/starchPrices.csv"))
+		cached_read("starch_prices", function() read.csv(data_path("input/starchPrices.csv")))
 	} else if (x == "dry_matter") {
-		read.csv(data_path("input/fd2.csv"))
+		cached_read("dry_matter", function() read.csv(data_path("input/fd2.csv")))
 	} else if (x == "soil_NPK-4") {
 		out <- readRDS(data_path("soil/SoilData_4Country.RDS"))
 		out <- long2lon(out)
