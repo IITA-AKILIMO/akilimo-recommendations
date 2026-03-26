@@ -8,12 +8,12 @@ Check off each item after the fix is committed.
 ## Must-Fix (CRITICAL / blocking)
 
 - [x] **LOG-1** `misc.R:37` — `getRFY` always filtered dry-matter table to `"NG"`, ignoring the `country` parameter
-- [ ] **LOG-2** `process-SP.R` — `getSPrecText` constructs `rec` but never returns it; always returns `NULL`
-- [ ] **ERR-1** `process-SP.R` — consequence of LOG-2: `recText` is `NULL` for all SP recommendations
-- [ ] **LOG-3** `process-PP.R:76–79` — `ds$CP` assumed to have exactly one `TRUE` row; crashes or gives wrong results with zero or multiple matches
-- [ ] **ERR-5** `process-PP.R:116` — `ds[cni,]$method_ridging` should be `ds[1,]$method_ridging` (copy-paste bug)
-- [ ] **SEC-4** `api.R:36–37` — full R traceback (file paths, function names, stack frames) returned to callers in HTTP 500 responses
-- [ ] **QUA-1** `process-IC.R` — returns `type` instead of `rec_type`; field missing from all NG IC responses
+- [x] **LOG-2** `process-SP.R` — `getSPrecText` constructs `rec` but never returns it; always returns `NULL`
+- [x] **ERR-1** `process-SP.R` — consequence of LOG-2: `recText` is `NULL` for all SP recommendations
+- [x] **LOG-3** `process-PP.R:76–79` — `ds$CP` assumed to have exactly one `TRUE` row; crashes or gives wrong results with zero or multiple matches
+- [x] **ERR-5** `process-PP.R:116` — `ds[cni,]$method_ridging` should be `ds[1,]$method_ridging` (copy-paste bug)
+- [x] **SEC-4** `api.R:36–37` — full R traceback (file paths, function names, stack frames) returned to callers in HTTP 500 responses
+- [x] **QUA-1** `process-IC.R` — returns `type` instead of `rec_type`; field missing from all NG IC responses
 
 ---
 
