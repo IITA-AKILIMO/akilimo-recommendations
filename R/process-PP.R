@@ -73,10 +73,16 @@ getPPrecommendations <- function(areaHa, costLMO,
 #    ds$dNR <- ds$NR
 #  }
 
-  ds$dTC <- ds$TC - ds$TC[ds$CP]
-  ds$dRP <- ds$RP - ds$RP[ds$CP]
-  ds$dGR <- ds$GR - ds$GR[ds$CP]
-  ds$dNR <- ds$NR - ds$NR[ds$CP]
+  cp_idx <- which(ds$CP)
+  if (length(cp_idx) == 0) {
+      warning("No current-practice row matched in PP recommendations; using lowest-NR row as baseline")
+      cp_idx <- which.min(ds$NR)
+  }
+  cp_idx <- cp_idx[1]  # guard against duplicate matches
+  ds$dTC <- ds$TC - ds$TC[cp_idx]
+  ds$dRP <- ds$RP - ds$RP[cp_idx]
+  ds$dGR <- ds$GR - ds$GR[cp_idx]
+  ds$dNR <- ds$NR - ds$NR[cp_idx]
 
   #minimal required net revenue increase from fertilizer needed (taking into account risk attitude of user)
   # ds$dNRmin <- ds$TC * ifelse(riskAtt == 0, 2.8, ifelse(riskAtt == 1, 2, 1.2))
