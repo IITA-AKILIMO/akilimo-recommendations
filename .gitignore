@@ -1,5 +1,13 @@
 *.csv
 *.RDS
+dist/
+__pycache__/
+*.pyc
+scripts/.venv/
+scripts/poetry.lock
+scripts/uv.lock
+scripts/.idea/
+scripts/pyproject-old.toml
 *.html
 *.pdf
 *.log
