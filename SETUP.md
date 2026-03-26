@@ -53,30 +53,21 @@ sudo apt-get install -y \
 
 ### R packages
 
-```bash
-Rscript -e "
-install.packages(c(
-  'plumber', 'limSolve', 'ncdf4', 'httr', 'mailR',
-  'webshot', 'knitr', 'rmarkdown',
-  'leaflet', 'mapview',
-  'jsonlite', 'tidyr', 'dplyr', 'plyr', 'lubridate',
-  'ggplot2', 'kableExtra', 'scales', 'png',
-  'randomForest', 'tinytest'
-), repos = 'https://cloud.r-project.org')
-"
-```
-
-After installing `webshot`, fetch phantomjs (used to render HTML → PDF):
-
-```r
-webshot::install_phantomjs()
-```
-
-If `mailR` fails to load, reconfigure R's Java environment:
+Run the provided installer script — works on Linux, macOS, and Windows:
 
 ```bash
-sudo R CMD javareconf
+Rscript install_packages.R
 ```
+
+This installs all 21 required packages, downloads phantomjs for `webshot`, and checks that rJava is working for `mailR`.
+
+**Java requirement for `mailR`:**
+
+| Platform | Action |
+|----------|--------|
+| Linux | `sudo apt-get install openjdk-17-jre-headless && sudo R CMD javareconf` |
+| Windows | Install JDK from [adoptium.net](https://adoptium.net), set `JAVA_HOME`, re-run the script |
+| macOS | `brew install openjdk`, then `sudo R CMD javareconf` |
 
 ### Python data scripts
 

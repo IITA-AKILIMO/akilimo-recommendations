@@ -11,16 +11,26 @@ git clone https://github.com/masgeek/akilimo-recommendations.git
 cd akilimo-recommendations
 ```
 
-### 2. Run the setup script
+### 2. Install dependencies
 
-The `setup.sh` script installs all system packages, R packages, Python tooling, and downloads runtime data from Zenodo in one step:
+**Linux (Debian/Ubuntu)** — automated:
 
 ```bash
 chmod +x setup.sh
 ./setup.sh
 ```
 
-For manual installation or non-Debian systems, see [SETUP.md](SETUP.md).
+**Windows / macOS** — run the R installer directly, then set up Python:
+
+```bash
+Rscript install_packages.R
+
+cd scripts
+cp .env.example .env
+poetry install
+```
+
+See [SETUP.md](SETUP.md) for full details and manual installation instructions.
 
 ### 3. Start the API
 
