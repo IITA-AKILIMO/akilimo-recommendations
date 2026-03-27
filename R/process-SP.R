@@ -73,13 +73,7 @@ getSPrecText <- function(ds, country, lang, PD, HD) {
         }
       }
 
-      if ((ds[1,]$PD != ds[ds$CP,]$PD) & (ds[1,]$HD != ds[ds$CP,]$HD)) {
-         rec <- paste0(tr("recrev", lang, pd_date = format(ds[1,]$PD, "%d %B %Y")),
-                        tr("hvsdate", lang, hd_date = format(ds[1,]$HD, "%d %B %Y")),
-                        tr("nochange", lang))
-      } else {
-        rec <- paste0(recP, recH, recR)
-      }
+      rec <- paste0(recP, recH, recR)
 
 
       # NOTE: recommendation text is minimal. Future enhancements could include:

@@ -121,20 +121,26 @@ getPPrecText <- function(ds, country, lang) {
   } else {
     recT <- if (ds[1,]$ploughing && ds[1,]$ridging) {
       if (lang == "sw") {
-        paste0(tr("werec_", lang), tr("plofol", lang), ds[1,]$method_ploughing, tr("plofol2", lang), ds[1,]$method_ridging, tr("ridg", lang), "\n")
+        paste0(tr("werec", lang), tr("plofol", lang), ds[1,]$method_ploughing, tr("plofol2", lang), ds[1,]$method_ridging, tr("ridg", lang), "\n")
       } else {
-        paste0(tr("werec_", lang), ds[1,]$method_ploughing, tr("plofol", lang), ds[1,]$method_ridging, tr("ridg", lang), "\n")
+        paste0(tr("werec", lang), ds[1,]$method_ploughing, tr("plofol", lang), ds[1,]$method_ridging, tr("ridg", lang), "\n")
       }
     } else if (!(ds[1,]$ploughing || ds[1,]$ridging)) {
         paste0(tr("zerot", lang), "\n")
     } else if (ds[1,]$ploughing) {
-        paste0(tr("werec_", lang), ds[1,]$method_ploughing, tr("noridg", lang), "\n")
+        paste0(tr("werec", lang), ds[1,]$method_ploughing, tr("noridg", lang), "\n")
     } else if (ds[1,]$ridging) {
         paste0(tr("noplo", lang), ds[1,]$method_ridging, "\n")
     } else {""}
 
     rcost <- if (ds[1,]$ploughing | ds[1,]$ridging) {
-        paste0(tr("changcost", lang), tr("this", lang), tr("decr", lang), tr("incr", lang), ds[1,]$cost, tr("costb", lang), tr("rtprod", lang), "\n")
+        if (ds[1,]$dTC == 0) {
+            paste0(tr("changcost", lang), tr("rtprod", lang), "\n")
+        } else {
+            paste0(tr("this", lang),
+                   ifelse(ds[1,]$dTC < 0, tr("decr", lang), tr("incr", lang)),
+                   tr("costb", lang), abs(ds[1,]$dTC), tr("rtprod", lang), "\n")
+        }
     } else {""}
 
     paste(recT, rcost, tr("thank", lang))
