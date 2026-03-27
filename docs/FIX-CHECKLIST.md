@@ -43,7 +43,7 @@ Check off each item after the fix is committed.
 - [x] **MNT-1** `api.R:9` — `R/` directory sourced blindly in alphabetical order
 
 ### New — should fix
-- [ ] **SEC-5** `AkilimoMain.R:370–378` — `if (cost_X == 0)` comparisons on potentially-NA values; should use `!is.na(x) && x == 0`
+- [x] **SEC-5** `AkilimoMain.R:370–378` — `if (cost_X == 0)` comparisons on potentially-NA values; should use `!is.na(x) && x == 0`
 - [ ] **LOG-17 / PERF-5** `get_data.R:159–180` — `get_yield_data("WLY_365")` reads large RDS files fresh on every request; apply `cached_read`
 - [ ] **LOG-18** `optimize_fert.R:29–30,35,63` — `country = "NG"` still hardcoded in `run_Optim_NG2`; FR recommendations for non-NG countries use wrong dry-matter conversion in the optimiser; document as technical debt or fix
 - [ ] **ERR-10** `process-SP.R:30,40,49,76` — `ds[ds$CP == TRUE,]` can return multiple rows if `yld` has duplicate `(plw, haw)`; index with `which(ds$CP)[1]` throughout `getSPrecText`

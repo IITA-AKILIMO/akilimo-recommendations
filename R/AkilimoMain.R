@@ -367,16 +367,16 @@ get_costLMO <- function(body, country, areaHa, areaUnits, ploughing, harrowing, 
 		cost_manual_ridging <- from_json("cost_manual_ridging", body, default_value = NA)
 		cost_weeding1 <- from_json("cost_weeding1", body, default_value = NA)
 		cost_weeding2 <- from_json("cost_weeding2", body, default_value = NA)
-		if (cost_manual_ploughing == 0) cost_manual_ploughing <- NA
-		if (cost_manual_harrowing == 0) cost_manual_harrowing <- NA
-		if (cost_manual_ridging == 0) cost_manual_ridging <- NA
-		if (cost_tractor_ploughing == 0) cost_tractor_ploughing <- NA
-		if (cost_tractor_harrowing == 0) cost_tractor_harrowing <- NA
-		if (cost_tractor_ridging == 0) cost_tractor_ridging <- NA
+		if (!is.na(cost_manual_ploughing)  && cost_manual_ploughing  == 0) cost_manual_ploughing  <- NA
+		if (!is.na(cost_manual_harrowing)  && cost_manual_harrowing  == 0) cost_manual_harrowing  <- NA
+		if (!is.na(cost_manual_ridging)    && cost_manual_ridging    == 0) cost_manual_ridging    <- NA
+		if (!is.na(cost_tractor_ploughing) && cost_tractor_ploughing == 0) cost_tractor_ploughing <- NA
+		if (!is.na(cost_tractor_harrowing) && cost_tractor_harrowing == 0) cost_tractor_harrowing <- NA
+		if (!is.na(cost_tractor_ridging)   && cost_tractor_ridging   == 0) cost_tractor_ridging   <- NA
 
-		if (cost_weeding1 == 0) cost_weeding1 <- NA
-		if (cost_weeding2 == 0) cost_weeding2 <- NA
-		if (fallowHeight == 0) fallowHeight <- NA
+		if (!is.na(cost_weeding1)  && cost_weeding1  == 0) cost_weeding1  <- NA
+		if (!is.na(cost_weeding2)  && cost_weeding2  == 0) cost_weeding2  <- NA
+		if (!is.na(fallowHeight)   && fallowHeight   == 0) fallowHeight   <- NA
 
 		# create dataframe with cost of land management operations
 		costLMO <- data.frame(

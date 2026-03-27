@@ -146,15 +146,11 @@ _None._
 
 ### HIGH
 
-**SEC-5 — `get_costLMO` zero-check compares potentially-NA values without `is.na` guard (AkilimoMain.R lines 370–378)**
+**SEC-5 — `get_costLMO` zero-check compares potentially-NA values without `is.na` guard (AkilimoMain.R lines 370–378)** ✅ Fixed
 
-The `from_json` calls for cost fields default to `NA`. Immediately after, lines like `if (cost_manual_ploughing == 0) cost_manual_ploughing <- NA` compare `NA == 0`, which produces `NA` (not `FALSE`), causing the `if` to raise a warning and skip the assignment. In practice the cost values stay as `NA`, which is the correct outcome — but the check is semantically wrong and masks any future case where `from_json` returns `"NA"` as a string (its documented default) instead of `NA`. The correct guard is:
+~~The `from_json` calls for cost fields default to `NA`. Immediately after, lines like `if (cost_manual_ploughing == 0) cost_manual_ploughing <- NA` compare `NA == 0`, which produces `NA` (not `FALSE`), causing the `if` to raise a warning and skip the assignment.~~
 
-```r
-if (!is.na(cost_manual_ploughing) && cost_manual_ploughing == 0) cost_manual_ploughing <- NA
-```
-
-This applies to all eight cost variables on lines 370–378.
+All ten zero-checks on lines 370–379 now use `!is.na(x) && x == 0` guards.
 
 ### MEDIUM
 
