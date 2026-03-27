@@ -7,7 +7,7 @@ Check off each item after the fix is committed.
 
 ## Must-Fix (CRITICAL / blocking)
 
-### Previously identified — all resolved
+### All resolved
 - [x] **LOG-1** `misc.R:37` — `getRFY` always filtered dry-matter table to `"NG"`, ignoring the `country` parameter
 - [x] **LOG-2** `process-SP.R` — `getSPrecText` constructs `rec` but never returns it; always returns `NULL`
 - [x] **ERR-1** `process-SP.R` — consequence of LOG-2: `recText` is `NULL` for all SP recommendations
@@ -15,20 +15,21 @@ Check off each item after the fix is committed.
 - [x] **ERR-5** `process-PP.R:116` — `ds[cni,]$method_ridging` should be `ds[1,]$method_ridging` (copy-paste bug)
 - [x] **SEC-4** `api.R:36–37` — full R traceback (file paths, function names, stack frames) returned to callers in HTTP 500 responses
 - [x] **QUA-1** `process-IC.R` — returns `type` instead of `rec_type`; field missing from all NG IC responses
-
-### New — must fix before next push
-- [ ] **LOG-13 / ERR-9 / TRANS-1** `process-PP.R:124,126,131` — `tr("werec_", lang)` references a key that does not exist in `translations.csv`; all PP requests where the recommendation differs from current practice return HTTP 500
-- [ ] **LOG-14** `process-PP.R:137` — `ds[1,]$cost` references a non-existent column (should be `ds[1,]$dTC`); cost figure is silently omitted from all PP change recommendation text
-- [ ] **LOG-15** `process-SP.R:76–79` — `getSPrecText` emits "no change" text when both PD and HD differ; should emit `paste0(recP, recH, recR)` instead; delete the `if` block at lines 76–79
+- [x] **LOG-13 / ERR-9 / TRANS-1** `process-PP.R:124,126,131` — `tr("werec_", lang)` references a key that does not exist in `translations.csv`; all PP requests where the recommendation differs from current practice return HTTP 500
+- [x] **LOG-14** `process-PP.R:137` — `ds[1,]$cost` references a non-existent column (should be `ds[1,]$dTC`); cost figure is silently omitted from all PP change recommendation text
+- [x] **LOG-15** `process-SP.R:76–79` — `getSPrecText` emits "no change" text when both PD and HD differ; should emit `paste0(recP, recH, recR)` instead
+- [x] **LOG-19** `AkilimoMain.R:152` — `maizeUP` parsed without `default_value`; string `"NA"` operand causes HTTP 500 for all NG IC grain requests where field is absent
+- [x] **TRANS-6** `translations.csv` — `inc` key missing leading space; SP yield-increase text read `"We expectan increase..."`
 
 ---
 
 ## Should-Fix (HIGH)
 
-### Previously identified — all resolved
+### All resolved
 - [x] **SEC-1** `get_data.R:80` — `get_soil_data` interpolates `country` into a file path without re-validating inside the function
 - [x] **SEC-2** `sms_email.R:48–49` — `user$PhoneNr` used in PDF filename without `safe_filename_part` sanitisation
 - [x] **SEC-3** `api.R` — rate-limiting and body-size cap handled at the NGINX reverse-proxy level
+- [x] **SEC-5** `AkilimoMain.R:370–378` — `if (cost_X == 0)` comparisons on potentially-NA values; should use `!is.na(x) && x == 0`
 - [x] **LOG-4** `AkilimoMain.R:86–87` — division by zero if `cassUW == 0` after defaults
 - [x] **LOG-5** `AkilimoMain.R:130` — `if (maizeUW == 0)` check raises warning when `maizeUW` is already `NA`
 - [x] **LOG-7** `AkilimoMain.R:161` — `tuberUP` computed before `sweetPotatoUP` default is applied
@@ -38,18 +39,18 @@ Check off each item after the fix is committed.
 - [x] **PERF-1** `get_data.R:80–97` — soil RDS files for RW/GH/BI not cached
 - [x] **PERF-2** `get_data.R:99–108` — `predicted_soil_properties` RDS not cached
 - [x] **QUA-2** `process-FR.R:276–283` — `FR_MarkdownText` call was commented out
+- [x] **QUA-13** `process-PP.R:136–137` — `rcost` block concatenates both `tr("decr")` and `tr("incr")` unconditionally; fixed with sign-conditional branch
 - [x] **API-1** `api.R:22–23` — resolved by ERR-4 fix
 - [x] **API-3** `AkilimoMain.R` — `validate_request` now checks FCY range and PD/HD date format
 - [x] **MNT-1** `api.R:9` — `R/` directory sourced blindly in alphabetical order
 
-### New — should fix
-- [x] **SEC-5** `AkilimoMain.R:370–378` — `if (cost_X == 0)` comparisons on potentially-NA values; should use `!is.na(x) && x == 0`
+### Open — should fix
 - [ ] **LOG-17 / PERF-5** `get_data.R:159–180` — `get_yield_data("WLY_365")` reads large RDS files fresh on every request; apply `cached_read`
+- [ ] **PERF-6** `get_data.R:68` — `get_soil_data("soil_NPK-4")` reads RDS fresh on every SP request with no `cached_read` wrapper
 - [ ] **LOG-18** `optimize_fert.R:29–30,35,63` — `country = "NG"` still hardcoded in `run_Optim_NG2`; FR recommendations for non-NG countries use wrong dry-matter conversion in the optimiser; document as technical debt or fix
-- [ ] **ERR-10** `process-SP.R:30,40,49,76` — `ds[ds$CP == TRUE,]` can return multiple rows if `yld` has duplicate `(plw, haw)`; index with `which(ds$CP)[1]` throughout `getSPrecText`
+- [ ] **ERR-10** `process-SP.R:30,40,49` — `ds[ds$CP == TRUE,]` can return multiple rows if `yld` has duplicate `(plw, haw)`; index with `which(ds$CP)[1]` throughout `getSPrecText`
 - [ ] **ERR-11** `AkilimoMain.R:268` — `gsub(...)` on `result$recommendation` has no NULL guard; add `%||% ""`
 - [ ] **QUA-11** `process-IC.R:376`, `translations.csv:81` — `cisRatePre` English value is `"kg"` where it should be `""`; produces `"kg123 kg of Urea"` output
-- [ ] **QUA-13** `process-PP.R:136–137` — `rcost` block concatenates both `tr("decr")` and `tr("incr")` unconditionally; add a conditional on sign of `ds[1,]$dTC`
 - [ ] **TRANS-2** `translations.csv:81` — same as QUA-11
 - [ ] **MNT-4** `process-IC.R:116–178` — `getICrecText` (NG IC) has no `lang` parameter and hardcodes English; does not use `tr()`
 
@@ -86,6 +87,8 @@ Check off each item after the fix is committed.
 
 - [ ] **QUA-9** `get_data.R:193` — `get_data` signature should default-`NULL` unused arguments
 - [ ] **QUA-15** `markdown.R:208` — debug `message()` call in `IC_MarkdownText` hot path
+- [ ] **QUA-16** `process-SP.R:241` — hardcoded English string with copy-paste factual error ("after planting date" should be "after planting date" → harvest); replace with `tr("sphdpd", lang)`
+- [ ] **QUA-17** `process-SP.R:216` — debug `message()` call in `getSPrecommendations` hot path; replace with `warning()` or remove
 
 ---
 

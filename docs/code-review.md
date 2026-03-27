@@ -1,6 +1,6 @@
 # Akilimo Recommendations API — Code Review
 
-**Review date:** 2026-03-27
+**Review date:** 2026-03-27 (updated 2026-03-27)
 **Reviewer:** Claude Code (automated)
 **Scope:** `api.R`, `R/AkilimoMain.R`, `R/process-FR.R`, `R/process-IC.R`, `R/process-PP.R`, `R/process-SP.R`, `R/get_data.R`, `R/quefts.R`, `R/optimize_fert.R`, `R/fertilizers.R`, `R/markdown.R`, `R/misc.R`
 
@@ -162,25 +162,13 @@ _None new._
 
 ### CRITICAL
 
-**LOG-13 — `tr("werec_", lang)` references a missing translation key — all PP recommendations involving a change will crash (process-PP.R lines 124, 126, 131)**
+**LOG-13 — `tr("werec_", lang)` references a missing translation key — all PP recommendations involving a change will crash (process-PP.R lines 124, 126, 131)** ✅ Fixed
 
-The key `"werec_"` (with a trailing underscore) is called in `getPPrecText` on lines 124, 126, and 131. The translations CSV (`data/input/translations.csv`) contains only `"werec"` (no underscore). `tr()` will call `stop(sprintf("Missing translation key 'werec_'"))`, which propagates through `getPPrecText` → `process_PP` → `run_akilimo` → returns an HTTP 500 error for every PP request where the recommendation differs from the current practice (i.e., almost all PP requests).
+~~`tr("werec_", lang)` at 3 call sites in `getPPrecText`; key does not exist, causes HTTP 500 for all PP change recommendations.~~
 
-This is a regression introduced by the translation refactor.
+Fixed: all three call sites changed to `tr("werec", lang)`.
 
-**Fix:** Add `werec_` to `translations.csv` (it appears to be the same text as `werec` but may warrant a trailing space or different phrasing for the PP context), or change the three call sites to use `tr("werec", lang)`:
-
-```r
-# translations.csv — add row:
-werec_,We recommend ,Tunapendekeza ,
-
-# OR change the call sites in process-PP.R lines 124, 126, 131 from:
-tr("werec_", lang)
-# to:
-tr("werec", lang)
-```
-
-**LOG-14 — `ds[1,]$cost` references a non-existent column in `getPPrecText` — crashes on all recommendation-with-cost-change PP requests (process-PP.R line 137)**
+**LOG-14 — `ds[1,]$cost` references a non-existent column in `getPPrecText` — crashes on all recommendation-with-cost-change PP requests (process-PP.R line 137)** ✅ Fixed
 
 The data frame returned by `getPPrecommendations` has columns `TC`, `GR`, `NR`, `dTC`, `dNR`, `cost_ploughing`, `cost_ridging`, `cost_weeding`. There is no column named `cost`. Line 137 reads:
 
@@ -196,24 +184,17 @@ paste0(tr("changcost", lang), tr("this", lang), tr("decr", lang), tr("incr", lan
 paste0(..., ds[1,]$dTC, ...)
 ```
 
-**LOG-15 — `getSPrecText` inverts the "both dates changed" branch — emits "no change" text when both PD and HD differ (process-SP.R lines 76–79)**
+**LOG-15 — `getSPrecText` inverts the "both dates changed" branch — emits "no change" text when both PD and HD differ (process-SP.R lines 76–79)** ✅ Fixed
 
-Inside the `else` branch (entered when `ds[1,]$CP` is FALSE, meaning the top recommendation differs from the current practice), the code at line 76 checks:
+~~Inverted `if/else` emitted "no change" text for the normal recommendation case.~~
 
-```r
-if ((ds[1,]$PD != ds[ds$CP,]$PD) & (ds[1,]$HD != ds[ds$CP,]$HD)) {
-    rec <- paste0(tr("recrev", ...), tr("hvsdate", ...), tr("nochange", lang))
-}
-```
+Fixed: removed the inverted `if` block; `rec <- paste0(recP, recH, recR)` is now unconditional.
 
-When both dates differ — the normal case for a productive recommendation — this emits the identical "your revenue will be highest at your proposed planting ... We do not recommend any changes" text that is correctly emitted at line 18–21 only when the current practice IS optimal. The branch should instead build `rec` from `recP`, `recH`, and `recR` (the objects already computed on lines 31–73), as the `else` branch at line 80 does.
+**LOG-19 — `maizeUP` parsed without `default_value`; string `"NA"` operand causes HTTP 500 for all NG IC grain requests where field is absent (AkilimoMain.R line 152)** ✅ Fixed
 
-The condition at line 76 appears to be a copy-paste of the wrong logic. The entire `if` at lines 76–79 should be deleted; the `else` at line 80 is already the correct fallback:
+`from_json("maizeUP", body)` with no `default_value` returns the string `"NA"`. The guard `if (maizeUP == 0)` evaluates to `FALSE` (string `"NA"` ≠ 0). When `maizePD == "grain"`, the computation `maizeUP / maizeUW / 7.64` is attempted on a string, throwing `Error: non-numeric argument to binary operator` → HTTP 500 for all NG IC grain requests where the client omits `maizeUP`.
 
-```r
-# Delete lines 76-79. Correct remaining code:
-rec <- paste0(recP, recH, recR)
-```
+Fixed: `maizeUP <- as.numeric(from_json("maizeUP", body, default_value = 0))` with `!is.na()` guard.
 
 ### HIGH
 
@@ -273,15 +254,11 @@ Still present. The per-row QUEFTS loop iterates over every planting/harvest comb
 
 ### CRITICAL
 
-**ERR-9 — `tr("werec_", lang)` will throw a fatal error stopping all PP responses (process-PP.R — see LOG-13)**
+**ERR-9 — `tr("werec_", lang)` will throw a fatal error stopping all PP responses (process-PP.R — see LOG-13)** ✅ Fixed
 
-This is both a logic error and an unhandled exception. Every PP request where the recommendation differs from the current practice will produce an HTTP 500 from `tr()`'s `stop()` call. Because this is caught by the outer `tryCatch` in `api.R`, the client receives:
+~~Every PP request where the recommendation differs from current practice returned HTTP 500.~~
 
-```json
-{"status": "error", "data": {"message": "Missing translation key 'werec_'"}}
-```
-
-with HTTP 500, rather than a recommendation.
+Fixed with LOG-13: call sites changed to `tr("werec", lang)`.
 
 ### HIGH
 
@@ -364,22 +341,11 @@ Still present: `aki_version <- "20251222"`.
 
 Still present in `process-SP.R` (lines 132–136, 161–164), `process-PP.R` (lines 41–74), `process-FR.R` (lines 162–165, 198–199).
 
-**QUA-13 — `getPPrecText` mixes `tr()` keys with raw concatenation producing confusing output (process-PP.R lines 136–137)**
+**QUA-13 — `getPPrecText` mixes `tr()` keys with raw concatenation producing confusing output (process-PP.R lines 136–137)** ✅ Fixed
 
-The `rcost` branch constructs:
+~~`rcost` block concatenated both `tr("decr")` and `tr("incr")` unconditionally, producing "This will decrease increase cost by..."~~
 
-```r
-paste0(tr("changcost", lang), tr("this", lang), tr("decr", lang), tr("incr", lang), ds[1,]$dTC, tr("costb", lang), tr("rtprod", lang), "\n")
-```
-
-This concatenates `changcost` ("This will not change cost...") with `this` ("This will ") with `decr` ("decrease") with `incr` ("increase") with the cost value. A single sentence cannot both decrease AND increase. Looking at the translation keys, `changcost` is a standalone sentence. The intent appears to be: emit either `decr` OR `incr` depending on the sign of `dTC`, then the cost value. The current code always emits both "decrease" and "increase" concatenated. The fix requires a conditional:
-
-```r
-cost_direction <- if (ds[1,]$dTC < 0) tr("decr", lang) else tr("incr", lang)
-rcost <- paste0(tr("this", lang), cost_direction, tr("costb", lang),
-                formatC(abs(ds[1,]$dTC), format = "f", big.mark = ",", digits = 0),
-                tr("rtprod", lang), "\n")
-```
+Fixed: `rcost` block now uses `ifelse(ds[1,]$dTC < 0, tr("decr", lang), tr("incr", lang))` and correctly references `abs(ds[1,]$dTC)`.
 
 **QUA-14 — `get_costLMO` has inconsistent indentation (AkilimoMain.R lines 357–444)**
 
@@ -399,6 +365,22 @@ message(paste("Processing IC_MarkdownText with risk attitude", riskAtt))
 
 This is a debug trace statement that writes to stderr on every IC request. It should be removed or gated behind a verbose flag.
 
+**QUA-16 — `process_SP` line 241 hardcodes English with a copy-paste factual error (process-SP.R line 241)**
+
+```r
+recText <- "Planting date should be at least 1 month after planting date."
+```
+
+Two bugs: (a) hardcoded English, bypasses `tr()`; (b) says "after planting date" twice — should read "Harvest date should be at least 1 month after planting date." Fix: add key `sphdpd` to `translations.csv` and replace with `tr("sphdpd", lang)`.
+
+**QUA-17 — Debug `message()` left in `getSPrecommendations` hot path (process-SP.R line 216)**
+
+```r
+message("this situation needs to be avoided")
+```
+
+Fires on every request where the current-practice `(rPWnr=0, rHWnr=0)` combination is absent from the merged yield data. Should be a structured `warning()` with diagnostic coordinates or removed.
+
 ---
 
 ## 7. Performance
@@ -411,7 +393,11 @@ Still present. Two sequential `for` loops iterate over all scheduling combinatio
 
 **PERF-5 — `get_yield_data("WLY_365")` reads large RDS files on every request (get_data.R lines 159–180)**
 
-New finding, see LOG-17. Nigeria WLY LINTUL RDS files are not cached despite the `cached_read` pattern being available and already applied to soil data. This is the most frequently called data load in the FR hot path.
+See LOG-17. Nigeria WLY LINTUL RDS files are not cached despite the `cached_read` pattern being available and already applied to soil data. This is the most frequently called data load in the FR hot path.
+
+**PERF-6 — `get_soil_data("soil_NPK-4")` reads RDS fresh on every SP request with no `cached_read` wrapper (get_data.R line 68)**
+
+`get_soil_data` calls `readRDS(data_path("soil/SoilData_4Country.RDS"))` directly. All other static RDS files are wrapped with `cached_read`. Fix: wrap with `cached_read("soil_NPK4", function() long2lon(readRDS(...)))` — the `long2lon()` normalisation must be inside the lambda so the cache stores the processed form.
 
 ### MEDIUM
 
@@ -445,11 +431,15 @@ Still deferred. `FR + PP` in one request will silently process only FR.
 
 ### CRITICAL
 
-**TRANS-1 — Missing key `werec_` causes runtime `stop()` on all PP change recommendations (process-PP.R lines 124, 126, 131 — see LOG-13)**
+**TRANS-1 — Missing key `werec_` causes runtime `stop()` on all PP change recommendations (process-PP.R lines 124, 126, 131 — see LOG-13)** ✅ Fixed
 
 ### HIGH
 
 **TRANS-2 — `cisRatePre` English value is `"kg"` where it should be `""` (translations.csv line 81 — see QUA-11)**
+
+**TRANS-6 — `inc` key missing leading space causes malformed SP yield-increase text (translations.csv)**
+
+The `inc` key value is `"an increase"` while `dec` is `" a decrease"` (with leading space). SP recommendation templates using `{direction}` (via `recRyieldOnly` and `recRfull`) produce `"We expectan increase..."` in English for the yield-increase case. Fixed: `inc` value changed to `" an increase"` (added leading space).
 
 ### MEDIUM
 
@@ -493,36 +483,42 @@ Still present: `NPK201010` → `NPK20_10_10` transformation at line 106 is silen
 
 ## 11. Summary Table
 
-| Category        | Severity  | Count | Status        |
-|-----------------|-----------|-------|---------------|
-| Security        | HIGH      | 1     | Should fix    |
-| Logic           | CRITICAL  | 3     | Must fix      |
-| Logic           | HIGH      | 3     | Should fix    |
-| Logic           | MEDIUM    | 5     | Recommended   |
-| Error Handling  | CRITICAL  | 1     | Must fix      |
-| Error Handling  | HIGH      | 2     | Should fix    |
-| Error Handling  | MEDIUM    | 1     | Recommended   |
-| Code Quality    | HIGH      | 2     | Should fix    |
-| Code Quality    | MEDIUM    | 7     | Recommended   |
-| Code Quality    | LOW       | 3     | Nice to have  |
-| Performance     | HIGH      | 2     | Should fix    |
-| Performance     | MEDIUM    | 1     | Deferred      |
-| API Design      | HIGH      | 1     | Should fix    |
-| API Design      | MEDIUM    | 2     | Recommended   |
-| Translation     | CRITICAL  | 1     | Must fix      |
-| Translation     | HIGH      | 1     | Should fix    |
-| Translation     | MEDIUM    | 3     | Recommended   |
-| Maintainability | HIGH      | 1     | Should fix    |
-| Maintainability | MEDIUM    | 3     | Recommended   |
+| Category        | Severity  | Open | Fixed/Deferred |
+|-----------------|-----------|------|----------------|
+| Security        | HIGH      | 0    | 1 ✅ (SEC-5)   |
+| Logic           | CRITICAL  | 0    | 4 ✅ (LOG-13,14,15,19) |
+| Logic           | HIGH      | 3    | —              |
+| Logic           | MEDIUM    | 5    | —              |
+| Error Handling  | CRITICAL  | 0    | 1 ✅ (ERR-9)   |
+| Error Handling  | HIGH      | 2    | —              |
+| Error Handling  | MEDIUM    | 1    | —              |
+| Code Quality    | HIGH      | 1    | 1 ✅ (QUA-13)  |
+| Code Quality    | MEDIUM    | 9    | —              |
+| Code Quality    | LOW       | 2    | —              |
+| Performance     | HIGH      | 3    | —              |
+| Performance     | MEDIUM    | 1    | Deferred       |
+| API Design      | HIGH      | 1    | —              |
+| API Design      | MEDIUM    | 2    | —              |
+| Translation     | CRITICAL  | 0    | 1 ✅ (TRANS-1) |
+| Translation     | HIGH      | 2    | —              |
+| Translation     | MEDIUM    | 3    | —              |
+| Maintainability | HIGH      | 1    | —              |
+| Maintainability | MEDIUM    | 3    | —              |
 
 ---
 
 ## 12. Must-Fix Before Next Production Push
 
+All previous must-fix items are resolved. No new blockers identified in latest review pass.
+
+Previously resolved:
+
 | ID      | File              | Issue                                                                  |
 |---------|-------------------|------------------------------------------------------------------------|
-| LOG-13  | process-PP.R      | `tr("werec_", lang)` — key missing from translations.csv; all PP recommendations with change will return HTTP 500 |
-| LOG-14  | process-PP.R      | `ds[1,]$cost` — column does not exist; cost figure silently omitted from all PP change recommendation text |
-| LOG-15  | process-SP.R      | `getSPrecText` emits "no change" text when both PD and HD differ — the opposite of the correct behaviour |
-| ERR-9   | process-PP.R      | Consequence of LOG-13: every PP request with a change recommendation crashes |
-| TRANS-1 | process-PP.R      | Same as LOG-13 from translation system perspective |
+| LOG-13  | process-PP.R      | `tr("werec_", lang)` — key missing; all PP change recommendations returned HTTP 500 ✅ |
+| LOG-14  | process-PP.R      | `ds[1,]$cost` — column does not exist; cost figure silently omitted ✅ |
+| LOG-15  | process-SP.R      | `getSPrecText` emitted "no change" text when both PD and HD differed ✅ |
+| LOG-19  | AkilimoMain.R     | `maizeUP` parsed without default; string `"NA"` caused HTTP 500 for all NG IC grain requests ✅ |
+| ERR-9   | process-PP.R      | Consequence of LOG-13 ✅ |
+| TRANS-1 | process-PP.R      | Same as LOG-13 ✅ |
+| TRANS-6 | translations.csv  | `inc` key missing leading space; SP yield-increase text read `"We expectan increase..."` ✅ |

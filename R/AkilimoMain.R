@@ -149,8 +149,8 @@ dispatch_recommendations <- function(p, body) {
             if (maizePD == "grain") maizeUW <- as.numeric(as.character(maizeUW))
             if (!is.na(maizeUW) && maizeUW == 0) maizeUW <- NA
 
-            maizeUP <- from_json("maizeUP", body)
-            if (maizeUP == 0) {
+            maizeUP <- as.numeric(from_json("maizeUP", body, default_value = 0))
+            if (!is.na(maizeUP) && maizeUP == 0) {
                 maizeUW <- 1
                 maizeUP <- if (maizePD == "fresh_cob") 50 else 230
             }
