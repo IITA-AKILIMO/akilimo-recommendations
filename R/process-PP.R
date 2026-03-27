@@ -104,43 +104,40 @@ getPPrecommendations <- function(areaHa, costLMO,
 #' @examples
 getPPrecText <- function(ds, country = c("NG", "TZ", "RW")) {
 
-	tr <- get_data("TRNS")
-  
   ds$method_ploughing <- as.character(ds$method_ploughing)
   ds$method_ridging <- as.character(ds$method_ridging)
 
-  ds$method_ploughing <- ifelse(country == "TZ" & ds$method_ploughing == "tractor", "kwa trekta", ds$method_ploughing)
-  ds$method_ploughing <- ifelse(country == "TZ" & ds$method_ploughing == "manual", "kwa jembe la mkono", ds$method_ploughing)
-  ds$method_ridging <- ifelse(country == "TZ" & ds$method_ridging == "tractor", "kwa trekta", ds$method_ridging)
-  ds$method_ridging <- ifelse(country == "TZ" & ds$method_ridging == "manual", "kwa jembe la mkono", ds$method_ridging)
-	
-	cni <- ifelse(country=="NG", 1, ifelse(country=="TZ", 2, 3))
+  method_tractor <- tr("method_tractor", country)
+  method_manual  <- tr("method_manual",  country)
+  ds$method_ploughing <- ifelse(ds$method_ploughing == "tractor", method_tractor,
+                         ifelse(ds$method_ploughing == "manual",  method_manual, ds$method_ploughing))
+  ds$method_ridging   <- ifelse(ds$method_ridging   == "tractor", method_tractor,
+                         ifelse(ds$method_ridging   == "manual",  method_manual, ds$method_ridging))
 
   if (ds[1,]$CP) {
-      paste0(tr$optim[cni],
-             ifelse(ds[1,]$method_ploughing == "N/A", tr$no[cni], ds[1,]$method_ploughing), paste(tr$plo[cni]),
-             ifelse(ds[1,]$method_ridging == "N/A", tr$no[cni], ds[1,]$method_ridging), paste(tr$ridg[cni]), "\n", " ", tr$decnet[cni])
+      paste0(tr("optim", country),
+             ifelse(ds[1,]$method_ploughing == "N/A", tr("no", country), ds[1,]$method_ploughing), paste(tr("plo", country)),
+             ifelse(ds[1,]$method_ridging   == "N/A", tr("no", country), ds[1,]$method_ridging),   paste(tr("ridg", country)), "\n", " ", tr("decnet", country))
   } else {
     recT <- if (ds[1,]$ploughing && ds[1,]$ridging) {
       if (country == "TZ") {
-        paste0(tr$werec_[2], tr$plofol[2], ds[1,]$method_ploughing, tr$plofol2[2], ds[1,]$method_ridging, tr$ridg[2], "\n")
+        paste0(tr("werec_", country), tr("plofol", country), ds[1,]$method_ploughing, tr("plofol2", country), ds[1,]$method_ridging, tr("ridg", country), "\n")
       } else {
-        paste0(tr$werec_[cni], ds[1,]$method_ploughing, tr$plofol[cni], ds[1,]$method_ridging, tr$ridg[cni], "\n")		
+        paste0(tr("werec_", country), ds[1,]$method_ploughing, tr("plofol", country), ds[1,]$method_ridging, tr("ridg", country), "\n")
       }
     } else if (!(ds[1,]$ploughing || ds[1,]$ridging)) {
-        paste0(tr$zerot[cni], "\n")
+        paste0(tr("zerot", country), "\n")
     } else if (ds[1,]$ploughing) {
-        paste0(tr$werec_[cni], ds[1,]$method_ploughing, tr$noridg[cni], "\n")
+        paste0(tr("werec_", country), ds[1,]$method_ploughing, tr("noridg", country), "\n")
     } else if (ds[1,]$ridging) {
-        paste0(tr$noplo[cni], ds[1,]$method_ridging, "\n")
-	} else {""}
-	
-    rcost <- if (ds[1,]$ploughing | ds[1,]$ridging) {
-        paste0(tr$changcost[cni], tr$this[cni], tr$decr[cni], tr$incr[cni], ds[1,]$cost, tr$costb[cni], tr$rtprod[cni], "\n")
+        paste0(tr("noplo", country), ds[1,]$method_ridging, "\n")
     } else {""}
-	
-	
-    paste(recT, rcost, tr$thank[1])
+
+    rcost <- if (ds[1,]$ploughing | ds[1,]$ridging) {
+        paste0(tr("changcost", country), tr("this", country), tr("decr", country), tr("incr", country), ds[1,]$cost, tr("costb", country), tr("rtprod", country), "\n")
+    } else {""}
+
+    paste(recT, rcost, tr("thank", country))
   }
 
   #TODO: This only provides the minimal information to return to the user. We may consider adding following information:

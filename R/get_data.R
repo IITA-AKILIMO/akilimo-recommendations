@@ -37,9 +37,8 @@ cellFromLonLat <- function(lon, lat, res=0.05) {
 get_input_data <- function(x) {
     if (x == "TRNS") {
         cached_read("TRNS", function() {
-            TRNS <- read.csv(data_path("input/translations_TEST.csv"), stringsAsFactors = FALSE)
-            unquote <- function(x) gsub(pattern = "\"", replacement = "", x)
-            data.frame(lapply(TRNS, unquote))
+            read.csv(data_path("input/translations.csv"),
+                     stringsAsFactors = FALSE, strip.white = FALSE)
         })
     } else if (x == "default_prices") {
         cached_read("default_prices", function() {

@@ -77,7 +77,7 @@ Check off each item after the fix is committed.
 ## Nice to Have (LOW)
 
 - [ ] **QUA-9** `get_data.R:188` — `get_data` signature should default-`NULL` unused arguments to avoid `R CMD check` warnings
-- [ ] **QUA-10** `process-IC.R`, `process-SP.R` — Swahili strings split between TRNS CSV and hardcoded literals
+- [x] **QUA-10** `process-IC.R`, `process-SP.R` — Swahili strings split between TRNS CSV and hardcoded literals
 - [ ] **MNT-3** `AkilimoMain.R:249` — no semantic versioning or changelog; `aki_version` date provides no compatibility signal
 
 ---

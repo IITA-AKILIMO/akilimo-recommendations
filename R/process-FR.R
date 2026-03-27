@@ -9,21 +9,12 @@
 #' @examples
 getFRrecText <- function(ds, country) {
   
-	tr <- get_data("TRNS")
-
-#	ci <- ifelse(country %in% c("NG", "GH", "BI"), 1, 
-#			ifelse(country == "TZ", 2, 
-#			ifelse(country == "RW", 3, NA)))
-	# use english for Rwanda		
-	ci <- ifelse(country == "TZ", 2, 1)
-
-	if (is.null(ds$data)) {	# out of geographic scpoie
-		recText <- tr$recloc[ci]
-		#recText <- tr$norecom[ci]
+	if (is.null(ds$data)) {	# out of geographic scope
+		recText <- tr("recloc", country)
 	} else if (ds$data$NR <= 0) { # not profitable
-		recText <- tr$frnotrec[ci]
+		recText <- tr("frnotrec", country)
 	} else if (ds$data$TC == 0) { # profitable, but do not apply
-        recText <- tr$notapply[ci]
+        recText <- tr("notapply", country)
       # NOTE: recommendation text does not explain the reason for non-application.
       # Possible causes: unfavourable price ratio, low yield potential, or high
       # indigenous nutrient supply. Adding cause-specific text requires extending
@@ -37,19 +28,18 @@ getFRrecText <- function(ds, country) {
 		NR <- formatC(ds$data$NR, format = "f", big.mark = ",", digits = 0)
 		DY <- signif(ds$data$TargetY - ds$data$CurrentY, digits = 2)
 
-		add_more <- function(x, i) {
-            paste0(x, tr$area[i], "\n",
-               tr$willc[i], currency, " ", TC, ".\n",
-               tr$extrap[i], DY, tr$tonof[1],
-               tr$netincr[i], currency, " ", NR, ".")
+		add_more <- function(x) {
+            paste0(x, tr("area", country), "\n",
+               tr("willc", country, currency = currency, amount = TC), "\n",
+               tr("frImpact", country, dy = DY, currency = currency, nr = NR))
 			}
 
-		recText <- if (ci == 1) {
-			add_more(paste0(tr$werec[1], "\n", paste0(round(frate$rate), tr$kgof[1], 
-					frate$type, collapse = "\n")), ci)
+		recText <- if (country != "TZ") {
+			add_more(paste0(tr("werec", country), "\n",
+				paste0(round(frate$rate), tr("kgof", country), frate$type, collapse = "\n")))
 		} else {
-			add_more(paste0(tr$werec[2], "\n", paste0(tr$kgof[2], 
-					round(frate$rate), tr$of[2], frate$type, collapse = "\n")), ci)
+			add_more(paste0(tr("werec", country), "\n",
+				paste0(tr("kgof", country), round(frate$rate), tr("of", country), frate$type, collapse = "\n")))
 		}
 		
       # NOTE: recommendation text is minimal. Future enhancements could include:

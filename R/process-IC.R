@@ -222,9 +222,9 @@ process_IC_TZ <- function(IC, country, areaHa, FCY, tuberUP, rootUP, fertilizers
   res <- getCISrecommendations(areaHa = areaHa, FCY = FCY, tuberUP = tuberUP, rootUP = rootUP,
 					fertilizers = fertilizers, riskAtt = riskAtt)
 
-  if (NROW(res$fertilizer_rates) > 0) {
-    recText <- getCISrecText(res)
+  recText <- getCISrecText(res, country)
 
+  if (NROW(res$fertilizer_rates) > 0) {
     write.csv(recText, './temp/CIS_recText.csv', row.names = FALSE)
 
     CIS_MarkdownText(rr = res, fertilizers = fertilizers,
@@ -238,7 +238,6 @@ process_IC_TZ <- function(IC, country, areaHa, FCY, tuberUP, rootUP, fertilizers
 
 	  ICrecom <- TRUE
   } else {
-    recText <- res$data$reason_F
     ICrecom <- FALSE
   }
 
@@ -294,19 +293,17 @@ getCISrecommendations <- function(areaHa = 1, FCY = 11,
     #evaluating if a solution was found
     if (dTC == 0) {
       dGR <- 0
-      #trans
-      reason_F <- "Mbolea sahihi haipatikani."
+      reason_F <- "no_fertilizer_available"
       rec_F <- FALSE
-    } else { #trans
-      reason_F <- "Tunakushauri usitumie mbolea kwa sababu itakuongezea gharama hatimae utapata hasara."
+    } else {
+      reason_F <- "fertilizer_recommended"
       rec_F <- TRUE
     }
   } else {
     dTC <- 0
     FR <- 0
     dGR <- 0
-    #trans
-    reason_F <- "Kilimo mchanganyiko haupendekezwi.Panda muhogo peke yake."
+    reason_F <- "no_intercrop"
     rec_F <- FALSE
   }
 
@@ -320,17 +317,14 @@ getCISrecommendations <- function(areaHa = 1, FCY = 11,
     #check profitability of fertilizer use
     if (dNR > dNRmin) {
       rec_F <- TRUE
-      #trans
-      reason_F <- "Matumizi ya mbolea inapendekezwa."
+      reason_F <- "fertilizer_recommended"
     }else {
       dTC <- 0
       dGR <- 0
       dNR <- 0
       FR <- FR * 0
       rec_F <- FALSE
-
-      #trans
-      reason_F <- "Tunakushauri usitumie mbolea kwa sababu itakuongezea gharama hatimae utapata hasara"
+      reason_F <- "fertilizer_not_profitable"
     }
   }
 
@@ -354,45 +348,36 @@ getCISrecommendations <- function(areaHa = 1, FCY = 11,
 
 
 
-#' @param ds is output of getCISrecommendations
-#' @param country
+#' @param d is output of getCISrecommendations
+#' @param country country code (e.g. "TZ")
 #'
 #' @return the advice as text to print in app
-getCISrecText <- function(d) {
+getCISrecText <- function(d, country = "TZ") {
 
 	ds <- d[["data"]]
 
   if (!ds$rec_IC) {
-    # recIC <- "Intercropping is not recommended. Growing a cassava monocrop will give you a higher profit.\n"
-    # recF  <- "If you consider investing in fertilizer, please use our Fertilizer Recommendations Tool to obtain fertilizer advice for a cassava monocrop."
-
-    recIC <- "Kilimo mchanganyiko haipendekezwi. Kupanda muhogo peke yake utakupatia faida ya juu.\n"
-    recF <- "Kama ungependa kuwekeza katika mbolea, tafadhali tumia chombo chetu cha mapandekezo ya mbolea ili kupata ushauri wa kupanda muhogo bila mseto."
+    recIC <- paste0(tr("cisNoIC", country), "\n")
+    recF  <- tr("cisNoICfert", country)
   } else {
-
-    recIC <- "Tunapendekeza kuchanganya muhogo na viazi vitamu (kilimo mseto). Hii itakupatia faida ya juu na mapato ya haraka kutoka kwenye viazi vitamu."
-    #recIC <- "This will generate a higher profit overall, and also give you access to early income from sweet potato.\n"
+    recIC <- tr("cisRecIC", country)
     if (!ds$rec_F) {
-      #recF <- paste0("Fertilizer use is not recommended because ", ds$reason_F, ".\n")
-      recF <- paste0("Haishauriwi kutumia  mbolea kwa sababu ", ds$reason_F, ".\n")
+      recF <- if (ds$reason_F == "no_fertilizer_available") {
+        tr("cisFertNoAvail", country)
+      } else {
+        tr("cisFertNotProfit", country)
+      }
     } else {
-      dTC <- formatC(signif(ds$dTC, digits = 3), format = "f", big.mark = ",", digits = 0)
-      dNR <- formatC(signif(ds$dNR, digits = 3), format = "f", big.mark = ",", digits = 0)
-      currency <- "TZS"
-
-      #recF <- paste0("We recommend applying\n",
-      # paste0(round(ds[["fertilizer_rates"]]$rate), " kg of ", ds[["fertilizer_rates"]]$type, collapse="\n"),
-      # "\nfor the area of your field.\n",
-      # "This will cost ", currency, " ", dTC, ". ",
-      # "We expect a net value increase of ", currency, " ", dNR, " for the area of your field.")
-
-      recF <- paste0("Tunapendekeza utumie\n",
-                     paste0("kilo ", round(d[["fertilizer_rates"]]$rate), " ya ", ds[["fertilizer_rates"]]$type, collapse = "\n"), " ",
-                     "\nkatika eneo la shamba lako.\n",
-                     "Hii itagharimu shilingi ", currency, " ", dTC, ". ",
-                     "Tunatarajia jumla ya ongezeko la thamani kwa ", currency, " ", dNR, " katika eneo la shamba lako.")
+      dTC      <- formatC(signif(ds$dTC, digits = 3), format = "f", big.mark = ",", digits = 0)
+      dNR      <- formatC(signif(ds$dNR, digits = 3), format = "f", big.mark = ",", digits = 0)
+      currency <- get_currency(country)
+      fs       <- d[["fertilizer_rates"]]
+      recF <- paste0(tr("cisFertYesPfx", country), "\n",
+                     paste0(tr("cisRatePre", country), round(fs$rate), tr("cisRatePost", country), fs$type, collapse = "\n"), " ",
+                     "\n", tr("cisFertField", country), "\n",
+                     tr("cisCostPfx", country, currency = currency, amount = dTC), " ",
+                     tr("cisNet", country, currency = currency, amount = dNR))
     }
-
   }
 
   paste0(recIC, recF)

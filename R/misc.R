@@ -1,4 +1,22 @@
 
+# Look up a translation string by key and country.
+# Falls back to "NG" (English) when the key is absent or blank for the given country.
+# Stops with an error if the key is missing entirely.
+tr <- function(key, country, ...) {
+    tbl <- get_data("TRNS")
+    val <- tbl$value[tbl$key == key & tbl$country == country]
+    if (length(val) == 0 || is.na(val) || !nzchar(trimws(val))) {
+        val <- tbl$value[tbl$key == key & tbl$country == "NG"]
+    }
+    if (length(val) == 0) stop(sprintf("Missing translation key '%s'", key))
+    args <- list(...)
+    for (nm in names(args)) {
+        val <- gsub(paste0("\\{", nm, "\\}"), args[[nm]], val, fixed = FALSE)
+    }
+    val
+}
+
+
 get_currency <- function(country) {
 	m <- matrix(c("NG", "NGN", "RW", "RWF", "GH", "GHS", "BI", "BIF", "TZ", "TZS"), ncol=2, byrow=TRUE)
 	i <- match(country, m[,1])
