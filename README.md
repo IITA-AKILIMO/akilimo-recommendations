@@ -50,7 +50,7 @@ curl -X POST http://localhost:8000/compute --data "@./tests/input/in_1.json"
 ```
 POST /compute (api.R)
     → run_akilimo() (R/AkilimoMain.R)
-        → Parses request: country, coordinates, flags
+        → Parses request: country, lang, coordinates, flags
         → Dispatches to processor(s):
             process-FR.R  — Fertilizer Recommendation
             process-IC.R  — Intercropping
@@ -65,10 +65,22 @@ Key files:
 | File | Role |
 |------|------|
 | `api.R` | Plumber entry point (port 8000) |
-| `R/AkilimoMain.R` | Core orchestrator |
+| `R/AkilimoMain.R` | Core orchestrator (`run_akilimo()`) |
 | `R/quefts.R` | QUEFTS crop growth model |
 | `R/optimize_fert.R` | Cost-benefit fertilizer optimization |
 | `R/get_data.R` | Loads NetCDF rasters and CSV lookup tables |
+| `R/misc.R` | `tr(key, lang)` translation helper + shared utilities |
+
+## Internationalisation
+
+Response text language is controlled by the `lang` field in the request body (default `"en"`):
+
+| Value | Language |
+|-------|----------|
+| `"en"` | English (default) |
+| `"sw"` | Swahili |
+
+`lang` is independent of `country` — any country can request any supported language. See [docs/TRANSLATIONS.md](docs/TRANSLATIONS.md) for how to add keys or new languages.
 
 ## Testing
 
@@ -117,6 +129,16 @@ cd scripts
 poetry run bundle-assets          # pack data dirs → dist/*.tar.gz
 poetry run upload-zenodo --new    # create Zenodo deposit + upload
 ```
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [SETUP.md](SETUP.md) | Full installation and data download guide |
+| [docs/API-REFERENCE.md](docs/API-REFERENCE.md) | Complete API field reference with examples |
+| [docs/TRANSLATIONS.md](docs/TRANSLATIONS.md) | Translation system: CSV format, adding keys/languages, token substitution |
+| [docs/CODE-REVIEW.md](docs/CODE-REVIEW.md) | Automated code review (security, logic, performance) |
+| [docs/FIX-CHECKLIST.md](docs/FIX-CHECKLIST.md) | Fix tracking for CODE-REVIEW issues |
 
 ## License
 

@@ -107,12 +107,16 @@ POST /compute (api.R)
 | `R/fertilizers.R` | Parses fertilizer types, prices, NPK content |
 | `R/markdown.R` | Generates HTML recommendation reports |
 | `R/sms_email.R` | Notification dispatch |
-| `R/misc.R` | Shared utilities |
+| `R/misc.R` | `tr(key, lang, ...)` translation helper, `get_currency()`, `getRFY()`/`getRDY()` |
+
+### Translation system
+User-facing text lives in `data/input/translations.csv` (wide format: one row per key, columns `en`, `sw`, `rw`). The `tr(key, lang, ...)` function in `misc.R` does the lookup with automatic English fallback. Strings support `{token}` placeholders for dynamic values. See [docs/TRANSLATIONS.md](docs/TRANSLATIONS.md).
 
 ### Data Dependencies
 Spatial data lives under `./data/` (gitignored):
 - `data/yield/` — NetCDF rasters: `{COUNTRY}_WLY_LINTUL_2020SP.nc`
 - `data/input/` — CSV lookup tables (translations, defaults, prices)
+  - `translations.csv` — wide format: `key,en,sw,rw`
 
 ### Path Configuration
 `api.R` sets `akpath` based on hostname. On unknown hosts it defaults to `"."`. The data directory is always relative to `akpath`.
@@ -125,6 +129,7 @@ c("plumber", "limSolve", "ncdf4", "httr", "webshot", "mailR", "knitr", "leaflet"
 ## API Request Schema
 POST `/compute` JSON payload requires:
 - `country` — NG | TZ | RW | GH | BI
+- `lang` — response language: `en` (default) | `sw` (Swahili); independent of country
 - `lat`, `lon` — coordinates
 - `area`, `areaUnits` — farm size (ha, acre, are, m2, string, ekari)
 - Boolean flags: `FR`, `PP`, `IC`, `SPP`, `SPH`
@@ -133,6 +138,8 @@ POST `/compute` JSON payload requires:
 - Fertilizer entries: `*available`, `*CostperBag`, `*BagWt` per fertilizer type
 - User: `userName`, `userEmail`, `userPhoneNr`, `userField`
 - Notification flags: `email`, `SMS`
+
+Full field reference with types and examples: [docs/API-REFERENCE.md](docs/API-REFERENCE.md)
 
 ## Deployment
 
