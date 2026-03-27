@@ -10,15 +10,15 @@
 #' @export
 #'
 #' @examples
-getSPrecText <- function(ds, country, PD, HD) {
+getSPrecText <- function(ds, country, lang, PD, HD) {
 
   if (is.null(ds)) {
-    rec <- tr("norecom", country)
+    rec <- tr("norecom", lang)
   } else {
     if (ds[1,]$CP) {
-        rec <- paste0(tr("recrev", country, pd_date = format(ds[1,]$PD, "%d %B %Y")),
-                      tr("hvsdate", country, hd_date = format(ds[1,]$HD, "%d %B %Y")),
-                      tr("nochange", country))
+        rec <- paste0(tr("recrev", lang, pd_date = format(ds[1,]$PD, "%d %B %Y")),
+                      tr("hvsdate", lang, hd_date = format(ds[1,]$HD, "%d %B %Y")),
+                      tr("nochange", lang))
 
       # NOTE: "no change" text gives no reason. Possible causes: unfavourable prices at
       # other dates, low starch at later harvest (starch factory sales), or unattractive
@@ -28,22 +28,22 @@ getSPrecText <- function(ds, country, PD, HD) {
     } else {
 
       if (ds[1,]$PD != ds[ds$CP == TRUE,]$PD) {
-        recP <- paste0(tr("recPln", country,
+        recP <- paste0(tr("recPln", lang,
                           date      = format(ds[1,]$PD, "%d %B %Y"),
                           weeks     = abs(ds[1,]$rPWnr),
-                          direction = ifelse(ds[1,]$rPWnr < 0, tr("early", country), tr("late", country))), "\n")
+                          direction = ifelse(ds[1,]$rPWnr < 0, tr("early", lang), tr("late", lang))), "\n")
       } else {
-        recP <- tr("recPopt", country, date = format(ds[1,]$PD, "%d %B %Y"))
+        recP <- tr("recPopt", lang, date = format(ds[1,]$PD, "%d %B %Y"))
       }
 
 
       if (ds[1,]$HD != ds[ds$CP == TRUE,]$HD) {
-        recH <- paste0(tr("recHvs", country,
+        recH <- paste0(tr("recHvs", lang,
                           date      = format(ds[1,]$HD, "%d %B %Y"),
                           weeks     = abs(ds[1,]$rHWnr),
-                          direction = ifelse(ds[1,]$rHWnr < 0, tr("early", country), tr("late", country))), "\n")
+                          direction = ifelse(ds[1,]$rHWnr < 0, tr("early", lang), tr("late", lang))), "\n")
       } else {
-        recH <- tr("recHopt", country, date = format(ds[1,]$HD, "%d %B %Y"))
+        recH <- tr("recHopt", lang, date = format(ds[1,]$HD, "%d %B %Y"))
       }
 
       DP <- signif(ds[1,]$RP - ds[ds$CP == TRUE,]$RP, digits = 2)
@@ -52,31 +52,31 @@ getSPrecText <- function(ds, country, PD, HD) {
 
       if (DP == 0) {
         if (dGR == 0) {
-            recR <- tr("rechange", country,
-                       action = ifelse(!is.null(recH), tr("hvst", country), tr("plnt", country)))
+            recR <- tr("rechange", lang,
+                       action = ifelse(!is.null(recH), tr("hvst", lang), tr("plnt", lang)))
         } else {
-            recR <- tr("recRatt1", country, currency = currency, amount = dGR)
+            recR <- tr("recRatt1", lang, currency = currency, amount = dGR)
         }
       } else {
-        direction_str <- ifelse(DP < 0, tr("dec", country), tr("inc", country))
-        action_str    <- ifelse(!is.null(recH), tr("hvst", country), tr("plnt", country))
+        direction_str <- ifelse(DP < 0, tr("dec", lang), tr("inc", lang))
+        action_str    <- ifelse(!is.null(recH), tr("hvst", lang), tr("plnt", lang))
         if (dGR == 0) {
-            recR <- tr("recRyieldOnly", country,
+            recR <- tr("recRyieldOnly", lang,
                        direction = direction_str, amount = abs(DP), action = action_str)
         } else {
-            recR <- tr("recRfull", country,
+            recR <- tr("recRfull", lang,
                        direction = direction_str,
                        amount    = abs(DP),
-                       conj      = ifelse(DP < 0, tr("but", country), tr("and", country)),
+                       conj      = ifelse(DP < 0, tr("but", lang), tr("and", lang)),
                        currency  = currency,
                        value     = dGR)
         }
       }
 
       if ((ds[1,]$PD != ds[ds$CP,]$PD) & (ds[1,]$HD != ds[ds$CP,]$HD)) {
-         rec <- paste0(tr("recrev", country, pd_date = format(ds[1,]$PD, "%d %B %Y")),
-                        tr("hvsdate", country, hd_date = format(ds[1,]$HD, "%d %B %Y")),
-                        tr("nochange", country))
+         rec <- paste0(tr("recrev", lang, pd_date = format(ds[1,]$PD, "%d %B %Y")),
+                        tr("hvsdate", lang, hd_date = format(ds[1,]$HD, "%d %B %Y")),
+                        tr("nochange", lang))
       } else {
         rec <- paste0(recP, recH, recR)
       }
@@ -233,7 +233,7 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
 
 
 process_SP <- function(
-  SPP, SPH, country, PD_window, HD_window, areaHa, lat, lon, PD, HD, saleSF, nameSF, FCY,
+  SPP, SPH, country, lang, PD_window, HD_window, areaHa, lat, lon, PD, HD, saleSF, nameSF, FCY,
   rootUP, rootUP_m1, rootUP_m2, rootUP_p1, rootUP_p2, user, userField,
   area, areaUnits, maxInv, ploughing, ridging, method_ploughing, method_ridging, CMP, riskAtt,
   cassPD, cassUW, cassUP, cassUP_m1, cassUP_m2, cassUP_p1, cassUP_p2) {
@@ -242,7 +242,7 @@ process_SP <- function(
 	success <- FALSE
 	res <- NULL
 	if ((PD_window == 0) && (HD_window == 0)) {
-		recText <- tr("spinfo", country)
+		recText <- tr("spinfo", lang)
 	} else if ((HD - PD) <= 30) {
 		recText <- "Planting date should be at least 1 month after planting date."
 	} else {
@@ -254,11 +254,11 @@ process_SP <- function(
 			rootUP_p2 = rootUP_p2)
 
 		if (!is.data.frame(res)) {
-			recText <- tr("recloc", country)
+			recText <- tr("recloc", lang)
 		} else {
 			success <- TRUE
 
-			recText <- getSPrecText(ds = res, country = country,PD = PD, HD = HD)
+			recText <- getSPrecText(ds = res, country = country, lang = lang, PD = PD, HD = HD)
 			write.csv(recText, './temp/SP_recText.csv', row.names = FALSE)
 
 			SP_MarkdownText(

@@ -102,42 +102,42 @@ getPPrecommendations <- function(areaHa, costLMO,
 #' @export
 #'
 #' @examples
-getPPrecText <- function(ds, country = c("NG", "TZ", "RW")) {
+getPPrecText <- function(ds, country, lang) {
 
   ds$method_ploughing <- as.character(ds$method_ploughing)
   ds$method_ridging <- as.character(ds$method_ridging)
 
-  method_tractor <- tr("method_tractor", country)
-  method_manual  <- tr("method_manual",  country)
+  method_tractor <- tr("method_tractor", lang)
+  method_manual  <- tr("method_manual",  lang)
   ds$method_ploughing <- ifelse(ds$method_ploughing == "tractor", method_tractor,
                          ifelse(ds$method_ploughing == "manual",  method_manual, ds$method_ploughing))
   ds$method_ridging   <- ifelse(ds$method_ridging   == "tractor", method_tractor,
                          ifelse(ds$method_ridging   == "manual",  method_manual, ds$method_ridging))
 
   if (ds[1,]$CP) {
-      paste0(tr("optim", country),
-             ifelse(ds[1,]$method_ploughing == "N/A", tr("no", country), ds[1,]$method_ploughing), paste(tr("plo", country)),
-             ifelse(ds[1,]$method_ridging   == "N/A", tr("no", country), ds[1,]$method_ridging),   paste(tr("ridg", country)), "\n", " ", tr("decnet", country))
+      paste0(tr("optim", lang),
+             ifelse(ds[1,]$method_ploughing == "N/A", tr("no", lang), ds[1,]$method_ploughing), paste(tr("plo", lang)),
+             ifelse(ds[1,]$method_ridging   == "N/A", tr("no", lang), ds[1,]$method_ridging),   paste(tr("ridg", lang)), "\n", " ", tr("decnet", lang))
   } else {
     recT <- if (ds[1,]$ploughing && ds[1,]$ridging) {
-      if (country == "TZ") {
-        paste0(tr("werec_", country), tr("plofol", country), ds[1,]$method_ploughing, tr("plofol2", country), ds[1,]$method_ridging, tr("ridg", country), "\n")
+      if (lang == "sw") {
+        paste0(tr("werec_", lang), tr("plofol", lang), ds[1,]$method_ploughing, tr("plofol2", lang), ds[1,]$method_ridging, tr("ridg", lang), "\n")
       } else {
-        paste0(tr("werec_", country), ds[1,]$method_ploughing, tr("plofol", country), ds[1,]$method_ridging, tr("ridg", country), "\n")
+        paste0(tr("werec_", lang), ds[1,]$method_ploughing, tr("plofol", lang), ds[1,]$method_ridging, tr("ridg", lang), "\n")
       }
     } else if (!(ds[1,]$ploughing || ds[1,]$ridging)) {
-        paste0(tr("zerot", country), "\n")
+        paste0(tr("zerot", lang), "\n")
     } else if (ds[1,]$ploughing) {
-        paste0(tr("werec_", country), ds[1,]$method_ploughing, tr("noridg", country), "\n")
+        paste0(tr("werec_", lang), ds[1,]$method_ploughing, tr("noridg", lang), "\n")
     } else if (ds[1,]$ridging) {
-        paste0(tr("noplo", country), ds[1,]$method_ridging, "\n")
+        paste0(tr("noplo", lang), ds[1,]$method_ridging, "\n")
     } else {""}
 
     rcost <- if (ds[1,]$ploughing | ds[1,]$ridging) {
-        paste0(tr("changcost", country), tr("this", country), tr("decr", country), tr("incr", country), ds[1,]$cost, tr("costb", country), tr("rtprod", country), "\n")
+        paste0(tr("changcost", lang), tr("this", lang), tr("decr", lang), tr("incr", lang), ds[1,]$cost, tr("costb", lang), tr("rtprod", lang), "\n")
     } else {""}
 
-    paste(recT, rcost, tr("thank", country))
+    paste(recT, rcost, tr("thank", lang))
   }
 
   #TODO: This only provides the minimal information to return to the user. We may consider adding following information:
@@ -150,7 +150,7 @@ getPPrecText <- function(ds, country = c("NG", "TZ", "RW")) {
 }
 
 
-process_PP <- function(PP, country, areaHa, costLMO, ploughing, ridging,
+process_PP <- function(PP, country, lang, areaHa, costLMO, ploughing, ridging,
 		method_ploughing, method_ridging, FCY, rootUP, riskAtt, user,
 		userField, area, areaUnits, PD, HD, lat, lon, cassPD, cassUW, maxInv) {
 
@@ -160,7 +160,7 @@ process_PP <- function(PP, country, areaHa, costLMO, ploughing, ridging,
 				method_ridging = method_ridging, FCY = FCY, rootUP = rootUP, riskAtt = riskAtt )
 
   # Generate recommendation text
-  recText <- getPPrecText(ds = res, country = country)
+  recText <- getPPrecText(ds = res, country = country, lang = lang)
 
   # Write output files
   write.csv(res, './temp/PP_rec.csv', row.names = FALSE)

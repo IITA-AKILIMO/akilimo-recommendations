@@ -86,6 +86,9 @@ parse_request <- function(body) {
     userField <- from_json("userField", body)
     riskAtt   <- from_json("riskAtt",   body, default_value = 0)
 
+    lang_raw <- from_json("lang", body, default_value = "en")
+    lang <- if (lang_raw %in% c("en", "sw")) lang_raw else "en"
+
     flag_to_key  <- c(FR = "FR", PP = "PP", IC = "IC", SPP = "SP", SPH = "SP")
     active_flags <- c(FR = FR, PP = PP, IC = IC, SPP = SPP, SPH = SPH)
     selected_key <- unique(flag_to_key[active_flags])
@@ -109,7 +112,7 @@ parse_request <- function(body) {
     areaHa <- area / unit_factors[[areaUnits]]
 
     list(
-        country = country, lat = lat, lon = lon, area = area, areaUnits = areaUnits,
+        country = country, lang = lang, lat = lat, lon = lon, area = area, areaUnits = areaUnits,
         IC = IC, FR = FR, PP = PP, SPP = SPP, SPH = SPH,
         PD = PD, HD = HD, PD_window = PD_window, HD_window = HD_window,
         FCY = FCY, CMP = CMP, saleSF = saleSF, nameSF = nameSF,
@@ -130,7 +133,7 @@ dispatch_recommendations <- function(p, body) {
         process_FR(
             lat = p$lat, lon = p$lon, HD = p$HD, maxInv = p$maxInv,
             fertilizers = fertilizers, rootUP = p$rootUP, areaHa = p$areaHa,
-            country = p$country, FCY = p$FCY, riskAtt = p$riskAtt,
+            country = p$country, lang = p$lang, FCY = p$FCY, riskAtt = p$riskAtt,
             user = p$user, userField = p$userField, area = p$area,
             areaUnits = p$areaUnits, PD = p$PD, cassPD = p$cassPD, cassUW = p$cassUW
         )
@@ -154,7 +157,7 @@ dispatch_recommendations <- function(p, body) {
             cobUP <- ifelse(maizePD == "fresh_cob", maizeUP, maizeUP / maizeUW / 7.64)
 
             process_IC_NG(
-                IC = p$IC, country = p$country, areaHa = p$areaHa, CMP = p$CMP,
+                IC = p$IC, country = p$country, lang = p$lang, areaHa = p$areaHa, CMP = p$CMP,
                 cobUP = cobUP, fertilizers = fertilizers, riskAtt = p$riskAtt,
                 maizePD = maizePD, user = p$user, userField = p$userField,
                 area = p$area, areaUnits = p$areaUnits, PD = p$PD, HD = p$HD,
@@ -190,7 +193,7 @@ dispatch_recommendations <- function(p, body) {
             tuberUP <- sweetPotatoUP / sweetPotatoUW / conversion_factor3 * 1000
 
             process_IC_TZ(
-                IC = p$IC, country = p$country, areaHa = p$areaHa, FCY = p$FCY,
+                IC = p$IC, country = p$country, lang = p$lang, areaHa = p$areaHa, FCY = p$FCY,
                 tuberUP = tuberUP, rootUP = p$rootUP, fertilizers = fertilizers,
                 riskAtt = p$riskAtt, user = p$user, userField = p$userField,
                 area = p$area, areaUnits = p$areaUnits, PD = p$PD, HD = p$HD,
@@ -216,7 +219,7 @@ dispatch_recommendations <- function(p, body) {
                                method_ploughing, method_harrowing, method_ridging)
 
         process_PP(
-            PP = p$PP, country = p$country, areaHa = p$areaHa, costLMO = costLMO,
+            PP = p$PP, country = p$country, lang = p$lang, areaHa = p$areaHa, costLMO = costLMO,
             ploughing = ploughing, ridging = ridging,
             method_ploughing = method_ploughing, method_ridging = method_ridging,
             FCY = p$FCY, rootUP = p$rootUP, riskAtt = p$riskAtt,
@@ -245,7 +248,7 @@ dispatch_recommendations <- function(p, body) {
 
         process_SP(
             SPP = p$SPP, SPH = p$SPH, PD_window = p$PD_window, HD_window = p$HD_window,
-            areaHa = p$areaHa, country = p$country, lat = p$lat, lon = p$lon,
+            areaHa = p$areaHa, country = p$country, lang = p$lang, lat = p$lat, lon = p$lon,
             PD = p$PD, HD = p$HD, saleSF = p$saleSF, nameSF = p$nameSF,
             FCY = p$FCY, rootUP = p$rootUP, rootUP_m1 = rootUP_m1, rootUP_m2 = rootUP_m2,
             rootUP_p1 = rootUP_p1, rootUP_p2 = rootUP_p2,

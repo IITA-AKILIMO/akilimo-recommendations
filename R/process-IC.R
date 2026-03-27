@@ -180,7 +180,7 @@ getICrecText <- function(x, maizePD) {
 
 # Process recommendations for Nigeria (NG)
 process_IC_NG <- function(
-	IC, country, areaHa, CMP, cobUP, fertilizers, riskAtt, maizePD, user, userField, area, areaUnits,
+	IC, country, lang, areaHa, CMP, cobUP, fertilizers, riskAtt, maizePD, user, userField, area, areaUnits,
 	PD, HD, lat, lon, maizeUW, cassUW, saleSF, nameSF, rootUP, cassPD, maxInv, maizeUP) {
 	
 	
@@ -214,7 +214,7 @@ process_IC_NG <- function(
 }
 
 # Process recommendations for Tanzania (TZ)
-process_IC_TZ <- function(IC, country, areaHa, FCY, tuberUP, rootUP, fertilizers, riskAtt, 
+process_IC_TZ <- function(IC, country, lang, areaHa, FCY, tuberUP, rootUP, fertilizers, riskAtt, 
 			user, userField, area, areaUnits, PD, HD, lat, lon, sweetPotatoUP, sweetPotatoPD, 
 			sweetPotatoUW, cassUW, cassPD, maxInv) {
 
@@ -222,7 +222,7 @@ process_IC_TZ <- function(IC, country, areaHa, FCY, tuberUP, rootUP, fertilizers
   res <- getCISrecommendations(areaHa = areaHa, FCY = FCY, tuberUP = tuberUP, rootUP = rootUP,
 					fertilizers = fertilizers, riskAtt = riskAtt)
 
-  recText <- getCISrecText(res, country)
+  recText <- getCISrecText(res, country, lang)
 
   if (NROW(res$fertilizer_rates) > 0) {
     write.csv(recText, './temp/CIS_recText.csv', row.names = FALSE)
@@ -352,31 +352,31 @@ getCISrecommendations <- function(areaHa = 1, FCY = 11,
 #' @param country country code (e.g. "TZ")
 #'
 #' @return the advice as text to print in app
-getCISrecText <- function(d, country = "TZ") {
+getCISrecText <- function(d, country, lang) {
 
 	ds <- d[["data"]]
 
   if (!ds$rec_IC) {
-    recIC <- paste0(tr("cisNoIC", country), "\n")
-    recF  <- tr("cisNoICfert", country)
+    recIC <- paste0(tr("cisNoIC", lang), "\n")
+    recF  <- tr("cisNoICfert", lang)
   } else {
-    recIC <- tr("cisRecIC", country)
+    recIC <- tr("cisRecIC", lang)
     if (!ds$rec_F) {
       recF <- if (ds$reason_F == "no_fertilizer_available") {
-        tr("cisFertNoAvail", country)
+        tr("cisFertNoAvail", lang)
       } else {
-        tr("cisFertNotProfit", country)
+        tr("cisFertNotProfit", lang)
       }
     } else {
       dTC      <- formatC(signif(ds$dTC, digits = 3), format = "f", big.mark = ",", digits = 0)
       dNR      <- formatC(signif(ds$dNR, digits = 3), format = "f", big.mark = ",", digits = 0)
       currency <- get_currency(country)
       fs       <- d[["fertilizer_rates"]]
-      recF <- paste0(tr("cisFertYesPfx", country), "\n",
-                     paste0(tr("cisRatePre", country), round(fs$rate), tr("cisRatePost", country), fs$type, collapse = "\n"), " ",
-                     "\n", tr("cisFertField", country), "\n",
-                     tr("cisCostPfx", country, currency = currency, amount = dTC), " ",
-                     tr("cisNet", country, currency = currency, amount = dNR))
+      recF <- paste0(tr("cisFertYesPfx", lang), "\n",
+                     paste0(tr("cisRatePre", lang), round(fs$rate), tr("cisRatePost", lang), fs$type, collapse = "\n"), " ",
+                     "\n", tr("cisFertField", lang), "\n",
+                     tr("cisCostPfx", lang, currency = currency, amount = dTC), " ",
+                     tr("cisNet", lang, currency = currency, amount = dNR))
     }
   }
 

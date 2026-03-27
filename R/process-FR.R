@@ -7,14 +7,14 @@
 #' @export
 #'
 #' @examples
-getFRrecText <- function(ds, country) {
-  
+getFRrecText <- function(ds, country, lang) {
+
 	if (is.null(ds$data)) {	# out of geographic scope
-		recText <- tr("recloc", country)
+		recText <- tr("recloc", lang)
 	} else if (ds$data$NR <= 0) { # not profitable
-		recText <- tr("frnotrec", country)
+		recText <- tr("frnotrec", lang)
 	} else if (ds$data$TC == 0) { # profitable, but do not apply
-        recText <- tr("notapply", country)
+        recText <- tr("notapply", lang)
       # NOTE: recommendation text does not explain the reason for non-application.
       # Possible causes: unfavourable price ratio, low yield potential, or high
       # indigenous nutrient supply. Adding cause-specific text requires extending
@@ -29,17 +29,17 @@ getFRrecText <- function(ds, country) {
 		DY <- signif(ds$data$TargetY - ds$data$CurrentY, digits = 2)
 
 		add_more <- function(x) {
-            paste0(x, tr("area", country), "\n",
-               tr("willc", country, currency = currency, amount = TC), "\n",
-               tr("frImpact", country, dy = DY, currency = currency, nr = NR))
+            paste0(x, tr("area", lang), "\n",
+               tr("willc", lang, currency = currency, amount = TC), "\n",
+               tr("frImpact", lang, dy = DY, currency = currency, nr = NR))
 			}
 
-		recText <- if (country != "TZ") {
-			add_more(paste0(tr("werec", country), "\n",
-				paste0(round(frate$rate), tr("kgof", country), frate$type, collapse = "\n")))
+		recText <- if (lang != "sw") {
+			add_more(paste0(tr("werec", lang), "\n",
+				paste0(round(frate$rate), tr("kgof", lang), frate$type, collapse = "\n")))
 		} else {
-			add_more(paste0(tr("werec", country), "\n",
-				paste0(tr("kgof", country), round(frate$rate), tr("of", country), frate$type, collapse = "\n")))
+			add_more(paste0(tr("werec", lang), "\n",
+				paste0(tr("kgof", lang), round(frate$rate), tr("of", lang), frate$type, collapse = "\n")))
 		}
 		
       # NOTE: recommendation text is minimal. Future enhancements could include:
@@ -252,7 +252,7 @@ getFRrecommendations <- function(lat, lon, HD, PD, maxInv, fertilizers, rootUP, 
 
 
 
-process_FR <- function(lat, lon, HD, maxInv, fertilizers, rootUP, areaHa, country, FCY, 
+process_FR <- function(lat, lon, HD, maxInv, fertilizers, rootUP, areaHa, country, lang, FCY,
 				riskAtt, user, userField, area, areaUnits, PD, cassPD, cassUW) {
 
 	response <- getFRrecommendations(
@@ -261,7 +261,7 @@ process_FR <- function(lat, lon, HD, maxInv, fertilizers, rootUP, areaHa, countr
 		FCY = FCY, riskAtt = riskAtt
 	)
 
-	recText <- getFRrecText(ds=response, country=country)
+	recText <- getFRrecText(ds=response, country=country, lang=lang)
 
 	write.csv(recText, './temp/FR_recText.csv', row.names = FALSE)
 	FR_MarkdownText(
