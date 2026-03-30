@@ -1,6 +1,6 @@
 
 this <- system('hostname', TRUE)
-if (this == "LAPTOP-IVSPBGCA") {
+if (this == "denovo") {
 	akpath <- "C:/github/omilika/akilimo-recommendations"
 } else {
 	akpath <- "."
@@ -26,7 +26,7 @@ run <- function(i) {
 	run_akilimo(json)
 }
 
-for (f in list.files(srcdir, pattern="\\.R$", full=TRUE)) source(file.path(srcdir, f))
+for (f in list.files(srcdir, pattern="\\.R$", full=TRUE)) source(file.path(f))
 
 out <- lapply(1:29, \(i) {r <- run(i); test(i, r); r})
 
