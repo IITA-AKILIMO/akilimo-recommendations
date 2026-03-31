@@ -1,6 +1,6 @@
 
 this <- system('hostname', TRUE)
-if (this == "LAPTOP-IVSPBGCA") {
+if (this == "denovo") {
 	akpath <- "C:/github/omilika/akilimo-recommendations"
 } else {
 	akpath <- "."
