@@ -29,13 +29,14 @@ pr$handle(
       status_str <- result[["status"]]
       if (!is.null(status_str) && grepl("^400", status_str)) res$status <- 400L
 
-      log_write("INFO", "SUCCESS:", status_str)
-      log_write("DEBUG", "SUCCESS-DATA:", result)
+      log_write("INFO", "INFO:", status_str)
+      log_write("DEBUG", "RESULT:", result)
 
       result
     }, error = function(e) {
       res$status <- 500L
       log_write("ERROR", "Message:", e$message)
+      log_write("ERROR", "STACK:", e)
       log_write("ERROR", "Trace:", paste(capture.output(traceback()), collapse = "\n"))
 
       token <- tryCatch(

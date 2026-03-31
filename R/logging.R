@@ -1,21 +1,25 @@
-# logging.R
 library(jsonlite)
 
-# Load .env file if present
-if (requireNamespace("dotenv", quietly = TRUE)) {
-  try(dotenv::load_dot_env(file = ".env"), silent = TRUE)
+library(dotenv)
+library(here)
+
+env_file <- here(".env")   # resolves relative to project root
+if (file.exists(env_file)) {
+  load_dot_env(env_file)
 }
 
 log_levels <- c("DEBUG" = 1, "INFO" = 2, "SUCCESS" = 3, "WARN" = 4, "ERROR" = 5)
 
-get_min_log_level <- function() {
+# Cache the minimum log level numeric value once
+min_log_level_value <- {
   lvl <- Sys.getenv("LOG_LEVEL", unset = "INFO")
-  toupper(lvl)
+  message("Curent log level: ", lvl)
+  log_levels[toupper(lvl)]
 }
 
 should_log <- function(level) {
-  min_lvl <- get_min_log_level()
-  log_levels[toupper(level)] >= log_levels[min_lvl]
+  lvl_value <- log_levels[toupper(level)]
+  !is.na(lvl_value) && lvl_value >= min_log_level_value
 }
 
 get_log_file <- function() {
