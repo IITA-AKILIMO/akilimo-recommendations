@@ -76,9 +76,15 @@ Rscript tests/test_small.R
 
 ### Single test via curl
 ```bash
-# Start server first, then:
-curl -X POST http://localhost:8000/compute --data "@./tests/input/in_1.json"
+# Start server first, then run an existing fixture:
+curl -X POST http://localhost:8000/compute \
+  -H "Content-Type: application/json" \
+  --data "@./tests/input/in_1_TZ_FR_starch_factory_riskAtt0.json"
 ```
+
+Test fixtures are in `tests/input/` named `in_{N}_{COUNTRY}_{TYPE}_{key_params}.json`.
+When adding a new fixture, also register it in the `test_files` vector in
+`tests/test_small.R` and `tests/test_api.R`.
 
 ## Architecture
 

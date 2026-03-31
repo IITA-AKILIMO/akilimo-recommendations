@@ -76,7 +76,7 @@ akilimo-recommendations/
 │   ├── test_full.R         # Full regression suite (3203 cases)
 │   ├── test_api.R          # Live API integration tests
 │   ├── test_small.R        # Quick smoke test subset
-│   └── input/              # Test JSON payloads (in_1.json … in_N.json)
+│   └── input/              # Test JSON payloads (in_{N}_{COUNTRY}_{TYPE}_{params}.json)
 ├── scripts/                # Python data management scripts (Poetry)
 │   ├── setup_data.py       # Downloads and extracts Zenodo bundles
 │   ├── bundle_assets.py    # Packs data dirs into tar.gz for upload
@@ -242,7 +242,7 @@ See [TRANSLATIONS.md](TRANSLATIONS.md) for full details including adding a new l
 
 | Script | What it does | Prerequisite |
 |--------|-------------|--------------|
-| `tests/test_small.R` | Runs ~10 representative cases in-process | Data downloaded |
+| `tests/test_small.R` | Runs 29 representative cases in-process | Data downloaded |
 | `tests/test_full.R` | Runs all 3203 regression cases in-process | Data downloaded |
 | `tests/test_api.R` | POSTs each test input to the live server | Server running on port 8000 |
 
@@ -258,13 +258,44 @@ Rscript api.R &          # start server in background
 Rscript tests/test_api.R
 ```
 
+### Single request via curl
+
+```bash
+# Run an existing fixture
+curl -X POST http://localhost:8000/compute \
+  -H "Content-Type: application/json" \
+  --data "@./tests/input/in_1_TZ_FR_starch_factory_riskAtt0.json"
+
+# Send an ad-hoc payload
+curl -X POST http://localhost:8000/compute \
+  -H "Content-Type: application/json" \
+  -d '{"country":"NG","lat":7.55,"lon":4.51,"area":1,"areaUnits":"ha",
+       "FR":true,"IC":false,"PP":false,"SPP":false,"SPH":false,
+       "PD":"2025-05-01","HD":"2026-02-01","FCY":11}'
+```
+
 ### Adding test cases
 
-Test inputs are JSON files in `tests/input/`. To add a case:
+Test inputs are JSON files in `tests/input/` following the naming convention:
 
-1. Create `tests/input/in_N.json` with the request payload.
-2. Run `test_small.R` or `test_full.R` — the harness auto-discovers all `in_*.json` files.
-3. If adding a regression for a specific bug, include the expected key output in a comment in the JSON or a matching `expected_N.json`.
+```
+in_{N}_{COUNTRY}_{TYPE}_{key_params}.json
+```
+
+- `N` — next sequential number (preserves ordering)
+- `COUNTRY` — `NG`, `TZ`, `GH`, `RW`, or `BI`
+- `TYPE` — `FR`, `IC`, `PP`, or `SP`
+- `key_params` — short description of what makes this case distinct
+  (e.g. `starch_factory_riskAtt1`, `custom_price_maxInv`, `out_of_scope_location`)
+
+**Example:** `in_30_TZ_IC_fresh_cob_riskAtt0.json`
+
+To register the new fixture:
+
+1. Create the JSON file in `tests/input/` following the naming convention above.
+2. Add the filename (without `.json`) to the `test_files` vector in both
+   `tests/test_small.R` and `tests/test_api.R`.
+3. Run `Rscript tests/test_small.R` to verify it passes.
 
 ### What to check when a test fails
 

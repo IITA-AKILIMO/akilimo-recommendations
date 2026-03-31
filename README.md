@@ -112,16 +112,54 @@ Response text language is controlled by the `lang` field in the request body (de
 
 ## Testing
 
+### Test suites
+
+| Script | What it runs | Prerequisite |
+|--------|-------------|--------------|
+| `tests/test_small.R` | 29 representative cases in-process | Data downloaded |
+| `tests/test_full.R` | 3203 regression cases in-process | Data downloaded |
+| `tests/test_api.R` | POSTs all fixtures to the live server | Server on port 8000 |
+
 ```bash
-# Full regression suite (3203 cases)
+# In-process (no server needed)
+Rscript tests/test_small.R
 Rscript tests/test_full.R
 
-# API integration tests (server must be running on port 8000)
+# Against a running server
+Rscript api.R &
 Rscript tests/test_api.R
-
-# Quick smoke test
-Rscript tests/test_small.R
 ```
+
+### Single request via curl
+
+Test fixtures are in `tests/input/` named `in_{N}_{COUNTRY}_{TYPE}_{params}.json`:
+
+```bash
+# Start the server first
+Rscript api.R
+
+# Run a single fixture
+curl -X POST http://localhost:8000/compute \
+  -H "Content-Type: application/json" \
+  --data "@./tests/input/in_1_TZ_FR_starch_factory_riskAtt0.json"
+
+# Or send an ad-hoc payload
+curl -X POST http://localhost:8000/compute \
+  -H "Content-Type: application/json" \
+  -d '{"country":"NG","lat":7.55,"lon":4.51,"area":1,"areaUnits":"ha",
+       "FR":true,"IC":false,"PP":false,"SPP":false,"SPH":false,
+       "PD":"2025-05-01","HD":"2026-02-01","FCY":11}'
+```
+
+### Adding a new fixture
+
+Name the file `in_{N}_{COUNTRY}_{TYPE}_{key_params}.json` where:
+- `N` — next sequential number
+- `COUNTRY` — NG, TZ, GH, RW, or BI
+- `TYPE` — FR, IC, PP, or SP
+- `key_params` — brief description (e.g. `starch_factory_riskAtt1`, `custom_price_maxInv`)
+
+Then add the filename to the `test_files` vector in `tests/test_small.R` and `tests/test_api.R`.
 
 ## Production Deployment
 
