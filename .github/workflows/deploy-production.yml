@@ -52,11 +52,13 @@ jobs:
           SERVICE_NAME: ${{ secrets.SERVICE_NAME_OVERRIDE || env.SERVICE_NAME }}
           NGINX_TEST_CMD: ${{ env.NGINX_TEST_CMD }}
           NGINX_RESTART_CMD: ${{ env.NGINX_RESTART_CMD }}
+        env:
+          ZENODO_RECORD_ID: ${{ secrets.ZENODO_RECORD_ID }}
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          envs: APP_DIR, BRANCH, SERVICE_NAME, NGINX_TEST_CMD, NGINX_RESTART_CMD
+          envs: APP_DIR, BRANCH, SERVICE_NAME, NGINX_TEST_CMD, NGINX_RESTART_CMD, ZENODO_RECORD_ID
           script: |
             set -e
 
@@ -68,6 +70,22 @@ jobs:
             git fetch origin
             git checkout $BRANCH
             git pull origin $BRANCH
+
+            echo "Pulling runtime data from Zenodo..."
+            cd $APP_DIR/scripts
+            if [ -f ".env" ]; then
+              # Prefer server-local .env; inject ZENODO_RECORD_ID from secret if set
+              if [ -n "$ZENODO_RECORD_ID" ]; then
+                export ZENODO_RECORD_ID="$ZENODO_RECORD_ID"
+              fi
+            else
+              cp .env.example .env
+              if [ -n "$ZENODO_RECORD_ID" ]; then
+                sed -i "s/^ZENODO_RECORD_ID=.*/ZENODO_RECORD_ID=$ZENODO_RECORD_ID/" .env
+              fi
+            fi
+            poetry run setup-data
+            cd $APP_DIR
 
             echo "Reloading systemd daemon..."
             sudo systemctl daemon-reload
@@ -81,4 +99,4 @@ jobs:
             echo "Restarting Nginx..."
             $NGINX_RESTART_CMD
 
-            echo "Deployment completed successfully 🚀"
+            echo "Deployment completed successfully"
