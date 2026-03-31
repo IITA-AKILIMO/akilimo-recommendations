@@ -1,6 +1,6 @@
 # Technical Onboarding Guide
 
-This guide is for **developers** and **data scientists** joining the Akilimo project. It assumes you have already completed the environment setup described in [SETUP.md](SETUP.md).
+This guide is for **developers** and **data scientists** joining the Akilimo project. It assumes you have already completed the environment setup described in [docs/SETUP.md](docs/SETUP.md).
 
 ---
 
