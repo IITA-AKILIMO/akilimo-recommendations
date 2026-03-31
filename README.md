@@ -162,7 +162,7 @@ poetry run upload-zenodo --new    # create Zenodo deposit + upload
 
 | Document | Description |
 |----------|-------------|
-| [docs/SETUP.md](SETUP.md) | Full installation and data download guide |
+| [docs/SETUP.md](docs/SETUP.md) | Full installation and data download guide |
 | [docs/ONBOARDING.md](docs/ONBOARDING.md) | Technical onboarding for developers and data scientists |
 | [docs/API-REFERENCE.md](docs/API-REFERENCE.md) | Complete API field reference with examples |
 | [docs/TRANSLATIONS.md](docs/TRANSLATIONS.md) | Translation system: CSV format, adding keys/languages, token substitution |
