@@ -13,30 +13,11 @@ for (f in c("misc.R", "get_data.R", "fertilizers.R", "quefts.R",
             "optimize_fert.R", "markdown.R", "sms_email.R",
             "process-FR.R", "process-IC.R", "process-PP.R", "process-SP.R",
             "AkilimoMain.R")) {
-    source(file.path(srcdir, f))
+  source(file.path(srcdir, f))
 }
 
+source("R/logging.R")   # bring in logging functions
 library(plumber)
-
-get_log_file <- function() {
-  logs_dir <- file.path(getwd(), "logs")
-  if (!dir.exists(logs_dir)) dir.create(logs_dir, recursive = TRUE)
-  # Daily log file name
-  file.path(logs_dir, paste0("compute-", format(Sys.Date(), "%Y%m%d"), ".log"))
-}
-
-log_write <- function(..., sep = " ", append = TRUE) {
-  msg <- paste(..., sep = sep)
-  timestamp <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
-  line <- paste0("[", timestamp, "] ", msg)
-
-  # Write to log file
-  cat(line, "\n", file = get_log_file(), append = append)
-
-  # Also print to console
-  message(line)
-}
-
 
 pr <- Plumber$new()
 pr$handle(
@@ -47,18 +28,22 @@ pr$handle(
       result <- run_akilimo(req$postBody)
       status_str <- result[["status"]]
       if (!is.null(status_str) && grepl("^400", status_str)) res$status <- 400L
-      log_write("SUCCESS:", as.character(status_str))
+
+      log_write("INFO", "SUCCESS:", status_str)
+      log_write("DEBUG", "SUCCESS-DATA:", result)
+
       result
     }, error = function(e) {
       res$status <- 500L
-      log_write("ERROR:", e$message)
-      log_write("STACK:", as.character(e))
-      log_write("TRACE:", paste(capture.output(traceback()), collapse = "\n"))
+      log_write("ERROR", "Message:", e$message)
+      log_write("ERROR", "Trace:", paste(capture.output(traceback()), collapse = "\n"))
 
       token <- tryCatch(
         jsonlite::unbox(jsonlite::fromJSON(req$postBody)[["request_token"]]),
         error = function(e2) jsonlite::unbox(NA_character_)
       )
+      log_write("DEBUG", "Request token:", token)
+
       list(
         status = jsonlite::unbox("error"),
         data   = list(
@@ -69,5 +54,6 @@ pr$handle(
     })
   }
 )
+
 pr_run(pr, host = "0.0.0.0", port = 8000)
 
