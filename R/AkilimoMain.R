@@ -12,7 +12,7 @@ validate_request <- function(body) {
     lat       <- body[["lat"]]
     lon       <- body[["lon"]]
     area      <- body[["area"]]
-    areaUnits <- body[["areaUnits"]]
+    areaUnits <- tolower(body[["areaUnits"]])
     flags <- as.logical(c(body[["FR"]], body[["IC"]], body[["PP"]], body[["SPP"]], body[["SPH"]]))
 
     if (is.null(country)   || nchar(trimws(country)) == 0)
@@ -59,7 +59,7 @@ parse_request <- function(body) {
     lat       <- from_json("lat",       body)
     lon       <- from_json("lon",       body)
     area      <- from_json("area",      body)
-    areaUnits <- from_json("areaUnits", body)
+    areaUnits <- tolower(from_json("areaUnits", body))
 
     IC  <- from_json("IC",  body, default_value = FALSE)
     FR  <- from_json("FR",  body, default_value = FALSE)

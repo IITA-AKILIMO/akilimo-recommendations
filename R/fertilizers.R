@@ -2,6 +2,10 @@
 
 get_fertilizers2 <- function(js, country) {
 
+	# Normalise UREA prefix to lowercase so both "UREAavailable" and
+	# "ureaavailable" (etc.) are accepted from callers.
+	urea_idx <- grepl("^UREA", names(js))
+	names(js)[urea_idx] <- sub("^UREA", "urea", names(js)[urea_idx])
 
 	get_df <- function(js) {
 		nms <- names(js)
