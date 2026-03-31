@@ -113,9 +113,8 @@ fertilizerAdviseTable <- function(FR, IC, country, areaUnits) {
             dat$bag  <- dat[, paste0("bags", j)]
 
             fert_type    <- dat[, 1]
-            fertColCode  <- FERT_COLOUR[[fert_type]]
-            if (is.null(fertColCode)) fertColCode <- "green"
-            if (!is.null(FERT_LABEL[[fert_type]])) dat[, 1] <- FERT_LABEL[[fert_type]]
+            fertColCode  <- if (fert_type %in% names(FERT_COLOUR)) FERT_COLOUR[[fert_type]] else "green"
+            if (fert_type %in% names(FERT_LABEL)) dat[, 1] <- FERT_LABEL[[fert_type]]
 
             dat$rep <- if (dat$bag == 0.5) {
                 sprintf("![](net/%s/half.png)", fertColCode)
@@ -159,6 +158,8 @@ fertilizerAdviseTable <- function(FR, IC, country, areaUnits) {
 FR_MarkdownText <- function(rr, fertilizers, user, country, userField,
             area, areaUnits, PD, HD, lat, lon, rootUP, cassPD, cassUW, maxInv) {
 
+   message("DATA: ", rr)
+
     bags_total     <- round(rr$data$TargetY, digits = 1)
     totalSalePrice <- rr$data$TC + rr$data$NR
     revenue        <- rr$data$NR
@@ -187,10 +188,9 @@ FR_MarkdownText <- function(rr, fertilizers, user, country, userField,
         MarkDownTextD$sum_total <- round(sum(fr$cost), digits = 0)
         MarkDownTextD$revenue   <- MarkDownTextD$totalSalePrice - MarkDownTextD$sum_total
         write.csv(MarkDownTextD, filename, row.names = FALSE)
-
         MarkDownTextD <- cbind(MarkDownTextD, pivot_fertilizers_wide(fr))
-        write.csv(MarkDownTextD, "./temp/FR_MarkDownText.csv", row.names = FALSE)
     }
+    write.csv(MarkDownTextD, "./temp/FR_MarkDownText.csv", row.names = FALSE)
 }
 
 

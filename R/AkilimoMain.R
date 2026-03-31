@@ -31,8 +31,8 @@ validate_request <- function(body) {
         return("At least one recommendation flag must be TRUE (FR, IC, PP, SPP, or SPH)")
 
     FCY <- body[["FCY"]]
-    if (!is.null(FCY) && (!is.numeric(FCY) || FCY <= 0 || FCY > 100))
-        return("Invalid FCY — must be a positive number up to 100 t/ha")
+    if (!is.null(FCY) && (!is.numeric(FCY) || FCY < 0 || FCY > 100))
+        return("Invalid FCY — must be a number between 0 and 100 t/ha")
 
     for (date_field in c("PD", "HD")) {
         val <- body[[date_field]]
