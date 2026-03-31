@@ -27,3 +27,4 @@ tests/app/*
 tests/request/*
 tests/response/*
 .claude
+.RData
