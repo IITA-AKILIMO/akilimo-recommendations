@@ -1,6 +1,8 @@
 # Akilimo Recommendation Engine
 
-R-based REST API that generates cassava fertilizer and crop management recommendations. Supported countries: Nigeria (NG), Tanzania (TZ), Rwanda (RW), Ghana (GH), Burundi (BI).
+R-based REST API that generates science-backed cassava fertilizer and crop management recommendations for smallholder farmers across Sub-Saharan Africa. Supported countries: Nigeria (NG), Tanzania (TZ), Rwanda (RW), Ghana (GH), Burundi (BI).
+
+The engine combines the QUEFTS crop model (Quantitative Evaluation of the Fertility of Tropical Soils) with site-specific spatial data and cost-benefit optimization to produce actionable, localized recommendations in multiple languages.
 
 ## Quick Start
 
@@ -30,16 +32,24 @@ cp .env.example .env
 poetry install
 ```
 
-See [SETUP.md](SETUP.md) for full details and manual installation instructions.
+See [SETUP.md](SETUP.md) for full installation details and manual instructions.
 
-### 3. Start the API
+### 3. Download runtime data
+
+```bash
+cd scripts
+poetry run setup-data
+# Downloads soil, yield, and input data from Zenodo record 19231022
+```
+
+### 4. Start the API
 
 ```bash
 Rscript api.R
 # API listens on http://0.0.0.0:8000
 ```
 
-### 4. Run a test request
+### 5. Run a test request
 
 ```bash
 curl -X POST http://localhost:8000/compute --data "@./tests/input/in_1.json"
@@ -49,15 +59,19 @@ curl -X POST http://localhost:8000/compute --data "@./tests/input/in_1.json"
 
 ```
 POST /compute (api.R)
-    → run_akilimo() (R/AkilimoMain.R)
-        → Parses request: country, lang, coordinates, flags
-        → Dispatches to processor(s):
+    → validate_request() + parse_request() (R/AkilimoMain.R)
+        → Validates country, coordinates, flags; normalises all fields
+        → Dispatches to the first active processor:
             process-FR.R  — Fertilizer Recommendation
-            process-IC.R  — Intercropping
-            process-PP.R  — Post-Planting
-            process-SP.R  — Soil Preparation
-        → QUEFTS crop model + fertilizer optimization
-        → Returns JSON with recommendations + HTML report
+            process-IC.R  — Intercropping (cassava–maize or cassava–sweet potato)
+            process-PP.R  — Post-Planting (tillage and ridging advice)
+            process-SP.R  — Schedule Planting (optimise planting/harvest dates)
+        → Each processor:
+            1. get_data()         — loads soil NPK (RDS) + yield rasters (NetCDF)
+            2. QUEFTS()           — crop growth model: predicts yield from NPK supply
+            3. run_Optim_*()      — cost-benefit optimisation: finds max-profit NPK rate
+            4. markdown.R         — renders HTML recommendation report
+        → Returns JSON with recommendation text, numeric data, and HTML report
 ```
 
 Key files:
@@ -65,11 +79,25 @@ Key files:
 | File | Role |
 |------|------|
 | `api.R` | Plumber entry point (port 8000) |
-| `R/AkilimoMain.R` | Core orchestrator (`run_akilimo()`) |
-| `R/quefts.R` | QUEFTS crop growth model |
-| `R/optimize_fert.R` | Cost-benefit fertilizer optimization |
-| `R/get_data.R` | Loads NetCDF rasters and CSV lookup tables |
-| `R/misc.R` | `tr(key, lang)` translation helper + shared utilities |
+| `R/AkilimoMain.R` | Request validation, parsing, and processor dispatch |
+| `R/quefts.R` | QUEFTS crop growth model (yield from NPK supply) |
+| `R/optimize_fert.R` | Cost-benefit fertilizer rate optimisation (`L-BFGS-B`) |
+| `R/get_data.R` | Loads soil RDS files and yield NetCDF rasters; in-memory cache |
+| `R/fertilizers.R` | Parses fertilizer types, bag prices, and NPK content |
+| `R/misc.R` | `tr(key, lang, ...)` translation helper, `get_currency()`, `getRFY()`/`getRDY()` |
+| `R/markdown.R` | Renders Rmd → HTML recommendation report |
+| `R/sms_email.R` | Email (mailR/Java) and SMS dispatch |
+
+## Recommendation Types
+
+| Flag | Type | Description |
+|------|------|-------------|
+| `FR` | Fertilizer Recommendation | Optimal NPK rates and expected yield/revenue gain |
+| `IC` | Intercropping | Cassava–maize (NG) or cassava–sweet potato (TZ) intercrop advice |
+| `PP` | Post-Planting | Tillage and ridging cost-benefit analysis |
+| `SPP` / `SPH` | Schedule Planting | Optimal planting or harvest date window |
+
+Only one recommendation is returned per request. Priority order when multiple flags are set: FR → IC → PP → SP.
 
 ## Internationalisation
 
@@ -80,7 +108,7 @@ Response text language is controlled by the `lang` field in the request body (de
 | `"en"` | English (default) |
 | `"sw"` | Swahili |
 
-`lang` is independent of `country` — any country can request any supported language. See [docs/TRANSLATIONS.md](docs/TRANSLATIONS.md) for how to add keys or new languages.
+`lang` is independent of `country` — any country can request any supported language. Translation strings live in `data/input/translations.csv`. See [docs/TRANSLATIONS.md](docs/TRANSLATIONS.md) for how to add keys or new languages.
 
 ## Testing
 
@@ -135,6 +163,7 @@ poetry run upload-zenodo --new    # create Zenodo deposit + upload
 | Document | Description |
 |----------|-------------|
 | [SETUP.md](SETUP.md) | Full installation and data download guide |
+| [docs/ONBOARDING.md](docs/ONBOARDING.md) | Technical onboarding for developers and data scientists |
 | [docs/API-REFERENCE.md](docs/API-REFERENCE.md) | Complete API field reference with examples |
 | [docs/TRANSLATIONS.md](docs/TRANSLATIONS.md) | Translation system: CSV format, adding keys/languages, token substitution |
 | [docs/CODE-REVIEW.md](docs/CODE-REVIEW.md) | Automated code review (security, logic, performance) |
