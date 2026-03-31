@@ -42,6 +42,10 @@ pkgs <- c(
   "scales",
   "png",
 
+  # Config
+  "dotenv",
+  "here",
+
   # Machine learning
   "randomForest",
 
@@ -54,8 +58,8 @@ pkgs <- c(
 # ---------------------------------------------------------------------------
 
 installed_pkgs <- rownames(installed.packages())
-already   <- pkgs[pkgs %in% installed_pkgs]
-missing   <- pkgs[!pkgs %in% installed_pkgs]
+already <- pkgs[pkgs %in% installed_pkgs]
+missing <- pkgs[!pkgs %in% installed_pkgs]
 
 if (length(already) > 0) {
   message("Already installed (", length(already), "): ",
