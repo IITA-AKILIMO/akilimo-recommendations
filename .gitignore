@@ -28,3 +28,4 @@ tests/request/*
 tests/response/*
 .claude
 .RData
+.idea/*
