@@ -13,7 +13,7 @@ validate_request <- function(body) {
     lon       <- body[["lon"]]
     area      <- body[["area"]]
     areaUnits <- body[["areaUnits"]]
-    flags     <- c(body[["FR"]], body[["IC"]], body[["PP"]], body[["SPP"]], body[["SPH"]])
+    flags <- as.logical(c(body[["FR"]], body[["IC"]], body[["PP"]], body[["SPP"]], body[["SPH"]]))
 
     if (is.null(country)   || nchar(trimws(country)) == 0)
         return("Missing required field: country")
@@ -27,7 +27,7 @@ validate_request <- function(body) {
         return("Invalid or missing area — must be a positive number")
     if (is.null(areaUnits) || !areaUnits %in% VALID_AREA_UNITS)
         return(paste("Invalid or missing areaUnits — must be one of:", paste(VALID_AREA_UNITS, collapse = ", ")))
-    if (!any(isTRUE(flags)))
+    if (!any(flags))
         return("At least one recommendation flag must be TRUE (FR, IC, PP, SPP, or SPH)")
 
     FCY <- body[["FCY"]]
