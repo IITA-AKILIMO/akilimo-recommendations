@@ -1,4 +1,4 @@
-# PDF Generation Plan: Replacing Rmd/webshot with htmltools + pagedown
+# PDF Generation Plan: Replacing Rmd/webshot with htmltools + WeasyPrint
 
 ## 1. Executive Summary
 
@@ -10,8 +10,9 @@ The replacement removes the intermediate layers entirely:
 
 - The eight Rmd templates (`Rmd/*.Rmd`) are deleted.
 - The CSV-writing functions in `markdown.R` (`FR_MarkdownText`, `IC_MarkdownText`, `CIS_MarkdownText`, `PPSP_MarkdownText`, `fertilizerAdviseTable`, and associated helpers) are replaced by in-memory HTML-building functions.
-- `generate_pdfs()` in `sms_email.R` is rewritten to call `pagedown::chrome_print()` on the in-memory HTML.
-- `webshot` and `flexdashboard` are removed from the dependency list.
+- `generate_pdfs()` in `sms_email.R` is rewritten to write an HTML file to the request's temp dir and call WeasyPrint via `system2()`.
+- `webshot`, `flexdashboard`, `knitr`, and `rmarkdown` are removed from the runtime dependency list.
+- No R package change is needed — WeasyPrint is a Python CLI tool installed on the server.
 
 ### What stays the same
 
@@ -28,66 +29,99 @@ The replacement removes the intermediate layers entirely:
 
 | Concern | Before | After |
 |---|---|---|
-| Renderer | PhantomJS (deprecated 2018) | Chrome/Chromium (maintained) |
+| Renderer | PhantomJS (deprecated 2018) | WeasyPrint (actively maintained Python) |
 | Data path | R → 10–15 CSV files → Rmd reads them back | R objects passed directly |
 | Template count | 8 Rmd files (en + sw × 4 types) | 4 R functions + 1 `lang` parameter |
-| Startup overhead | PhantomJS cold-boot + knitr knit | Chrome headless |
+| Startup overhead | PhantomJS cold-boot + knitr knit | Single `weasyprint` process call |
+| Browser dependency | PhantomJS (headless WebKit) | None — WeasyPrint is pure Python |
 | CSS overrides | Needed (navbar, chart-title hacks) | Not needed (plain HTML) |
-| Debugging | Rmd errors are opaque | HTML inspectable in browser |
+| Debugging | Rmd errors are opaque | HTML inspectable in any browser |
+| Server footprint | PhantomJS binary (~50 MB) | `pip install weasyprint` |
 
 ---
 
-## 2. New Dependency: pagedown
+## 2. New Dependency: WeasyPrint
 
-### Package
+WeasyPrint is a Python-based HTML/CSS → PDF converter. It implements the CSS Paged Media spec natively — no browser, no JavaScript engine, no Chrome. It is actively maintained and supports CSS Grid (v60+), Flexbox, `@page` rules, and base64-embedded images.
 
-```r
-install.packages("pagedown")
-```
-
-`pagedown` wraps Chrome/Chromium headless (`--print-to-pdf`) and produces print-quality PDFs with proper page-break control via CSS Paged Media. No PhantomJS, no Java.
-
-### Chrome requirement
-
-`pagedown::chrome_print()` locates Chrome via the `PAGEDOWN_CHROME` environment variable, then common system paths.
+### Installation
 
 **Linux (production server)**
 
 ```bash
-apt-get install -y chromium-browser
-# or
-apt-get install -y google-chrome-stable
+pip install weasyprint
+# or via apt on Debian/Ubuntu:
+apt-get install python3-weasyprint
+
+# Verify:
+weasyprint --version
 ```
 
-Verify: `chromium-browser --version`
+WeasyPrint requires some system libraries for font rendering:
 
-**Docker / CI**
+```bash
+apt-get install -y libpango-1.0-0 libpangoft2-1.0-0 libgdk-pixbuf2.0-0
+```
+
+**Docker**
 
 ```dockerfile
-RUN apt-get update && apt-get install -y chromium-browser --no-install-recommends
-ENV PAGEDOWN_CHROME=/usr/bin/chromium-browser
+RUN apt-get update && apt-get install -y \
+    python3-pip libpango-1.0-0 libpangoft2-1.0-0 \
+    && pip3 install weasyprint
 ```
 
 **Windows (development)**
 
-Chrome is typically already installed. No extra steps.
+```powershell
+pip install weasyprint
+# GTK runtime also required — install via:
+# https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer
+```
+
+Or use WSL2 with the Linux instructions above.
+
+### How R calls it
+
+```r
+render_pdf <- function(html, path) {
+    html_tmp <- tp("render_tmp.html")
+    writeLines(html, html_tmp, useBytes = TRUE)
+    result <- system2("weasyprint", args = c(html_tmp, path),
+                      stdout = TRUE, stderr = TRUE)
+    if (!file.exists(path) || file.size(path) == 0) {
+        stop("WeasyPrint failed: ", paste(result, collapse = "\n"))
+    }
+    invisible(path)
+}
+```
+
+WeasyPrint resolves relative paths (images, CSS) from the HTML file's location — so writing the HTML to `tp("render_tmp.html")` and embedding all assets as base64 (or using absolute paths) is the cleanest approach.
 
 ### install_packages.R changes
 
-Replace:
+Remove:
 ```r
 "webshot",
 "knitr",
 "rmarkdown",
 "flexdashboard",
 ```
-with:
+
+Add:
 ```r
-"pagedown",
 "base64enc",
 ```
 
-Remove the `webshot::install_phantomjs()` block.
+Remove the `webshot::install_phantomjs()` block entirely.
+
+Add a server setup check for WeasyPrint:
+```r
+if (nchar(Sys.which("weasyprint")) == 0) {
+    warning("WeasyPrint not found on PATH. PDF generation will fail. ",
+            "Install with: pip install weasyprint")
+}
+```
 
 ---
 
@@ -116,23 +150,23 @@ generate_pdfs(...)
 ```
 process_FR(...)
     └── returns: response (data + fertilizer_rates), recText, fertilizers
-        (NO CSV writes for HTML input)
+        (NO CSV writes for PDF input)
 
 generate_pdfs(user, FR, IC, PP, SP, country, lang, result, params)
-    └── build_fr_pdf(rr, fertilizers, user, country, ..., lang)
-              ├── calc_fertilizer_recom()    (existing, unchanged)
+    └── build_fr_pdf(rr, fertilizers, user, country, ..., lang, out_path)
+              ├── calc_fertilizer_recom()     (existing, unchanged)
               ├── html_page_header()
               ├── html_personal_info()
               ├── html_fertilizer_table()
               ├── html_cost_benefit()
-              ├── html_location_map()        → map.png in temp dir
+              ├── html_location_map()         → map.png in temp dir
               ├── html_recommendation()
               └── render_pdf(html, out_path)
-                        ├── write HTML to temp file
-                        └── pagedown::chrome_print() → PDF
+                        ├── writeLines(html, tp("render_tmp.html"))
+                        └── system2("weasyprint", ...) → PDF
 ```
 
-The per-request temp directory (`temp/<uuid>/`) is still created by `setup_temp_dir()` but now only holds the map PNG, the ggplot chart PNG (SP/PP), and the final PDFs. No CSV intermediaries.
+The per-request temp directory (`temp/<uuid>/`) is still created by `setup_temp_dir()` but now only holds the map PNG, the ggplot chart PNG (SP/PP), the intermediate `render_tmp.html`, and the final PDFs. No CSV intermediaries.
 
 ---
 
@@ -144,7 +178,7 @@ The per-request temp directory (`temp/<uuid>/`) is still created by `setup_temp_
 |---|---|
 | `R/pdf_builders.R` | `build_fr_pdf()`, `build_ic_pdf()`, `build_pp_pdf()`, `build_sp_pdf()`, `render_pdf()` |
 | `R/html_helpers.R` | Shared HTML fragment generators: `html_page_header()`, `html_personal_info()`, `html_location_map()`, `html_fertilizer_table()`, `html_cost_benefit()`, `html_recommendation()`, `html_table()`, `img_base64()` |
-| `net/akilimo_print.css` | Print-optimised stylesheet (`@page` rules, two/three-column grid, no dashboard chrome) |
+| `net/akilimo_print.css` | Print-optimised stylesheet (`@page` rules, two/three-column grid, WeasyPrint-compatible CSS) |
 
 ### Files to MODIFY
 
@@ -157,13 +191,11 @@ The per-request temp directory (`temp/<uuid>/`) is still created by `setup_temp_
 | `R/process-IC.R` | Same pattern: remove markdown calls, add data to return value |
 | `R/process-PP.R` | Remove `PP_MarkdownText()` and `write.csv(res, ...)` calls; add `res`, `costLMO`, `recText` to return value |
 | `R/process-SP.R` | Remove `SP_MarkdownText()` and `write.csv(ds, ...)` calls; add `ds`, `recText` to return value |
-| `install_packages.R` | Swap `webshot`/`flexdashboard` for `pagedown`/`base64enc` |
+| `install_packages.R` | Remove `webshot`/`flexdashboard`; add `base64enc`; add WeasyPrint PATH check |
 | `tests/test_pdf.R` | Rewrite to call `build_*_pdf()` directly |
-| `CLAUDE.md` | Update architecture section, key modules table |
+| `CLAUDE.md` | Update architecture section, key modules table, required packages list |
 
 ### Files to DELETE
-
-All 8 Rmd templates plus stray render artefacts:
 
 ```
 Rmd/FR_markdown_VFT.Rmd
@@ -186,19 +218,21 @@ Rmd/spgg.png             (stale render artefact)
 
 **Scope:** Foundation only. No existing behaviour changes.
 
-1. Add `pagedown` and `base64enc` to `install_packages.R`. Remove `webshot` and PhantomJS block.
-2. Create `net/akilimo_print.css`:
-   - `@page { size: A4; margin: 15mm; }`
-   - `.page-break { page-break-before: always; }`
-   - Two-column grid: `.grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }`
-   - Three-column grid: `.grid-3col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }`
-   - Section headings: `h3 { font-size: 16px; font-weight: normal; border-bottom: 1px solid #ccc; }`
-   - Table striping, no outer borders.
-   - No flexdashboard-specific overrides needed.
-3. Create `R/html_helpers.R` with stub implementations of all shared helpers.
-4. Verify `pagedown::chrome_print()` works on the server with a "Hello World" HTML string.
+1. Install WeasyPrint on dev machine and production server. Verify with `weasyprint --version`.
+2. Add `base64enc` to `install_packages.R`. Remove `webshot` and PhantomJS block. Add WeasyPrint PATH check.
+3. Create `net/akilimo_print.css` (WeasyPrint-compatible — see §CSS notes below).
+4. Create `R/html_helpers.R` with stub implementations of all shared helpers.
+5. Create `R/pdf_builders.R` with `render_pdf()` only. Run a smoke test: write a minimal HTML string and call `render_pdf()` to confirm WeasyPrint produces a valid PDF.
 
-**Deliverable:** `net/akilimo_print.css`, `R/html_helpers.R` stubs, confirmed Chrome path.
+**CSS notes for WeasyPrint compatibility:**
+- Use `display: grid` with `grid-template-columns` — supported in WeasyPrint ≥ 60.
+- Avoid `position: fixed` (not supported) — use `@page` margin boxes for headers/footers instead.
+- `@page { size: A4; margin: 15mm; }` is fully supported.
+- `page-break-before: always` and the newer `break-before: page` both work.
+- Avoid CSS `filter`, `backdrop-filter`, `clip-path` — not supported.
+- All images must be either embedded as base64 or accessible via absolute file path from the HTML file's location.
+
+**Deliverable:** `net/akilimo_print.css`, `R/html_helpers.R` stubs, `render_pdf()` smoke test passes.
 
 ---
 
@@ -206,17 +240,17 @@ Rmd/spgg.png             (stale render artefact)
 
 **Scope:** First complete builder end-to-end. Proves the pattern before touching IC/PP/SP.
 
-1. Create `R/pdf_builders.R` with `build_fr_pdf()` and `render_pdf()` (full spec in §6).
-2. Implement all `html_helpers.R` functions needed for FR.
+1. Implement all `html_helpers.R` functions needed for FR: `html_page_header`, `html_personal_info`, `html_fertilizer_table`, `html_cost_benefit`, `html_location_map`, `html_recommendation`, `img_base64`.
+2. Implement `build_fr_pdf()` in `pdf_builders.R`.
 3. Modify `process-FR.R`:
    - Remove `FR_MarkdownText()` and `fertilizerAdviseTable()` calls.
    - Remove `write.csv(recText, tp('FR_recText.csv'), ...)`.
    - Add `fertilizers` to the return list.
 4. Modify `AkilimoMain.R` `run_akilimo()`: pass `result` and `params` to `generate_pdfs()`.
-5. Modify `generate_pdfs()` in `sms_email.R`: for the FR branch, call `build_fr_pdf()` instead of `webshot::rmdshot()`.
-6. Run `Rscript tests/test_pdf.R` (FR cases). Visually compare output against `pdf-samples/FR.pdf`.
+5. Modify `generate_pdfs()` in `sms_email.R`: for the FR branch, call `build_fr_pdf()`.
+6. Run `Rscript tests/test_pdf.R` (FR cases). Visually compare against `pdf-samples/FR.pdf`.
 
-**Deliverable:** FR PDF generated via Chrome, visually verified.
+**Deliverable:** FR PDF generated via WeasyPrint, visually verified.
 
 ---
 
@@ -230,13 +264,14 @@ Rmd/spgg.png             (stale render artefact)
 - Add maize/sweet-potato price fields and `fertilizers` to the return value.
 
 **PP builder (`build_pp_pdf`)**
-- `res` (ploughing × ridging matrix with `dNR`, `dTC`) comes from `getPPrecommendations()`.
-- Renders the PP ggplot matrix to `tp("pp_chart.png")`, embeds via `img_base64()`.
-- `costLMO` data frame rendered as HTML table.
+- Receives `res` (ploughing × ridging matrix with `dNR`, `dTC`) and `costLMO` data frame.
+- Renders the PP ggplot matrix to `tp("pp_chart.png")` via `ggplot2::ggsave()`, embeds via `img_base64()`.
+- `costLMO` rendered as HTML table via `html_table()`.
 - Remove `PP_MarkdownText()` and CSV writes from `process-PP.R`; add `res`, `costLMO`, `recText` to return value.
 
 **SP builder (`build_sp_pdf`)**
-- `ds` (PD × HD grid with `dGR`) rendered as SP heatmap to `tp("spgg.png")`, embedded via `img_base64()`.
+- Receives `ds` (PD × HD grid with `dGR`).
+- Renders SP heatmap to `tp("spgg.png")` via `ggplot2::ggsave()`, embeds via `img_base64()`.
 - Remove `SP_MarkdownText()` and CSV writes from `process-SP.R`; add `ds`, `recText` to return value.
 - Remove stray `spgg.png` cleanup from `generate_pdfs()`.
 
@@ -250,23 +285,21 @@ Rmd/spgg.png             (stale render artefact)
 
 1. Delete all 8 `Rmd/*.Rmd` files and stray PNGs.
 2. Remove dead functions from `R/markdown.R` (see §12).
-3. Remove the `costLMO.csv` write in `get_costLMO()` — was only consumed by the PP Rmd.
+3. Remove the `costLMO.csv` write in `get_costLMO()`.
 4. Remove `webshot`, `knitr`, `rmarkdown`, `flexdashboard` from `install_packages.R`.
-5. Remove any remaining `write.csv(recText, ...)` calls no longer consumed.
-6. Confirm the per-request temp dir now only contains: `map.png`, `spgg.png`/`pp_chart.png` (when applicable), and the output PDFs.
+5. Confirm the per-request temp dir now only contains: `map.png`, `spgg.png`/`pp_chart.png` (when applicable), `render_tmp.html`, and the output PDFs.
 
-**Deliverable:** Clean repo with no Rmd references in live code.
+**Deliverable:** Clean repo with no Rmd or webshot references in live code.
 
 ---
 
 ### Phase 5 — Testing and Cleanup
 
 1. Rewrite `tests/test_pdf.R` (see §13).
-2. Run `tests/test_full.R` (3203 regression cases) — must all pass.
+2. Run `tests/test_full.R` (3203 regression cases) — must pass unchanged.
 3. Visual comparison of each new PDF against `pdf-samples/`.
-4. Load-test concurrent requests (each gets isolated temp dir; Chrome processes do not collide).
-5. Update `CLAUDE.md` architecture section and `docs/SETUP.md` Chrome installation notes.
-6. Remove `flexdashboard` from `renv.lock` or package manifest if present.
+4. Load-test concurrent requests (each request has an isolated temp dir; WeasyPrint processes are independent).
+5. Update `CLAUDE.md` architecture section, required packages list, and `docs/SETUP.md` WeasyPrint installation notes.
 
 ---
 
@@ -275,76 +308,84 @@ Rmd/spgg.png             (stale render artefact)
 ### `render_pdf(html, path)` — `R/pdf_builders.R`
 
 ```r
-render_pdf(html, path)
-# html : character(1) — complete HTML document string
-# path : character(1) — absolute path for the output PDF
-# Returns: path invisibly; stops on error
+render_pdf <- function(html, path) {
+    html_tmp <- tp("render_tmp.html")
+    writeLines(html, html_tmp, useBytes = TRUE)
+    result <- system2("weasyprint", args = c(html_tmp, path),
+                      stdout = TRUE, stderr = TRUE)
+    if (!file.exists(path) || file.size(path) == 0) {
+        stop("WeasyPrint failed:\n", paste(result, collapse = "\n"))
+    }
+    invisible(path)
+}
 ```
 
-Writes `html` to `tp("render_tmp.html")` (so Chrome can resolve relative-path assets from the temp dir), calls `pagedown::chrome_print(input = html_tmp, output = path, wait = 5)`, then deletes the temp HTML file.
+All images must be base64-embedded or referenced via absolute paths so WeasyPrint can resolve them from the temp directory.
 
 ---
 
 ### `img_base64(path, alt = "")` — `R/html_helpers.R`
 
 ```r
-img_base64(path, alt = "")
-# Returns: character(1) — <img src="data:image/png;base64,..." alt="...">
+img_base64 <- function(path, alt = "") {
+    raw   <- readBin(path, "raw", n = file.info(path)$size)
+    b64   <- base64enc::base64encode(raw)
+    sprintf('<img src="data:image/png;base64,%s" alt="%s">', b64, alt)
+}
 ```
 
-Uses `base64enc::base64encode(readBin(path, "raw", file.info(path)$size))`. Adds `base64enc` to the dependency list (commonly already a transitive dependency).
+Used for: banner images, bag count visuals, cash-stack images, map PNG, ggplot chart PNGs.
 
 ---
 
 ### `html_page_header(title, lang, banner_path)` — `R/html_helpers.R`
 
 ```r
-html_page_header(title, lang, banner_path = NULL)
-# title       : character(1) — document title
-# lang        : "en" | "sw"
-# banner_path : character(1) — path to banner PNG; NULL omits it
-# Returns: character(1) — full <!DOCTYPE html><head>...<body> opening
-#          including <link> to akilimo_print.css and banner <img> if provided
+html_page_header <- function(title, lang, banner_path = NULL) {
+    # Returns: full <!DOCTYPE html><head>...</head><body> opening string
+    # Includes: <link> to akilimo_print.css, banner <img> as base64 if provided
+}
 ```
 
-Inlines the banner as base64. Sets `lang` attribute on `<html>` tag.
+The CSS link uses an absolute path to `net/akilimo_print.css`. Alternatively all CSS can be inlined in a `<style>` tag to make the HTML fully self-contained (recommended for WeasyPrint — avoids path resolution issues).
 
 ---
 
 ### `html_personal_info(user, country, userField, area, areaUnits, PD, HD, current_yield = NULL, lang)` — `R/html_helpers.R`
 
 ```r
-# Returns: character(1) — <section> with definition list:
+# Returns: character(1) — <section> with labelled rows:
 #   Name, Phone, Field, Field area, Planting date, Harvest date,
-#   and optionally Current yield (FR and IC only).
+#   optionally Current yield (FR and IC only).
+# Dates formatted as "day-Mon-YYYY".
 ```
-
-Dates formatted as `day-Mon-YYYY`. `current_yield` rounded to 0 decimal places.
 
 ---
 
 ### `html_location_map(lat, lon, height_px = 150)` — `R/html_helpers.R`
 
 ```r
-# Returns: character(1) — <img> tag with map embedded as base64
+# Saves leaflet map to tp("map.png") via mapview::mapshot(),
+# reads it back, returns base64 <img> tag.
+# PNG remains on disk until temp dir TTL expires (1 hour).
 ```
-
-Uses the existing `leaflet` + `mapview::mapshot()` approach. Saves to `tp("map.png")`, reads back, base64-encodes. PNG remains on disk until temp dir TTL expires (1 hour).
 
 ---
 
 ### `html_fertilizer_table(fr, area, areaUnits, currency, rootUP, cassPD, cassUW, maxInv, lang)` — `R/html_helpers.R`
 
 ```r
-# fr        : data frame from calc_fertilizer_recom()
-# Returns: character(1) — <section> containing:
+# fr : data frame from calc_fertilizer_recom() — may have 0 rows
+#
+# Returns: <section> containing:
 #   - Fertilizer price table (type × cost-per-bag)
-#   - One recommendation row per fertilizer: name, kg, bags, bag images, total cost
+#   - One recommendation row per fertilizer:
+#       name | kg amount | approx bags | bag images (base64) | total cost
 #   - Cassava price and max investment lines
 #   - If nrow(fr) == 0: "No fertilizer recommended" message
 ```
 
-Bag image colour uses `FERT_COLOUR`; label uses `FERT_LABEL`. Images embedded as base64. Cash-stack images from `net/cash/Picture{n}.png`.
+Bag image colour from `FERT_COLOUR`; display name from `FERT_LABEL`. Cash images from `net/cash/Picture{n}.png`.
 
 ---
 
@@ -352,11 +393,12 @@ Bag image colour uses `FERT_COLOUR`; label uses `FERT_LABEL`. Images embedded as
 
 ```r
 # ratios : named list(fertCost = n, totalSale = n, revenue = n)
-#          — integers 1–10 selecting Picture{n}.png from net/cash/
-# Returns: character(1) — <section> with three rows:
-#   Total cost:             {formatted amount}  [cash image]
-#   Total calculated revenue: ...
-#   Expected net revenue:   ...
+#          integers 1–10 selecting net/cash/Picture{n}.png
+#
+# Returns: <section> with three rows:
+#   Total cost:               {formatted amount}  [cash image]
+#   Total calculated revenue: {formatted amount}  [cash image]
+#   Expected net revenue:     {formatted amount}  [cash image]
 ```
 
 ---
@@ -364,9 +406,9 @@ Bag image colour uses `FERT_COLOUR`; label uses `FERT_LABEL`. Images embedded as
 ### `html_recommendation(recText, lang)` — `R/html_helpers.R`
 
 ```r
-# Returns: character(1) — <section> with:
+# Returns: <section> with:
 #   <h3>Recommendation generated on {format(Sys.Date(), "%B %d, %Y")}</h3>
-#   <p>{recText with \n replaced by <br>}</p>
+#   <p>{recText — \n replaced with <br>}</p>
 ```
 
 ---
@@ -375,8 +417,8 @@ Bag image colour uses `FERT_COLOUR`; label uses `FERT_LABEL`. Images embedded as
 
 ```r
 # df        : data frame
-# col_names : character vector of column header labels (NULL = use df names)
-# Returns: character(1) — <table> HTML with thead and tbody
+# col_names : optional column header overrides
+# Returns: <table> HTML with <thead> and <tbody>, WeasyPrint-compatible
 ```
 
 Used for the PP cost-of-LMO table.
@@ -385,19 +427,16 @@ Used for the PP cost-of-LMO table.
 
 ### `build_fr_pdf(rr, fertilizers, user, country, userField, area, areaUnits, PD, HD, lat, lon, rootUP, cassPD, cassUW, maxInv, recText, lang, out_path)` — `R/pdf_builders.R`
 
-```r
-# rr          : list — $data (data frame row), $fertilizer_rates
-# fertilizers : data frame from get_fertilizers2()
-# recText     : character(1) from getFRrecText()
-# out_path    : character(1) output PDF path
-# Returns: out_path invisibly
-```
-
 Internal steps:
 1. `fr <- calc_fertilizer_recom(fertilizers, rr)`.
 2. Compute cost/revenue totals and cash-stack ratios (logic from `fertilizerAdviseTable()`).
-3. Assemble HTML: header → two-column grid (personal info + prices | map + production) → fertilizer recommendation rows → cost-benefit → recommendation text.
-4. Call `render_pdf(html, out_path)`.
+3. Assemble HTML:
+   - `html_page_header("Tailored Fertilizer Recommendation", lang, banner = "net/Akilimo_Dashboard_FR.png")`
+   - Two-column grid: left = personal info + fertilizer prices; right = map + expected production
+   - Full-width: fertilizer recommendation rows
+   - Full-width: cost-benefit
+   - Full-width: recommendation text + closing `</body></html>`
+4. `render_pdf(html, out_path)`.
 
 ---
 
@@ -405,66 +444,58 @@ Internal steps:
 
 ```r
 # subtype              : "IC" (NG maize) | "CIS" (TZ sweet potato)
-# maize_or_potato_info : named list with crop-specific price fields
+# maize_or_potato_info : named list
 #   IC-NG:  list(maizeUP, maizeUW, maizePD, cobUP, CMP)
 #   CIS-TZ: list(sweetPotatoUP, sweetPotatoUW, sweetPotatoPD, tuberUP)
 ```
 
-Structure mirrors FR. Uses `Akilimo_Dashboard_IC.png` or `Akilimo_Dashboard_CIS.png` banner. Right column shows "Expected increase in cobs: {dMP}" instead of cassava tonnes.
+Banner: `Akilimo_Dashboard_IC.png` or `Akilimo_Dashboard_CIS.png`. Right column shows expected cob increase instead of cassava tonnes.
 
 ---
 
-### `build_pp_pdf(res, costLMO, user, country, userField, area, areaUnits, PD, HD, lat, lon, rootUP, cassPD, cassUW, maxInv, ploughing, ridging, method_ploughing, method_ridging, recText, lang, out_path)` — `R/pdf_builders.R`
+### `build_pp_pdf(res, costLMO, user, country, userField, area, areaUnits, PD, HD, lat, lon, rootUP, cassPD, cassUW, ploughing, ridging, method_ploughing, method_ridging, recText, lang, out_path)` — `R/pdf_builders.R`
 
-```r
-# res     : data frame from getPPrecommendations() (ploughing/ridging matrix)
-# costLMO : data frame (operations, methods, costs)
-```
-
-- Renders PP ggplot matrix to `tp("pp_chart.png")` via `ggplot2::ggsave()`, embeds as base64.
-- `costLMO` rendered via `html_table()`.
-- Layout: two-column top (personal info + practice | LMO table), two-column bottom (map | chart).
+- Renders PP ggplot matrix: `ggplot2::ggsave(tp("pp_chart.png"), plot, width=9, height=5, dpi=150)`.
+- Embeds chart and map as base64.
+- Layout: top two-column (personal info + practice | LMO table), bottom two-column (map | chart).
 
 ---
 
 ### `build_sp_pdf(ds, user, country, userField, area, areaUnits, PD, HD, lat, lon, cassUP, cassUW, cassPD, saleSF, nameSF, PD_window, HD_window, recText, lang, out_path)` — `R/pdf_builders.R`
 
-```r
-# ds : data frame from getSPrecommendations() (PD × HD grid with dGR)
-```
-
-- Renders SP heatmap to `tp("spgg.png")` via `ggplot2::ggsave()`, embeds as base64.
-- Three-column top row (personal info | current practice with windows | cost info), two-column bottom (map | SP heatmap).
+- Renders SP heatmap: `ggplot2::ggsave(tp("spgg.png"), gg, width=12, height=8, dpi=150)`.
+- Embeds heatmap and map as base64.
+- Layout: top three-column (personal info | current practice with windows | cost info), bottom two-column (map | SP heatmap).
 
 ---
 
 ## 7. HTML Structure per Recommendation Type
 
-### FR — Fertilizer Recommendation
+### FR — Tailored Fertilizer Recommendation
 
 ```
 [banner image — full width]
-─────────────────────────────────────────────────────
-┌──────────────────────┬────────────────────────────┐
-│ What you told us     │ Your location              │
-│ name, phone, field,  │ [map image]                │
-│ area, dates, yield   │                            │
-│                      │ Expected gain              │
-│ Fertilizer prices    │ {tonnes} ~ {bags} × 100kg  │
-│ [price table]        │                            │
-│                      │                            │
-│ Cassava @ {price}    │                            │
-│ Max investment: ...  │                            │
-└──────────────────────┴────────────────────────────┘
-─────────────────────────────────────────────────────
+──────────────────────────────────────────────────────
+┌──────────────────────┬─────────────────────────────┐
+│ What you told us     │ Your location               │
+│ name, phone, field,  │ [map — base64]              │
+│ area, dates, yield   │                             │
+│                      │ Expected gain               │
+│ Fertilizer prices    │ {tonnes} ~ {bags} × 100 kg  │
+│ [price table]        │                             │
+│                      │                             │
+│ Cassava @ {price}    │                             │
+│ Max investment: ...  │                             │
+└──────────────────────┴─────────────────────────────┘
+──────────────────────────────────────────────────────
 Recommendation generated on {date}
-[per-fertilizer rows: name · kg · bags · bag images · cost]
-─────────────────────────────────────────────────────
+[fertilizer rows: name · kg · bags · [bag images] · cost]
+──────────────────────────────────────────────────────
 Cost benefit analysis
-Total cost:              {amount} [cash image]
-Total calculated revenue:{amount} [cash image]
-Expected net revenue:    {amount} [cash image]
-─────────────────────────────────────────────────────
+Total cost:               {amount}  [cash image]
+Total calculated revenue: {amount}  [cash image]
+Expected net revenue:     {amount}  [cash image]
+──────────────────────────────────────────────────────
 [recommendation text]
 ```
 
@@ -472,20 +503,20 @@ Expected net revenue:    {amount} [cash image]
 
 ```
 [banner image — full width]
-─────────────────────────────────────────────────────
-┌──────────────────────┬────────────────────────────┐
-│ What you told us     │ Cost of LMO                │
-│ name, phone, field,  │ [costLMO table]            │
-│ area, dates          │                            │
-│ Current practice:    │                            │
-│ {ploughing/ridging}  │                            │
-│ Cassava @ {price}    │                            │
-└──────────────────────┴────────────────────────────┘
-┌──────────────────────┬────────────────────────────┐
-│ Your location        │ Cost-benefit analysis      │
-│ [map image]          │ [ggplot heatmap]           │
-└──────────────────────┴────────────────────────────┘
-─────────────────────────────────────────────────────
+──────────────────────────────────────────────────────
+┌──────────────────────┬─────────────────────────────┐
+│ What you told us     │ Cost of land management ops │
+│ name, phone, field,  │ [html_table(costLMO)]       │
+│ area, dates          │                             │
+│ Current practice:    │                             │
+│ {ploughing/ridging}  │                             │
+│ Cassava @ {price}    │                             │
+└──────────────────────┴─────────────────────────────┘
+┌──────────────────────┬─────────────────────────────┐
+│ Your location        │ Cost-benefit analysis       │
+│ [map — base64]       │ [ggplot matrix — base64]    │
+└──────────────────────┴─────────────────────────────┘
+──────────────────────────────────────────────────────
 [recommendation text]
 ```
 
@@ -493,21 +524,20 @@ Expected net revenue:    {amount} [cash image]
 
 ```
 [banner image — full width]
-─────────────────────────────────────────────────────
-┌──────────┬─────────────────────┬──────────────────┐
-│ What you │ Your current        │ Cost information │
-│ told us  │ practice            │                  │
-│          │ Planting: {date}    │ Cassava sold to: │
-│          │ Window: {n} months  │ {factory}        │
-│          │ Harvest: {date}     │ or               │
-│          │ Window: {n} months  │ @ {price}/{unit} │
-└──────────┴─────────────────────┴──────────────────┘
-┌──────────────────────┬────────────────────────────┐
-│ Your location        │ Expected gain in total     │
-│ [map image]          │ production                 │
-│                      │ [SP heatmap]               │
-└──────────────────────┴────────────────────────────┘
-─────────────────────────────────────────────────────
+──────────────────────────────────────────────────────
+┌────────────┬──────────────────────┬────────────────┐
+│ What you   │ Your current         │ Cost info      │
+│ told us    │ practice             │                │
+│            │ Planting: {date}     │ Sold to:       │
+│            │ Window: {n} months   │ {factory}      │
+│            │ Harvest: {date}      │ or             │
+│            │ Window: {n} months   │ @ {price}/unit │
+└────────────┴──────────────────────┴────────────────┘
+┌──────────────────────┬─────────────────────────────┐
+│ Your location        │ Expected gain               │
+│ [map — base64]       │ [SP heatmap — base64]       │
+└──────────────────────┴─────────────────────────────┘
+──────────────────────────────────────────────────────
 [recommendation text]
 ```
 
@@ -517,26 +547,25 @@ Expected net revenue:    {amount} [cash image]
 
 **Decision: Keep the existing `leaflet` + `mapview::mapshot()` approach.**
 
-Chrome headless can embed PNGs as base64 without making live network tile requests, avoiding the need for an external maps API key.
+WeasyPrint does not make network requests during rendering. All images must be embedded as base64 or accessible as local files. `mapshot()` saves the map as a local PNG which is then base64-encoded — this is exactly the right pattern.
 
 Inside `html_location_map()`:
 1. Build leaflet map (same code as current Rmd chunks).
 2. `mapshot(my_map, file = tp("map.png"), height = height_px)`.
-3. `img_base64(tp("map.png"))` — returns the `<img data:image/png;base64,...>` tag.
-4. The PNG stays on disk until the temp dir is cleaned up (1 hour TTL).
+3. Return `img_base64(tp("map.png"))`.
 
 ---
 
 ## 9. Chart Generation
 
-Both ggplot charts are saved to the per-request temp directory and embedded as base64, so Chrome does not need to resolve any file path.
+Both ggplot charts are saved to the per-request temp dir and embedded as base64.
 
 ### PP matrix heatmap
 
 ```r
 chart_path <- tp("pp_chart.png")
 ggplot2::ggsave(chart_path, plot, width = 9, height = 5, units = "in", dpi = 150)
-# → 1350 × 750 px PNG
+# → 1350 × 750 px PNG, sharp at ~6in in A4
 chart_html <- img_base64(chart_path)
 ```
 
@@ -548,15 +577,15 @@ ggplot2::ggsave(chart_path, gg, width = 12, height = 8, units = "in", dpi = 150)
 chart_html <- img_base64(chart_path)
 ```
 
-The stray global `if (file.exists("spgg.png")) file.remove("spgg.png")` blocks in the old `generate_pdfs()` are removed — they existed because the Rmd rendered in the project root.
+The stray global `if (file.exists("spgg.png")) file.remove("spgg.png")` blocks in the old `generate_pdfs()` are removed.
 
 ---
 
 ## 10. Language Support
 
-`lang` is passed as a parameter to every builder and helper. All user-facing strings in the HTML are resolved via `tr(key, lang)`, matching how processor functions already localise the JSON response text.
+`lang` is passed as a parameter to every builder and helper function. All user-facing strings are resolved via `tr(key, lang)`, matching how the processor functions already localise the JSON response text.
 
-Static section headings (currently hardcoded English in Rmd) must be added to `data/input/translations.csv`:
+Static section headings (currently hardcoded English in Rmd files) must be added to `data/input/translations.csv`:
 
 | Key | English | Swahili |
 |---|---|---|
@@ -570,7 +599,7 @@ Static section headings (currently hardcoded English in Rmd) must be added to `d
 | `pdf_cost_info` | "Cost information" | |
 | `pdf_rec_date` | "Recommendation generated on" | |
 
-`tr()` falls back to English for missing Swahili entries; the Swahili values should be confirmed with the translation team before Phase 3 ships.
+`tr()` falls back to English for missing Swahili entries. Confirm Swahili values with the translation team before Phase 3.
 
 This replaces the current approach of maintaining two separate Rmd files per recommendation type.
 
@@ -609,8 +638,6 @@ PDFs <- generate_pdfs(
 )
 ```
 
-No other changes to `AkilimoMain.R`.
-
 ---
 
 ### `R/process-FR.R`
@@ -635,7 +662,7 @@ c(rec_type = "FR", recommendation = recText, response,
 Both `process_IC_NG()` and `process_IC_TZ()`:
 - Remove `IC_MarkdownText()` / `CIS_MarkdownText()` and `fertilizerAdviseTable()` calls.
 - Remove `write.csv(recText, ...)` calls.
-- Add to return value: `fertilizers`, and the crop-specific price fields (`maize_or_potato_info`).
+- Add to return value: `fertilizers`, crop-specific price fields.
 
 ---
 
@@ -672,8 +699,8 @@ if (FR && !IC && !is.null(result$data)) {
 }
 
 if (FR && IC && !is.null(result$data)) {
-    subtype <- if (country == "TZ") "CIS" else "IC"
-    prefix  <- if (country == "TZ") "CIS_advice_" else "intercrop_advice_"
+    subtype <- if (params$country == "TZ") "CIS" else "IC"
+    prefix  <- if (params$country == "TZ") "CIS_advice_" else "intercrop_advice_"
     fname   <- add_pdf(tp(paste0(prefix, phone, ".pdf")))
     build_ic_pdf(..., subtype = subtype, lang = lang, out_path = fname)
 }
@@ -695,7 +722,7 @@ PDFs
 
 ### `R/markdown.R`
 
-No interface changes. The following remain and are used by `pdf_builders.R`:
+No interface changes. Functions that remain (used by `pdf_builders.R`):
 - `tp()`, `temp_dir()`, `set_temp_dir()`, `safe_filename_part()`
 - `FERT_COLOUR`, `FERT_LABEL`
 - `calc_fertilizer_recom()`, `pivot_fertilizers_wide()`, `round_bags()`
@@ -707,43 +734,31 @@ No interface changes. The following remain and are used by `pdf_builders.R`:
 ### Rmd files
 
 ```
-Rmd/FR_markdown_VFT.Rmd
-Rmd/FR_markdown_swa.Rmd
-Rmd/IC_markdown_VFT.Rmd
-Rmd/CIS_markdown_swa.Rmd
-Rmd/PP_markdownVFT.Rmd
-Rmd/PP_markdown_swa.Rmd
-Rmd/SP_markdownVFT.Rmd
-Rmd/SP_markdown_swa.Rmd
-Rmd/map.png
-Rmd/spgg.png
+Rmd/FR_markdown_VFT.Rmd     Rmd/FR_markdown_swa.Rmd
+Rmd/IC_markdown_VFT.Rmd     Rmd/CIS_markdown_swa.Rmd
+Rmd/PP_markdownVFT.Rmd      Rmd/PP_markdown_swa.Rmd
+Rmd/SP_markdownVFT.Rmd      Rmd/SP_markdown_swa.Rmd
+Rmd/map.png                 Rmd/spgg.png
 ```
 
 ### Functions to remove from `R/markdown.R`
 
 ```
-FR_MarkdownText()
-IC_MarkdownText()
-CIS_MarkdownText()
-PPSP_MarkdownText()
-PP_MarkdownText()
-SP_MarkdownText()
-fertilizerAdviseTable()
-get_markdown_text()
+FR_MarkdownText()       IC_MarkdownText()
+CIS_MarkdownText()      PPSP_MarkdownText()
+PP_MarkdownText()       SP_MarkdownText()
+fertilizerAdviseTable() get_markdown_text()
 ```
 
 ### CSV files no longer written per request
 
 ```
-FR_MarkDownText.csv        IC_MarkDownText.csv
-CIS_MarkDownText.csv       PP_MarkDownText.csv
-SP_MarkDownText.csv        FR_recText.csv
-IC_recText.csv             PP_recText.csv
-SP_recText.csv             PP_rec.csv
-SP_rec.csv                 datall1.csv … datall5.csv
-totalCostmoney.csv         totalSalemoney.csv
-totalRevenuemoney.csv      costLMO.csv
-personalized_info_{phone}.csv
+FR_MarkDownText.csv     IC_MarkDownText.csv     CIS_MarkDownText.csv
+PP_MarkDownText.csv     SP_MarkDownText.csv     FR_recText.csv
+IC_recText.csv          PP_recText.csv          SP_recText.csv
+PP_rec.csv              SP_rec.csv              datall1..5.csv
+totalCostmoney.csv      totalSalemoney.csv      totalRevenuemoney.csv
+costLMO.csv             personalized_info_{phone}.csv
 ```
 
 ---
@@ -752,13 +767,13 @@ personalized_info_{phone}.csv
 
 ### Rewritten `tests/test_pdf.R`
 
-Removes the PhantomJS dependency check. Calls `build_*_pdf()` directly with the result from running each fixture through `run_akilimo()`.
+Removes PhantomJS dependency check. Calls `build_*_pdf()` directly.
 
 ```r
 check_pdf <- function(label, path) {
   cat(sprintf("%-55s", paste0(label, " ... ")))
   valid <- file.exists(path) &&
-           file.size(path) > 5000 &&  # >5KB — blank pages are ~1KB
+           file.size(path) > 5000 &&          # blank pages ≈ 1KB
            rawToChar(readBin(path, "raw", n = 4)) == "%PDF"
   if (valid) { cat("PASS\n"); pass <<- pass + 1L }
   else       { cat("FAIL\n"); fail <<- fail + 1L }
@@ -776,36 +791,36 @@ check_pdf <- function(label, path) {
 | SP English (NG) | `in_29_NG_SP_riskAtt0` | `build_sp_pdf(..., lang="en")` |
 | SP Swahili (TZ) | `in_32_TZ_SP_riskAtt0` | `build_sp_pdf(..., lang="sw")` |
 
-### Additional checks
-
-- Each PDF must be > 5 KB (guards against blank Chrome output).
-- Verify `render_pdf()` raises a clear error when Chrome is not found.
+Additional checks:
+- Each PDF must be > 5 KB (guards against blank WeasyPrint output).
+- Verify `render_pdf()` raises a clear error when `weasyprint` is not on PATH.
 - `tests/test_full.R` (3203 regression cases) must pass unchanged throughout all phases.
 
 ---
 
 ## 14. Rollback Plan
 
-### During Phases 1–3 (old and new both present)
+### During Phases 1–3
 
-The Rmd files are not yet deleted. Old CSV-writing functions still exist alongside new HTML builders. To revert: restore the old `generate_pdfs()` body in `sms_email.R`, remove the new builder calls.
+Rmd files are not yet deleted. Old CSV-writing functions still exist alongside new HTML builders. To revert: restore the old `generate_pdfs()` body in `sms_email.R`.
 
-### Feature-flag approach (lower risk for production cutover)
+### Feature-flag approach (recommended for production cutover)
 
 ```r
 # In generate_pdfs():
-use_pagedown <- identical(Sys.getenv("AKILIMO_PDF_ENGINE"), "pagedown")
+use_weasyprint <- nchar(Sys.which("weasyprint")) > 0 &&
+                  identical(Sys.getenv("AKILIMO_PDF_ENGINE"), "weasyprint")
 ```
 
-- Default (`webshot`): old `rmdshot()` path.
-- `AKILIMO_PDF_ENGINE=pagedown`: new `build_*_pdf()` path.
+- Default: old `webshot::rmdshot()` path (while WeasyPrint is being validated).
+- `AKILIMO_PDF_ENGINE=weasyprint`: new `build_*_pdf()` path.
 
 Set in the systemd service unit once verified stable. Remove the webshot branch in Phase 4.
 
 ### After Phase 4 (full cutover)
 
 All Rmd files and old functions are preserved in Git history. To roll back:
-1. `git revert` the Phase 4 deletion commit and the Phase 2–3 process/sms_email commits.
+1. `git revert` Phase 4 deletion commit and Phase 2–3 process/sms_email commits.
 2. Reinstall PhantomJS: `webshot::install_phantomjs()`.
 3. Revert `install_packages.R`.
 
