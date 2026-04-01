@@ -75,9 +75,8 @@ run_fixture("in_2_NG_FR_default_prices_riskAtt2_v1")
 check_pdf("FR English (NG)",  "./Rmd/FR_markdown_VFT.Rmd", "temp/test_FR_en.pdf")
 
 # FR — Fertilizer Recommendation (Swahili, TZ)
-# Uses same NG fixture as above: TZ fixtures produce 0-fertilizer recommendations
-# which prevents datall*.csv from being written, so template data is unusable.
-run_fixture("in_2_NG_FR_default_prices_riskAtt2_v1")
+# Uses TZ fixture with lang="sw": writes datall*.csv with Swahili text.
+run_fixture("in_34_TZ_FR_sw_riskAtt2")
 check_pdf("FR Swahili (TZ)",  "./Rmd/FR_markdown_swa.Rmd", "temp/test_FR_sw.pdf")
 
 # IC — Intercropping (English, NG)
