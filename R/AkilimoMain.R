@@ -297,6 +297,17 @@ run_akilimo <- function(json) {
                    ", planting: ", params$PD, ", harvest: ", params$HD))
 
     result <- dispatch_recommendations(params, body)
+
+    PDFs <- generate_pdfs(
+        user    = params$user,
+        FR      = params$FR,
+        IC      = params$IC,
+        PP      = params$PP,
+        SP      = params$SPP || params$SPH,
+        country = params$country
+    )
+    if (isTRUE(params$user$send_email)) sendEmailReport(params$user, PDFs)
+
     build_response(result, aki_version)
 }
 
