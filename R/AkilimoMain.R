@@ -49,8 +49,16 @@ validate_request <- function(body) {
 
 setup_temp_dir <- function() {
     dir.create("temp", FALSE, FALSE)
-    old_files <- list.files("temp", full.names = TRUE)
-    if (length(old_files) > 0) suppressWarnings(file.remove(old_files))
+    # Clean up per-request subdirectories older than 1 hour
+    subdirs <- list.dirs("temp", full.names = TRUE, recursive = FALSE)
+    old <- subdirs[file.info(subdirs)$mtime < Sys.time() - 3600]
+    for (d in old) unlink(d, recursive = TRUE)
+    # Create an isolated directory for this request
+    req_id  <- paste0(format(Sys.time(), "%Y%m%d%H%M%S"), "_",
+                      paste0(as.hexmode(sample.int(.Machine$integer.max, 2)), collapse = ""))
+    req_dir <- file.path("temp", req_id)
+    dir.create(req_dir)
+    req_dir
 }
 
 
@@ -275,7 +283,7 @@ build_response <- function(result, aki_version) {
 run_akilimo <- function(json) {
 
     aki_version <- "20251228"
-    setup_temp_dir()
+    set_temp_dir(setup_temp_dir())
 
     body <- try(jsonlite::fromJSON(json))
     if (inherits(body, "try-error")) return(bad_request("Malformed JSON body"))
@@ -434,13 +442,13 @@ get_costLMO <- function(body, country, areaHa, areaUnits, ploughing, harrowing, 
 				cost_tractor_ploughing, cost_tractor_harrowing, cost_tractor_ridging,
 				cost_weeding1, cost_weeding2)))) {
 		  costLMO_MD$area <- paste(costLMO_MD$area, areaUnits, sep = "")
-		  write.csv(costLMO_MD, "./temp/costLMO.csv", row.names = FALSE)
+		  write.csv(costLMO_MD, tp("costLMO.csv"), row.names = FALSE)
 		} else {
 		  costLMO_MD <- costLMO
 		  names(costLMO_MD) <- c("operation", "method", "cost")
 		  costLMO_MD$area <- "1ha"
 		  costLMO_MD$cost <- formatC(signif(costLMO_MD$cost, digits = 3), format = "f", big.mark = ",", digits = 0)
-		  write.csv(costLMO_MD, "./temp/costLMO.csv", row.names = FALSE)
+		  write.csv(costLMO_MD, tp("costLMO.csv"), row.names = FALSE)
 		}
 		costLMO
 }

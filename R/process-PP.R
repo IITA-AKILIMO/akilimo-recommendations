@@ -171,8 +171,8 @@ process_PP <- function(PP, country, lang, areaHa, costLMO, ploughing, ridging,
   recText <- getPPrecText(ds = res, country = country, lang = lang)
 
   # Write output files
-  write.csv(res, './temp/PP_rec.csv', row.names = FALSE)
-  write.csv(recText, './temp/PP_recText.csv', row.names = FALSE)
+  write.csv(res, tp('PP_rec.csv'), row.names = FALSE)
+  write.csv(recText, tp('PP_recText.csv'), row.names = FALSE)
 
   # Generate markdown output
   PP_MarkdownText(user = user, country = country, userField = userField, area = area, areaUnits = areaUnits,

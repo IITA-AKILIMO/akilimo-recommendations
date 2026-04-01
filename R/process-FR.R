@@ -261,7 +261,7 @@ process_FR <- function(lat, lon, HD, maxInv, fertilizers, rootUP, areaHa, countr
 
 	recText <- getFRrecText(ds=response, country=country, lang=lang)
 
-	write.csv(recText, './temp/FR_recText.csv', row.names = FALSE)
+	write.csv(recText, tp('FR_recText.csv'), row.names = FALSE)
 	if (!is.null(response$data)) {
 		FR_MarkdownText(
 			rr = response, fertilizers = fertilizers, user = user,

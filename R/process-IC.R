@@ -193,8 +193,8 @@ process_IC_NG <- function(
   if (NROW(res$fertilizer_rates) > 0) {
     recText <- getICrecText(res, maizePD)
 
-    write.csv(res, './temp/IC_rec.csv', row.names = FALSE)
-    write.csv(recText, './temp/IC_recText.csv', row.names = FALSE)
+    write.csv(res, tp('IC_rec.csv'), row.names = FALSE)
+    write.csv(recText, tp('IC_recText.csv'), row.names = FALSE)
 
     IC_MarkdownText(rr = res, fertilizers = fertilizers, user = user, country = country, 
 			userField = userField, area = area, areaUnits = areaUnits, PD = PD, HD = HD, 
@@ -225,7 +225,7 @@ process_IC_TZ <- function(IC, country, lang, areaHa, FCY, tuberUP, rootUP, ferti
   recText <- getCISrecText(res, country, lang)
 
   if (NROW(res$fertilizer_rates) > 0) {
-    write.csv(recText, './temp/CIS_recText.csv', row.names = FALSE)
+    write.csv(recText, tp('CIS_recText.csv'), row.names = FALSE)
 
     CIS_MarkdownText(rr = res, fertilizers = fertilizers,
       user = user, country = country, userField = userField, area = area,

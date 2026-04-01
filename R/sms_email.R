@@ -43,46 +43,47 @@ sendEmailReport <- function(user, FR, IC, PP, SP, FRrecom, ICrecom, country, PPr
 
     PDFs <- NULL
     add_pdf <- function(f) {PDFs <<- c(PDFs, f); f}
-    phone <- safe_filename_part(user$PhoneNr)
+    phone    <- safe_filename_part(user$PhoneNr)
+    rmd_params <- list(params = list(temp_dir = file.path("..", temp_dir())))
 
     if (FR & (!IC) & FRrecom) {
         if (country %in% c("NG", "GH") & file.exists(paste0("fertilizer_advice_", phone, ".pdf"))) {
-            fname <- add_pdf(file.path("temp", paste0("fertilizer_advice_", phone, ".pdf")))
-            webshot::rmdshot('./Rmd/FR_markdown_VFT.Rmd', file = fname, delay = 3)
+            fname <- add_pdf(tp(paste0("fertilizer_advice_", phone, ".pdf")))
+            webshot::rmdshot('./Rmd/FR_markdown_VFT.Rmd', file = fname, delay = 3, rmd_args = rmd_params)
         } else if (country == "TZ") {
-            fname <- add_pdf(file.path("temp", paste0("fertilizer_advice_swa_", phone, ".pdf")))
-            webshot::rmdshot('./Rmd/FR_markdown_swa.Rmd', file = fname, delay = 3)
+            fname <- add_pdf(tp(paste0("fertilizer_advice_swa_", phone, ".pdf")))
+            webshot::rmdshot('./Rmd/FR_markdown_swa.Rmd', file = fname, delay = 3, rmd_args = rmd_params)
         }
     }
 
     if (FR & IC & ICrecom) {
-        if (country == "NG" & file.exists("./temp/intercrop_advice_VFT.pdf")) {
-            fname <- add_pdf(file.path("temp", paste0("intercrop_advice_", phone, ".pdf")))
-            webshot::rmdshot('./Rmd/IC_markdown_VFT.Rmd', file = fname, delay = 3)
+        if (country == "NG" & file.exists(tp("intercrop_advice_VFT.pdf"))) {
+            fname <- add_pdf(tp(paste0("intercrop_advice_", phone, ".pdf")))
+            webshot::rmdshot('./Rmd/IC_markdown_VFT.Rmd', file = fname, delay = 3, rmd_args = rmd_params)
         } else if (country == "TZ" & file.exists("CIS_VFT.pdf")) {
-            fname <- add_pdf(file.path("temp", paste0("CIS_advice_", phone, ".pdf")))
-            webshot::rmdshot('./Rmd/CIS_markdown_swa.Rmd', file = fname, delay = 3)
+            fname <- add_pdf(tp(paste0("CIS_advice_", phone, ".pdf")))
+            webshot::rmdshot('./Rmd/CIS_markdown_swa.Rmd', file = fname, delay = 3, rmd_args = rmd_params)
         }
     }
 
     if (PP & PPrecom) {
         if (country == "NG" & file.exists("PP_advice_VFT.pdf")) {
-            fname <- add_pdf(file.path("temp", paste0("PP_advice_", phone, ".pdf")))
-            webshot::rmdshot('./Rmd/PP_markdownVFT.Rmd', file = fname, delay = 3)
+            fname <- add_pdf(tp(paste0("PP_advice_", phone, ".pdf")))
+            webshot::rmdshot('./Rmd/PP_markdownVFT.Rmd', file = fname, delay = 3, rmd_args = rmd_params)
         } else if (country == "TZ" & file.exists("PP_advice_swa.pdf")) {
-            fname <- add_pdf(file.path("temp", paste0("PP_advice_swa_", phone, ".pdf")))
-            webshot::rmdshot('./Rmd/PP_markdown_swa.Rmd', file = fname, delay = 3)
+            fname <- add_pdf(tp(paste0("PP_advice_swa_", phone, ".pdf")))
+            webshot::rmdshot('./Rmd/PP_markdown_swa.Rmd', file = fname, delay = 3, rmd_args = rmd_params)
         }
     }
 
     if (SP & SPrecom) {
         if (country %in% c("NG", "GH") & file.exists("SP_advice_VFT.pdf")) {
-            fname <- add_pdf(file.path("temp", paste0("SP_advice_", phone, ".pdf")))
-            webshot::rmdshot('./Rmd/SP_markdownVFT.Rmd', file = fname, delay = 3)
+            fname <- add_pdf(tp(paste0("SP_advice_", phone, ".pdf")))
+            webshot::rmdshot('./Rmd/SP_markdownVFT.Rmd', file = fname, delay = 3, rmd_args = rmd_params)
             if (file.exists("spgg.png")) file.remove("spgg.png")
         } else if (country == "TZ" & file.exists("SP_advice_swa.pdf")) {
-            fname <- add_pdf(file.path("temp", paste0("SP_advice_swa_", phone, ".pdf")))
-            webshot::rmdshot('./Rmd/SP_markdown_swa.Rmd', file = fname, delay = 3)
+            fname <- add_pdf(tp(paste0("SP_advice_swa_", phone, ".pdf")))
+            webshot::rmdshot('./Rmd/SP_markdown_swa.Rmd', file = fname, delay = 3, rmd_args = rmd_params)
             if (file.exists("spgg.png")) file.remove("spgg.png")
         }
     }

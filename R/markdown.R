@@ -1,6 +1,24 @@
 
 ### R markdown
 
+# ---------------------------------------------------------------------------
+# Per-request temp directory
+# Each request writes its CSV intermediates to an isolated subdirectory of
+# temp/ so that concurrent requests (e.g. multiple server instances) cannot
+# overwrite each other's files.
+# ---------------------------------------------------------------------------
+.akilimo_req <- new.env(parent = emptyenv())
+.akilimo_req$temp_dir <- "temp"
+
+#' Return the current request's temp directory (relative to project root).
+temp_dir <- function() .akilimo_req$temp_dir
+
+#' Set the current request's temp directory. Called once per request.
+set_temp_dir <- function(path) .akilimo_req$temp_dir <- path
+
+#' Build an absolute-ish path inside the current request's temp directory.
+tp <- function(filename) file.path(temp_dir(), filename)
+
 # Sanitise a user-supplied value before embedding it in a file path.
 # Keeps only digits, letters, hyphens and plus signs (covers phone numbers
 # like +234789123456) and strips any path traversal characters.
@@ -82,12 +100,12 @@ pivot_fertilizers_wide <- function(fr) {
 
 get_markdown_text <- function(FR, IC, country) {
     if (FR & !IC) {
-        acairm <- read.csv("./temp/FR_MarkDownText.csv")
+        acairm <- read.csv(tp("FR_MarkDownText.csv"))
     } else if (IC & !FR) {
         if (country == "TZ") {
-            acairm <- read.csv("./temp/CIS_MarkDownText.csv")
+            acairm <- read.csv(tp("CIS_MarkDownText.csv"))
         } else if (country == "NG") {
-            acairm <- read.csv("./temp/IC_MarkDownText.csv")
+            acairm <- read.csv(tp("IC_MarkDownText.csv"))
         }
     } else {
         stop("FR and IC can not both be TRUE")
@@ -100,7 +118,7 @@ get_markdown_text <- function(FR, IC, country) {
 #' Builds datall*.csv files consumed by Rmd templates.
 fertilizerAdviseTable <- function(FR, IC, country, areaUnits) {
 
-    suppressWarnings(file.remove(paste0("./temp/datall", 1:6, ".csv")))
+    suppressWarnings(file.remove(tp(paste0("datall", 1:6, ".csv"))))
 
     acairm <- get_markdown_text(FR, IC, country)
 
@@ -122,7 +140,7 @@ fertilizerAdviseTable <- function(FR, IC, country, areaUnits) {
                 paste0("![](../net/", fertColCode, "/", gsub(".", "_", dat$bag, fixed = TRUE), ".png)")
             }
 
-            write.csv(dat, paste0("./temp/datall", j, ".csv"), row.names = FALSE)
+            write.csv(dat, tp(paste0("datall", j, ".csv")), row.names = FALSE)
         }
     }
 
@@ -148,9 +166,9 @@ fertilizerAdviseTable <- function(FR, IC, country, areaUnits) {
     totalSalemoney$moneypack    <- paste0("![](../net/cash/Picture", ratioTotalSale, ".png)")
     totalRevenuemoney$moneypack <- paste0("![](../net/cash/Picture", ratioRevenue,   ".png)")
 
-    write.csv(totalCostmoney,    "./temp/totalCostmoney.csv",    row.names = FALSE)
-    write.csv(totalSalemoney,    "./temp/totalSalemoney.csv",    row.names = FALSE)
-    write.csv(totalRevenuemoney, "./temp/totalRevenuemoney.csv", row.names = FALSE)
+    write.csv(totalCostmoney,    tp("totalCostmoney.csv"),    row.names = FALSE)
+    write.csv(totalSalemoney,    tp("totalSalemoney.csv"),    row.names = FALSE)
+    write.csv(totalRevenuemoney, tp("totalRevenuemoney.csv"), row.names = FALSE)
 }
 
 
@@ -180,7 +198,7 @@ FR_MarkdownText <- function(rr, fertilizers, user, country, userField,
     MarkDownTextD$costcassava <- formatC(signif(MarkDownTextD$costcassava, digits = 4), format = "f", big.mark = ",", digits = 0)
     MarkDownTextD$maxinvest   <- formatC(signif(MarkDownTextD$maxinvest,   digits = 4), format = "f", big.mark = ",", digits = 0)
 
-    filename <- file.path("temp", paste0("personalized_info_", safe_filename_part(user$PhoneNr), ".csv"))
+    filename <- tp(paste0("personalized_info_", safe_filename_part(user$PhoneNr), ".csv"))
     write.csv(MarkDownTextD, filename, row.names = FALSE)
 
     fr <- calc_fertilizer_recom(fertilizers, rr)
@@ -190,7 +208,7 @@ FR_MarkdownText <- function(rr, fertilizers, user, country, userField,
         write.csv(MarkDownTextD, filename, row.names = FALSE)
         MarkDownTextD <- cbind(MarkDownTextD, pivot_fertilizers_wide(fr))
     }
-    write.csv(MarkDownTextD, "./temp/FR_MarkDownText.csv", row.names = FALSE)
+    write.csv(MarkDownTextD, tp("FR_MarkDownText.csv"), row.names = FALSE)
 }
 
 
@@ -241,7 +259,7 @@ IC_MarkdownText <- function(rr, fertilizers, user, country, userField,
         paste0(MarkDownTextD$currency, " ", MarkDownTextD$maizeUP, " per ", MarkDownTextD$maizeUW, " kg of grain.")
     }
 
-    filename <- file.path("temp", paste0("personalized_info_", safe_filename_part(user$PhoneNr), ".csv"))
+    filename <- tp(paste0("personalized_info_", safe_filename_part(user$PhoneNr), ".csv"))
     write.csv(MarkDownTextD, filename, row.names = FALSE)
 
     fr <- calc_fertilizer_recom(fertilizers, rr)
@@ -251,7 +269,7 @@ IC_MarkdownText <- function(rr, fertilizers, user, country, userField,
         write.csv(MarkDownTextD, filename, row.names = FALSE)
 
         MarkDownTextD <- cbind(MarkDownTextD, pivot_fertilizers_wide(fr), rr$data)
-        write.csv(MarkDownTextD, "./temp/IC_MarkDownText.csv", row.names = FALSE)
+        write.csv(MarkDownTextD, tp("IC_MarkDownText.csv"), row.names = FALSE)
     }
 }
 
@@ -280,7 +298,7 @@ CIS_MarkdownText <- function(rr, fertilizers, user, country, userField, area, ar
     MarkDownTextD$costcassava <- formatC(signif(MarkDownTextD$costcassava, digits = 4), format = "f", big.mark = ",", digits = 0)
     MarkDownTextD$maxinvest   <- formatC(signif(MarkDownTextD$maxinvest,   digits = 4), format = "f", big.mark = ",", digits = 0)
 
-    filename <- file.path("temp", paste0("personalized_info_", safe_filename_part(user$PhoneNr), ".csv"))
+    filename <- tp(paste0("personalized_info_", safe_filename_part(user$PhoneNr), ".csv"))
     write.csv(MarkDownTextD, filename, row.names = FALSE)
 
     # CIS uses slightly wider half-bag band (0.3–0.65)
@@ -291,7 +309,7 @@ CIS_MarkdownText <- function(rr, fertilizers, user, country, userField, area, ar
         write.csv(MarkDownTextD, filename, row.names = FALSE)
 
         MarkDownTextD <- cbind(MarkDownTextD, pivot_fertilizers_wide(fr), rr$data)
-        write.csv(MarkDownTextD, "./temp/CIS_MarkDownText.csv", row.names = FALSE)
+        write.csv(MarkDownTextD, tp("CIS_MarkDownText.csv"), row.names = FALSE)
     }
 }
 
@@ -307,9 +325,8 @@ PPSP_MarkdownText <- function(rr, fname, user, country, userField, area, areaUni
         unitcassava = cassPD, maxinvest = maxInv, cassUW = cassUW,
         product = cassPD, currency = currency
     )
-    filename <- file.path("temp", paste0("personalized_info_", safe_filename_part(user$PhoneNr), ".csv"))
+    filename <- tp(paste0("personalized_info_", safe_filename_part(user$PhoneNr), ".csv"))
     write.csv(MarkDownTextD, filename, row.names = FALSE)
-    write.csv(MarkDownTextD, "PP_MarkDownText.csv", row.names = FALSE)
 }
 
 
@@ -325,7 +342,7 @@ PP_MarkdownText <- function(user, country, userField, area, areaUnits, PD, HD, l
         method_ploughing = method_ploughing, method_ridging = method_ridging,
         userPhoneCC = user$PhoneCC
     )
-    write.csv(MarkDownTextD, "./temp/PP_MarkDownText.csv", row.names = FALSE)
+    write.csv(MarkDownTextD, tp("PP_MarkDownText.csv"), row.names = FALSE)
 }
 
 
@@ -346,5 +363,5 @@ SP_MarkdownText <- function(user, country, userField, area, areaUnits, PD, HD, l
         cassUP_p1 = cassUP_p1, cassUP_p2 = cassUP_p2,
         userPhoneCC = user$PhoneCC
     )
-    write.csv(MarkDownTextD, "./temp/SP_MarkDownText.csv", row.names = FALSE)
+    write.csv(MarkDownTextD, tp("SP_MarkDownText.csv"), row.names = FALSE)
 }

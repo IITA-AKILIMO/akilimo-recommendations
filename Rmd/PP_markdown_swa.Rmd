@@ -1,8 +1,10 @@
 ---
 title:
-output: 
+output:
   flexdashboard::flex_dashboard:
     orientation: rows
+params:
+  temp_dir: "../temp"
 ---
   
   <style>
@@ -69,7 +71,7 @@ knitr::include_graphics("../net/Akilimo_Dashboard_PP_swa.png")
 knitr::opts_chunk$set(echo = TRUE)
 options(knitr.kable.NA = '')
 library(lubridate)
-personalized_info <- read.csv("../temp/PP_MarkDownText.csv", stringsAsFactors = FALSE)
+personalized_info <- read.csv(paste0(params$temp_dir, "/PP_MarkDownText.csv"), stringsAsFactors = FALSE)
 personalized_info <- unique(personalized_info)
 
 personalized_info$actualmn <- lubridate::month(ymd(personalized_info$plant_date))
@@ -103,7 +105,7 @@ personalized_info$hvst_date2 <- paste(personalized_info$actuald, personalized_in
 #                as.character(personalized_info$current_practice)))
 # }
 # current_practice <- personalized_info$current_practice
-# ds <- read.csv("../temp/PP_rec.csv", stringsAsFactors = FALSE)
+# ds <- read.csv(paste0(params$temp_dir, "/PP_rec.csv"), stringsAsFactors = FALSE)
 # 
 #  if(is.na(personalized_info$current_practice)){
 #   ifelse(ds[1, ]$method_ploughing == "N/A", "no",
@@ -114,7 +116,7 @@ personalized_info$hvst_date2 <- paste(personalized_info$actuald, personalized_in
 #  }
 
 
- #  ds <- read.csv("../temp/PP_rec.csv", stringsAsFactors = FALSE)
+ #  ds <- read.csv(paste0(params$temp_dir, "/PP_rec.csv"), stringsAsFactors = FALSE)
  #  ds$method_ploughing <- as.character(ds$method_ploughing)
  #  ds$method_ridging   <- as.character(ds$method_ridging)
  #  
@@ -154,7 +156,7 @@ personalized_info$hvst_date2 <- paste(personalized_info$actuald, personalized_in
 
 library(dplyr)
 
-personalized_info <- read.csv("../temp/PP_MarkDownText.csv")
+personalized_info <- read.csv(paste0(params$temp_dir, "/PP_MarkDownText.csv"))
 
 
 
@@ -199,8 +201,8 @@ Bei ya muhogo: **`r currency`** **`r costcassava`**  `r unitcassava`
 
 ```{r setup, include=FALSE}
 library(kableExtra)
-personalized_info <- read.csv("../temp/PP_MarkDownText.csv", stringsAsFactors = FALSE)
-LMOcost <- read.csv("../temp/costLMO.csv", stringsAsFactors = FALSE)
+personalized_info <- read.csv(paste0(params$temp_dir, "/PP_MarkDownText.csv"), stringsAsFactors = FALSE)
+LMOcost <- read.csv(paste0(params$temp_dir, "/costLMO.csv"), stringsAsFactors = FALSE)
 
 
 #LMOcost <- LMOcost[complete.cases(LMOcost), ]
@@ -250,11 +252,11 @@ knitr::kable(LMOcost, align=rep('r'), full_width = F, row.names(LMOcost) <- NULL
 ```{r echo=FALSE, message=FALSE, fig.height=5, fig.width=5, warning = FALSE, results='hide'}
 
 #setwd("D:/ACAI_Wrapper/cloud_compute")
-personalized_info <- read.csv("../temp/PP_MarkDownText.csv")
+personalized_info <- read.csv(paste0(params$temp_dir, "/PP_MarkDownText.csv"))
 geodata <- personalized_info
 #setwd("D:/ACAI_Wrapper/fertilizer advice Rmd")
 
-# geodata <- read.csv("../temp/FR_MarkDownText.csv", stringsAsFactors = FALSE)
+# geodata <- read.csv(paste0(params$temp_dir, "/FR_MarkDownText.csv"), stringsAsFactors = FALSE)
 # geodata <- unique(geodata)
 #geodata <- read.csv(file = "MarkDownTextD.csv", header = TRUE,  sep = "," )
 data <- subset(geodata[1,], select = c("name", "latitude", "longitude"))
@@ -300,7 +302,7 @@ require(plyr)
 require(dplyr)
 require(ggplot2)
 
-ds <- read.csv("../temp/PP_rec.csv", stringsAsFactors = FALSE)
+ds <- read.csv(paste0(params$temp_dir, "/PP_rec.csv"), stringsAsFactors = FALSE)
 if(!require("plyr")) install.packages("plyr"); library("plyr")
 
 #create plot with recommendations
@@ -363,7 +365,7 @@ ggplot(data=ds[ds$CP==FALSE,], aes(x=ploughing_label, y=ridging_label))+
 ### Mapendekezo yametolewa tarehe `r format(Sys.Date(), "%d %B, %Y")`
 ```{r echo=FALSE}
 #recommendation_PP <- read.csv("/home/akilimo/projects/akilimo_recommendation/PP_recText.csv", stringsAsFactors = FALSE)
-recommendation_PP <- read.csv("../temp/PP_recText.csv", stringsAsFactors = FALSE)
+recommendation_PP <- read.csv(paste0(params$temp_dir, "/PP_recText.csv"), stringsAsFactors = FALSE)
 ```
   <font size="4">
 `r recommendation_PP`

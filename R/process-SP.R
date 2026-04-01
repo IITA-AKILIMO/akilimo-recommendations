@@ -221,7 +221,7 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
 		#recommendation is highest GR, earliest harvesting, latest planting combination
 		ds <- ds[order(-ds$dGR, ds$rHWnr, -ds$rPWnr),]
 	}
-    write.csv(ds, "./temp/SP_rec.csv", row.names = FALSE)
+    write.csv(ds, tp("SP_rec.csv"), row.names = FALSE)
 	ds
 }
 
@@ -253,7 +253,7 @@ process_SP <- function(
 			success <- TRUE
 
 			recText <- getSPrecText(ds = res, country = country, lang = lang, PD = PD, HD = HD)
-			write.csv(recText, './temp/SP_recText.csv', row.names = FALSE)
+			write.csv(recText, tp('SP_recText.csv'), row.names = FALSE)
 
 			SP_MarkdownText(
 				user = user, country = country, userField = userField, area = area, areaUnits = areaUnits,

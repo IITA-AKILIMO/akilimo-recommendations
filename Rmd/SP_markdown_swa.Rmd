@@ -1,7 +1,9 @@
 ---
-output: 
+output:
   flexdashboard::flex_dashboard:
     orientation: rows
+params:
+  temp_dir: "../temp"
 ---
   
   <style>
@@ -67,7 +69,7 @@ knitr::include_graphics("../net/Akilimo_Dashboard_SP_swa.png")
 knitr::opts_chunk$set(echo = TRUE)
 options(knitr.kable.NA = '')
 library(lubridate)
-personalized_info <- read.csv("../temp/SP_MarkDownText.csv", stringsAsFactors = FALSE)
+personalized_info <- read.csv(paste0(params$temp_dir, "/SP_MarkDownText.csv"), stringsAsFactors = FALSE)
 personalized_info <- unique(personalized_info)
 
 personalized_info$actualmn <- lubridate::month(ymd(personalized_info$plant_date))
@@ -127,8 +129,8 @@ Muda wa kuvuna: **`r sprintf("<span class='custom-inline'>%s</span>", HD_window)
  
 ### Taarifa za bei
 ```{r setup, include=FALSE}
-sales <- read.csv("../temp/SP_MarkDownText.csv", stringsAsFactors = FALSE)
-salesuser <- read.csv("../temp/SP_rec.csv", stringsAsFactors = FALSE)
+sales <- read.csv(paste0(params$temp_dir, "/SP_MarkDownText.csv"), stringsAsFactors = FALSE)
+salesuser <- read.csv(paste0(params$temp_dir, "/SP_rec.csv"), stringsAsFactors = FALSE)
 sales$currency <- ifelse(sales$country == "NG", "NGN", "TZS")
 
 
@@ -189,11 +191,11 @@ cassUP <- sales$cassUP
 ```{r echo=FALSE, message=FALSE, fig.height=10, fig.width=6, warning = FALSE, results='hide'}
 
 #setwd("D:/ACAI_Wrapper/cloud_compute")
-personalized_info <- read.csv("../temp/SP_MarkDownText.csv")
+personalized_info <- read.csv(paste0(params$temp_dir, "/SP_MarkDownText.csv"))
 geodata <- personalized_info
 #setwd("D:/ACAI_Wrapper/fertilizer advice Rmd")
 
-# geodata <- read.csv("../temp/FR_MarkDownText.csv", stringsAsFactors = FALSE)
+# geodata <- read.csv(paste0(params$temp_dir, "/FR_MarkDownText.csv"), stringsAsFactors = FALSE)
 # geodata <- unique(geodata)
 #geodata <- read.csv(file = "MarkDownTextD.csv", header = TRUE,  sep = "," )
 data <- subset(geodata[1,], select = c("name", "latitude", "longitude"))
@@ -242,11 +244,11 @@ require(dplyr)
 require(ggplot2)
 library(png)
 
-ds <- read.csv("../temp/SP_rec.csv", stringsAsFactors = FALSE)
+ds <- read.csv(paste0(params$temp_dir, "/SP_rec.csv"), stringsAsFactors = FALSE)
 ds$PD <- as.Date(	ds$PD, format = "%Y-%m-%d")
 	
 ds$HD <- as.Date(ds$HD, format = "%Y-%m-%d")
-country <- read.csv("../temp/SP_MarkDownText.csv", stringsAsFactors = FALSE)$country
+country <- read.csv(paste0(params$temp_dir, "/SP_MarkDownText.csv"), stringsAsFactors = FALSE)$country
 if(country == "TZ"){
   nameCurrency <- "Mabadiliko kwa mapato [TZS]"
   tt <- "Mabadiliko kwa mapato (TZS):"
@@ -305,7 +307,7 @@ grid::grid.raster(img)
 ### Mapendekezo yametolewa tarehe  `r format(Sys.Date(), "%d %B, %Y")`
 ```{r echo=FALSE}
 
-recommendation_SP <- read.csv("../temp/SP_recText.csv", stringsAsFactors = FALSE)
+recommendation_SP <- read.csv(paste0(params$temp_dir, "/SP_recText.csv"), stringsAsFactors = FALSE)
 ```
  
 `r recommendation_SP`

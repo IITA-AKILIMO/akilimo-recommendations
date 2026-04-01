@@ -51,7 +51,8 @@ skip <- 0L
 check_pdf <- function(label, rmd, out_file) {
   cat(sprintf("%-55s", paste0(label, " ... ")))
   tryCatch({
-    webshot::rmdshot(rmd, file = out_file, delay = 3)
+    webshot::rmdshot(rmd, file = out_file, delay = 3,
+      rmd_args = list(params = list(temp_dir = file.path("..", temp_dir()))))
     if (is_valid_pdf(out_file)) {
       cat("PASS\n"); pass <<- pass + 1L
     } else {
