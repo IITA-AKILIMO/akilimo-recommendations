@@ -6,7 +6,7 @@ bad_request <- function(msg) {
 
 validate_request <- function(body) {
     VALID_COUNTRIES <- c("NG", "TZ", "RW", "GH", "BI")
-    VALID_AREA_UNITS <- c("ha", "acre", "ekari", "are", "m2", "string", "hekta")
+    VALID_AREA_UNITS <- c("ha", "acre", "are", "m2")
 
     country   <- body[["country"]]
     lat       <- body[["lat"]]
