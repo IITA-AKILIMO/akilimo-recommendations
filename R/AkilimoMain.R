@@ -12,7 +12,8 @@ validate_request <- function(body) {
     lat       <- body[["lat"]]
     lon       <- body[["lon"]]
     area      <- body[["area"]]
-    areaUnits <- tolower(body[["areaUnits"]])
+    areaUnits <- body[["areaUnits"]]
+    if (!is.null(areaUnits)) areaUnits <- tolower(areaUnits)
     flags <- as.logical(c(body[["FR"]], body[["IC"]], body[["PP"]], body[["SPP"]], body[["SPH"]]))
 
     if (is.null(country)   || nchar(trimws(country)) == 0)
