@@ -52,7 +52,6 @@ jobs:
           SERVICE_NAME: ${{ secrets.SERVICE_NAME_OVERRIDE || env.SERVICE_NAME }}
           NGINX_TEST_CMD: ${{ env.NGINX_TEST_CMD }}
           NGINX_RESTART_CMD: ${{ env.NGINX_RESTART_CMD }}
-        env:
           ZENODO_RECORD_ID: ${{ secrets.ZENODO_RECORD_ID }}
         with:
           host: ${{ secrets.SERVER_HOST }}

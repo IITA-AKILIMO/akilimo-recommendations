@@ -77,8 +77,8 @@ parse_request <- function(body) {
     saleSF <- from_json("saleSF", body, default_value = FALSE)
     nameSF <- from_json("nameSF", body, default_value = NA)
     cassPD <- from_json("cassPD", body, default_value = "roots")
-    cassUW <- from_json("cassUW", body, default_value = 1000)
-    cassUP <- from_json("cassUP", body)
+    cassUW <- as.numeric(from_json("cassUW", body, default_value = 1000))
+    cassUP <- as.numeric(from_json("cassUP", body, default_value = 0))
     maxInv <- from_json("maxInv", body, default_value = NA)
     if (!isTRUE(maxInv > 0)) maxInv <- NA
 
@@ -273,7 +273,7 @@ build_response <- function(result, aki_version) {
 
 run_akilimo <- function(json) {
 
-    aki_version <- "20251222"
+    aki_version <- "20251228"
     setup_temp_dir()
 
     body <- try(jsonlite::fromJSON(json))

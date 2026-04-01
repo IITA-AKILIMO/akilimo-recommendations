@@ -77,12 +77,10 @@ rerun_25kgha <- function(rootUP, rdd, fertilizer, QID, onlyFert25, country, WLY 
 	rdd$CurrentY <- getRFY(HD = HD, RDY = DCY, country = country) * areaHa / 1000
 	rdd$TargetY <- getRFY(HD = HD, RDY = TY, country = country) * areaHa / 1000
 	rdd$TC <- round(sum(fertilizer$price * fert) * areaHa, -2)
-
-	nr <- round((rdd$TargetY - rdd$CurrentY) * rootUP, -2)
-	rdd$NR <- nr - rdd$TC
+	rdd$NR <- round((rdd$TargetY - rdd$CurrentY) * rootUP, -2) - rdd$TC
 
 #	rdd <- subset(rdd, select = c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
-	if (rdd$NR <= 0 | rdd$TargetY <= rdd$CurrentY) {
+	if ((rdd$NR <= 0) | (rdd$TargetY <= rdd$CurrentY)) {
 		rdd$N <- rdd$P <- rdd$K <- rdd$TC <- rdd$NR <- 0
 		rdd$TargetY <- rdd$CurrentY
 	} else {
