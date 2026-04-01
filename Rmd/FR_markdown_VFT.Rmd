@@ -496,11 +496,11 @@ revenue <- personalized_info$revenue
 
 ### Cost benefit analysis
 
-Total cost:  **`r totalCostmoney`**
+Total cost:  **`r totalCostmoney$title`**
 <br>
-Total calculated revenue: **`r totalSalemoney`**
+Total calculated revenue: **`r totalSalemoney$title`**
 <br>
-Your expected net revenue: **`r totalRevenuemoney`**
+Your expected net revenue: **`r totalRevenuemoney$title`**
 
 </div>
 

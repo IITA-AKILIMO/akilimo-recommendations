@@ -511,11 +511,11 @@ Tani `r  bags_total` ya mihogo: ~ Mifuko `r  bags_total100` ya kilo mia moja ya 
 
 ### Mchanganuo wa gharama na faida
 
-Jumla ya gharama: **`r totalCostmoney`**
+Jumla ya gharama: **`r totalCostmoney$title`**
 <br>
-Jumla ya mapato yaliyokokotolewa: **`r totalSalemoney`**
+Jumla ya mapato yaliyokokotolewa: **`r totalSalemoney$title`**
 <br>
-Jumla ya mapato yaliyotarajiwa: **`r totalRevenuemoney`**
+Jumla ya mapato yaliyotarajiwa: **`r totalRevenuemoney$title`**
 
 </div>
 
