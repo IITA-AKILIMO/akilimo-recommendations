@@ -67,19 +67,20 @@ akilimo-recommendations/
 │   ├── process-IC.R        # Intercropping processor
 │   ├── process-PP.R        # Post-Planting processor
 │   └── process-SP.R        # Schedule Planting processor
-├── data/                   # Runtime data (gitignored — downloaded from Zenodo)
+├── data/                   # Runtime data (gitignored — downloaded from OSF or Zenodo)
 │   ├── input/              # CSV lookup tables (prices, translations, dry-matter curve)
 │   ├── soil/               # Soil NPK RDS files, one per country
 │   └── yield/              # NetCDF yield rasters ({COUNTRY}_WLY_LINTUL_2020SP.nc)
-├── net/                    # Recommendation images (gitignored — from Zenodo)
+├── net/                    # Recommendation images (gitignored — from OSF or Zenodo)
 ├── tests/
 │   ├── test_full.R         # Full regression suite (3203 cases)
 │   ├── test_api.R          # Live API integration tests
 │   ├── test_small.R        # Quick smoke test subset
 │   └── input/              # Test JSON payloads (in_{N}_{COUNTRY}_{TYPE}_{params}.json)
 ├── scripts/                # Python data management scripts (Poetry)
-│   ├── setup_data.py       # Downloads and extracts Zenodo bundles
+│   ├── setup_data.py       # Downloads and extracts bundles from OSF or Zenodo
 │   ├── bundle_assets.py    # Packs data dirs into tar.gz for upload
+│   ├── upload_osf.py       # Uploads bundles to OSF
 │   └── upload_zenodo.py    # Uploads bundles to Zenodo
 ├── systemd/                # systemd service template
 ├── docs/                   # Documentation
@@ -397,7 +398,7 @@ SP sweeps a window of ±`PD_window` or ±`HD_window` weeks around the requested 
 
 ### Adding a new country
 
-1. **Spatial data:** produce soil NPK and WLY NetCDF files at 0.05° resolution following the existing naming convention; bundle and upload to Zenodo.
+1. **Spatial data:** produce soil NPK and WLY NetCDF files at 0.05° resolution following the existing naming convention; bundle and upload to OSF or Zenodo (see [SETUP.md](../SETUP.md#maintainer-publishing-data-updates)).
 2. **`R/AkilimoMain.R`:** add the country code to `VALID_COUNTRIES`.
 3. **`R/misc.R`:** add `get_currency()` case and default area unit.
 4. **`data/input/Default_prices.csv`:** add default cassava price rows.
@@ -423,7 +424,7 @@ SP sweeps a window of ±`PD_window` or ±`HD_window` weeks around the requested 
 1. Add a column to `translations.csv` with the IETF tag (e.g. `fr`).
 2. Add `"fr"` to the `lang %in% c("en", "sw", ...)` check in `parse_request()`.
 3. Update the API reference docs.
-4. Publish updated `translations.csv` to Zenodo.
+4. Publish updated `translations.csv` to OSF or Zenodo (see [SETUP.md](../SETUP.md#maintainer-publishing-data-updates)).
 
 ---
 

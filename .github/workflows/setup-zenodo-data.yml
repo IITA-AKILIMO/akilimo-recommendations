@@ -6,7 +6,7 @@ on:
       source:
         description: "Download source"
         required: true
-        default: "zenodo"
+        default: "osf"
         type: choice
         options:
           - zenodo

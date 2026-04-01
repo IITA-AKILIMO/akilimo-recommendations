@@ -10,11 +10,14 @@ CLI flags override .env values.
 Prerequisites:
   1. Run `poetry run bundle-assets` to create dist/*.tar.gz
   2. Create an OSF project at https://osf.io and note the node ID (5-char code)
+     OR use --new to create one automatically.
   3. Set OSF_TOKEN in scripts/.env (generate at https://osf.io/settings/tokens)
-     Required scope: osf.full_write  (or osf.full_read for private project access)
+     Required scope: osf.full_write
 
 Usage:
-    poetry run upload-osf --node-id abc12
+    poetry run upload-osf --new                  # create new OSF project
+    poetry run upload-osf --node-id abc12        # upload to existing project
+    poetry run upload-osf --new --sandbox        # create on test.osf.io
 
 .env keys used:
     OSF_TOKEN     (required, sensitive — never commit)
@@ -40,17 +43,56 @@ OSF_BUNDLES = [
     "yield-data.tar.gz",
 ]
 
-_WB_BASE = "https://files.osf.io/v1/resources"
-_API_BASE = "https://api.osf.io/v2"
+_OSF_TITLE = "Akilimo Cassava Recommendations — Data Assets"
+
+
+def _api_base(sandbox: bool) -> str:
+    host = "test.osf.io" if sandbox else "osf.io"
+    return f"https://api.{host}/v2"
+
+
+def _wb_base(sandbox: bool) -> str:
+    host = "test.osf.io" if sandbox else "osf.io"
+    return f"https://files.{host}/v1/resources"
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _list_files(node_id: str, token: str) -> list[dict]:
+def _create_project(token: str, sandbox: bool) -> str:
+    """Create a new OSF project and return its node ID."""
+    url = f"{_api_base(sandbox)}/nodes/"
+    payload = {
+        "data": {
+            "type": "nodes",
+            "attributes": {
+                "title": _OSF_TITLE,
+                "category": "data",
+                "public": False,
+            },
+        }
+    }
+    resp = requests.post(
+        url,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/vnd.api+json",
+        },
+        json=payload,
+        timeout=30,
+    )
+    if not resp.ok:
+        console.print(f"[red]Failed to create OSF project:[/] {resp.status_code} — {resp.text[:300]}")
+        sys.exit(1)
+
+    node_id = resp.json()["data"]["id"]
+    return node_id
+
+
+def _list_files(node_id: str, token: str, sandbox: bool) -> list[dict]:
     """Return the file metadata list from a node's osfstorage."""
-    url = f"{_API_BASE}/nodes/{node_id}/files/osfstorage/"
+    url = f"{_api_base(sandbox)}/nodes/{node_id}/files/osfstorage/"
     resp = requests.get(
         url,
         headers={"Authorization": f"Bearer {token}"},
@@ -60,25 +102,26 @@ def _list_files(node_id: str, token: str) -> list[dict]:
     return resp.json().get("data", [])
 
 
-def _upload_file(node_id: str, filepath: Path, token: str, existing: list[dict]) -> bool:
+def _upload_file(
+    node_id: str, filepath: Path, token: str, existing: list[dict], sandbox: bool
+) -> bool:
     """Upload *filepath* to an OSF node, overwriting any existing file of the same name."""
     size = filepath.stat().st_size
     console.print(f"  Uploading [cyan]{filepath.name}[/]  ({size / 1_048_576:.1f} MB) ...")
 
-    # Determine URL: update existing file or create new one.
+    wb = _wb_base(sandbox)
+
     match = next(
         (f for f in existing if f.get("attributes", {}).get("name") == filepath.name),
         None,
     )
     if match:
-        # Waterbutler upload link for the existing file (overwrites content).
         upload_url = match.get("links", {}).get("upload", "")
         if not upload_url:
             file_id = match["id"].split("/")[-1]
-            upload_url = f"{_WB_BASE}/{node_id}/providers/osfstorage/{file_id}"
+            upload_url = f"{wb}/{node_id}/providers/osfstorage/{file_id}"
     else:
-        # New file — use the ?name= query parameter to set the filename.
-        upload_url = f"{_WB_BASE}/{node_id}/providers/osfstorage/?name={filepath.name}"
+        upload_url = f"{wb}/{node_id}/providers/osfstorage/?name={filepath.name}"
 
     with (
         open(filepath, "rb") as fh,
@@ -118,14 +161,21 @@ def _upload_file(node_id: str, filepath: Path, token: str, existing: list[dict])
 # ---------------------------------------------------------------------------
 
 @click.command()
+@click.option("--new", "create_new", is_flag=True, help="Create a new OSF project.")
 @click.option(
     "--node-id",
     default=lambda: os.environ.get("OSF_NODE_ID", ""),
     show_default="env OSF_NODE_ID",
     help="OSF project node ID (5-character code shown in the project URL).",
 )
-def main(node_id: str) -> None:
-    """Upload soil-data and yield-data bundles to an OSF project."""
+@click.option(
+    "--sandbox",
+    is_flag=True,
+    default=False,
+    help="Use test.osf.io instead of osf.io.",
+)
+def main(create_new: bool, node_id: str, sandbox: bool) -> None:
+    """Upload data bundles to an OSF project."""
 
     token = os.environ.get("OSF_TOKEN", "")
     if not token:
@@ -138,26 +188,38 @@ def main(node_id: str) -> None:
         )
         sys.exit(1)
 
-    if not node_id:
+    if not create_new and not node_id:
         console.print(
-            "[red]OSF node ID is not set.[/]\n"
-            "Pass [bold]--node-id <id>[/] or add [bold]OSF_NODE_ID[/] to scripts/.env.\n"
-            "The node ID is the 5-character code in your OSF project URL:\n"
-            "  https://osf.io/[bold]abc12[/]/"
+            "[red]Provide --new or --node-id <id>.[/]\n"
+            "You can also set [bold]OSF_NODE_ID[/] in scripts/.env."
         )
         sys.exit(1)
+
+    osf_host = "test.osf.io" if sandbox else "osf.io"
 
     cfg = Config(osf_node_id=node_id)
 
     console.print(Rule("[bold cyan]Akilimo OSF Uploader[/]"))
-    console.print(f"  OSF project: https://osf.io/{node_id}/")
+    console.print(f"  OSF host: {osf_host}")
 
     # -----------------------------------------------------------------------
-    # Step 1 — verify node and list existing files
+    # Step 1 — create or reuse project
+    # -----------------------------------------------------------------------
+    console.print(Rule("Preparing project"))
+
+    if create_new:
+        node_id = _create_project(token, sandbox)
+        console.print(f"  [green][ok][/]   Created project node ID: [bold]{node_id}[/]")
+        console.print(f"         Project URL: https://{osf_host}/{node_id}/")
+    else:
+        console.print(f"  Using existing node ID: [bold]{node_id}[/]")
+
+    # -----------------------------------------------------------------------
+    # Step 2 — verify node and list existing files
     # -----------------------------------------------------------------------
     console.print(Rule("Checking OSF project"))
     try:
-        existing = _list_files(node_id, token)
+        existing = _list_files(node_id, token, sandbox)
         console.print(
             f"  [green][ok][/]   Node accessible — "
             f"{len(existing)} file(s) currently in osfstorage"
@@ -166,7 +228,7 @@ def main(node_id: str) -> None:
         status = exc.response.status_code if exc.response is not None else "?"
         console.print(
             f"[red]Cannot access OSF node {node_id}:[/] HTTP {status}\n"
-            "  • Check that OSF_NODE_ID is correct\n"
+            "  • Check that the node ID is correct\n"
             "  • Verify OSF_TOKEN has osf.full_write scope"
         )
         sys.exit(1)
@@ -175,7 +237,7 @@ def main(node_id: str) -> None:
         sys.exit(1)
 
     # -----------------------------------------------------------------------
-    # Step 2 — upload bundles
+    # Step 3 — upload bundles
     # -----------------------------------------------------------------------
     console.print(Rule("Uploading files"))
 
@@ -190,11 +252,11 @@ def main(node_id: str) -> None:
             failed.append(filename)
             continue
 
-        if not _upload_file(node_id, filepath, token, existing):
+        if not _upload_file(node_id, filepath, token, existing, sandbox):
             failed.append(filename)
 
     # -----------------------------------------------------------------------
-    # Step 3 — summary and next steps
+    # Step 4 — summary and next steps
     # -----------------------------------------------------------------------
     console.print(Rule())
 
@@ -204,7 +266,7 @@ def main(node_id: str) -> None:
 
     console.print(
         "[green bold]Upload complete.[/]\n\n"
-        f"  1. Review your project: [cyan]https://osf.io/{node_id}/[/]\n"
+        f"  1. Review your project: [cyan]https://{osf_host}/{node_id}/[/]\n"
         "  2. Adjust project metadata (title, description, license) in the OSF UI if needed.\n"
         "  3. Once ready, make the project public to enable unauthenticated downloads.\n\n"
         "  4. Add the node ID to [bold]scripts/.env[/] so setup-data can use it:\n"

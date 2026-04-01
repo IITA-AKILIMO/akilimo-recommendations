@@ -3,12 +3,12 @@
 # Akilimo Recommendation Engine — full environment setup
 #
 # Installs all system packages, R packages, Python tooling, and downloads
-# runtime data from Zenodo.
+# runtime data from OSF (default) or Zenodo.
 #
 # Usage:
 #   chmod +x setup.sh
 #   ./setup.sh              # full setup (system + R + Python + data)
-#   ./setup.sh --no-data    # skip Zenodo download
+#   ./setup.sh --no-data    # skip data download
 #   ./setup.sh --no-system  # skip apt/system packages (e.g. you manage them)
 # =============================================================================
 
@@ -121,7 +121,7 @@ require_cmd poetry
   if [ ! -f .env ]; then
     cp .env.example .env
     info "Created scripts/.env from .env.example."
-    info "Edit scripts/.env if you need a different Zenodo record ID."
+    info "Edit scripts/.env to set OSF_NODE_ID (OSF) or ZENODO_RECORD_ID (Zenodo)."
   fi
 
   poetry install --no-interaction
@@ -130,11 +130,11 @@ require_cmd poetry
 success "Python dependencies installed."
 
 # ---------------------------------------------------------------------------
-# 4. Download runtime data from Zenodo
+# 4. Download runtime data
 # ---------------------------------------------------------------------------
 
 if $DOWNLOAD_DATA; then
-  info "Downloading runtime data from Zenodo (record 19231022)..."
+  info "Downloading runtime data (OSF by default; set --source zenodo in scripts/.env to use Zenodo)..."
   (
     cd "$SCRIPTS_DIR"
     poetry run setup-data

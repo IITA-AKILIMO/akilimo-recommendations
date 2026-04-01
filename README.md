@@ -38,8 +38,8 @@ See [SETUP.md](SETUP.md) for full installation details and manual instructions.
 
 ```bash
 cd scripts
-poetry run setup-data
-# Downloads soil, yield, and input data from Zenodo record 19231022
+poetry run setup-data                      # OSF (default)
+poetry run setup-data --source zenodo      # or from Zenodo record 19231022
 ```
 
 ### 4. Start the API
@@ -188,12 +188,13 @@ sudo journalctl -u akilimo-api.service -f
 
 ## Data Management (maintainers)
 
-Runtime data is hosted on Zenodo record **19231022**. See [SETUP.md](SETUP.md) for the full publishing workflow.
+Runtime data is hosted on **OSF** and **Zenodo** (both contain identical files). See [SETUP.md](SETUP.md) for the full publishing workflow.
 
 ```bash
 cd scripts
-poetry run bundle-assets          # pack data dirs → dist/*.tar.gz
-poetry run upload-zenodo --new    # create Zenodo deposit + upload
+poetry run bundle-assets           # pack data dirs → dist/*.tar.gz
+poetry run upload-osf --new        # create OSF project + upload (recommended)
+poetry run upload-zenodo --new     # or create Zenodo deposit + upload
 ```
 
 ## Documentation

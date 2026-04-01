@@ -50,11 +50,11 @@ ALL_BUNDLES = [
 
 def _detect_source(zenodo_id: str, osf_node_id: str) -> str:
     """Return 'zenodo' or 'osf' based on which IDs are configured."""
-    if zenodo_id:
-        return "zenodo"
     if osf_node_id:
         return "osf"
-    return "zenodo"  # will fail gracefully with a clear message
+    if zenodo_id:
+        return "zenodo"
+    return "osf"  # will fail gracefully with a clear message
 
 
 @click.command()

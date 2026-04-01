@@ -15,15 +15,16 @@ Do not analyse, modify, or source files from these directories.
 
 ## First-Time Setup
 
-All runtime data files are hosted exclusively on **Zenodo** (images, CSVs, soil data, yield data). Setup scripts live in `scripts/` and are managed with Poetry.
+All runtime data files (images, CSVs, soil data, yield data) are hosted on **OSF** and **Zenodo** — both contain the same content. Setup scripts live in `scripts/` and are managed with Poetry.
 
 ```bash
 cd scripts
 cp .env.example .env
-# edit .env: set ZENODO_RECORD_ID
+# edit .env: set OSF_NODE_ID (for OSF) or ZENODO_RECORD_ID (for Zenodo)
 
 poetry install
-poetry run setup-data
+poetry run setup-data                      # OSF (default)
+poetry run setup-data --source zenodo      # or Zenodo
 ```
 
 Re-running is safe — already-extracted files are preserved.
@@ -33,19 +34,24 @@ Re-running is safe — already-extracted files are preserved.
 ```bash
 cd scripts
 cp .env.example .env
-# edit .env: set ZENODO_TOKEN (required)
+# edit .env: set OSF_TOKEN (for OSF) or ZENODO_TOKEN (for Zenodo)
 
 poetry install
 
 # 1. Bundle all four data directories → dist/*.tar.gz
 poetry run bundle-assets
 
-# 2. Upload all bundles to Zenodo
-poetry run upload-zenodo --new         # first time → prints deposit ID
-poetry run upload-zenodo               # update draft (uses ZENODO_DEPOSIT_ID from .env)
+# 2a. Upload to OSF (recommended)
+poetry run upload-osf --new               # first time → prints node ID
+poetry run upload-osf                     # update existing (uses OSF_NODE_ID from .env)
 
-# 3. Publish the deposit in the Zenodo UI → copy record ID to .env:
-#    ZENODO_RECORD_ID=1234567
+# 2b. Upload to Zenodo (alternative)
+poetry run upload-zenodo --new            # first time → prints deposit ID
+poetry run upload-zenodo                  # update draft (uses ZENODO_DEPOSIT_ID from .env)
+
+# 3. After publishing, update the ID in .env:
+#    OSF_NODE_ID=rcjv5        (OSF)
+#    ZENODO_RECORD_ID=1234567 (Zenodo)
 ```
 
 ## Commands

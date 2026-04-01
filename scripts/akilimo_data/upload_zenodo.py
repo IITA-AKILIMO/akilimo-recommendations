@@ -35,7 +35,6 @@ from tqdm import tqdm
 from .common import DIST_DIR, PROJECT_ROOT, Config, ProgressReader, console
 
 ZENODO_BUNDLES = [
-    "net-assets.tar.gz",
     "data-input.tar.gz",
     "soil-data.tar.gz",
     "yield-data.tar.gz",
