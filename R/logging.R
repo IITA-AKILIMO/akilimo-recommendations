@@ -10,11 +10,18 @@ if (file.exists(env_file)) {
 
 log_levels <- c("DEBUG" = 1, "INFO" = 2, "SUCCESS" = 3, "WARN" = 4, "ERROR" = 5)
 
-# Cache the minimum log level numeric value once
+# Cache the minimum log level numeric value once.
+# Falls back to INFO for empty or unrecognised LOG_LEVEL values.
 min_log_level_value <- {
   lvl <- Sys.getenv("LOG_LEVEL", unset = "INFO")
-  message("Curent log level: ", lvl)
-  log_levels[toupper(lvl)]
+  val <- log_levels[toupper(lvl)]
+  if (is.na(val)) {
+    message("Unrecognised LOG_LEVEL '", lvl, "'; defaulting to INFO")
+    val <- log_levels["INFO"]
+  } else {
+    message("Current log level: ", lvl)
+  }
+  val
 }
 
 should_log <- function(level) {
