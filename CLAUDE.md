@@ -72,6 +72,11 @@ Rscript tests/test_api.R
 
 # Small/quick test subset
 Rscript tests/test_small.R
+
+# PDF generation smoke test (requires PhantomJS or Chrome)
+# Renders all 8 Rmd templates and checks each output is a valid PDF.
+# PhantomJS is auto-installed via webshot::install_phantomjs() if missing.
+Rscript tests/test_pdf.R
 ```
 
 ### Single test via curl
