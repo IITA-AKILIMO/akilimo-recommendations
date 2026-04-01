@@ -2,10 +2,12 @@
 Shared configuration, console, and download helpers used across all scripts.
 
 Environment variables (loaded from scripts/.env via python-dotenv):
-    GITHUB_OWNER      GitHub org or user  [default: masgeek]  — used in Zenodo metadata
-    GITHUB_REPO       Repository name     [default: akilimo-recommendations]
-    ZENODO_RECORD_ID  Zenodo record ID    [default: ""]
-    ZENODO_USE_SANDBOX "1" for sandbox    [default: "0"]
+    GITHUB_OWNER       GitHub org or user  [default: masgeek]  — used in Zenodo metadata
+    GITHUB_REPO        Repository name     [default: akilimo-recommendations]
+    ZENODO_RECORD_ID   Zenodo record ID    [default: ""]
+    ZENODO_USE_SANDBOX "1" for sandbox     [default: "0"]
+    OSF_NODE_ID        OSF project node ID [default: ""]
+    OSF_TOKEN          OSF personal access token (required only for private nodes)
 """
 
 from __future__ import annotations
@@ -61,6 +63,9 @@ class Config:
     sandbox: bool = field(
         default_factory=lambda: os.environ.get("ZENODO_USE_SANDBOX", "0") == "1"
     )
+    osf_node_id: str = field(
+        default_factory=lambda: os.environ.get("OSF_NODE_ID", "")
+    )
     failed: list[str] = field(default_factory=list)
 
     @property
@@ -74,6 +79,14 @@ class Config:
     @property
     def zenodo_files_base(self) -> str:
         return f"{self.zenodo_base}/record/{self.zenodo_id}/files"
+
+    @property
+    def osf_api_base(self) -> str:
+        return "https://api.osf.io/v2"
+
+    @property
+    def osf_storage_url(self) -> str:
+        return f"{self.osf_api_base}/nodes/{self.osf_node_id}/files/osfstorage/"
 
 
 # ---------------------------------------------------------------------------
@@ -163,3 +176,42 @@ def fetch_zenodo_tarball(filename: str, cfg: Config) -> bool:
         return False
     url = f"{cfg.zenodo_files_base}/{filename}?download=1"
     return fetch_tarball(url, filename, cfg)
+
+
+def fetch_osf_tarball(filename: str, cfg: Config) -> bool:
+    """Download a tarball from an OSF project node and extract it into PROJECT_ROOT."""
+    if not cfg.osf_node_id:
+        console.print(
+            f"  [yellow][skip][/] {filename} — "
+            "OSF_NODE_ID not set (add it to .env or pass --osf-node-id)"
+        )
+        return False
+
+    # List files in the node's osfstorage to find the download URL.
+    try:
+        resp = requests.get(cfg.osf_storage_url, timeout=30)
+        resp.raise_for_status()
+        files = resp.json().get("data", [])
+    except requests.RequestException as exc:
+        console.print(f"  [bold red][fail][/] listing OSF node {cfg.osf_node_id}: {exc}")
+        cfg.failed.append(filename)
+        return False
+
+    entry = next(
+        (f for f in files if f.get("attributes", {}).get("name") == filename),
+        None,
+    )
+    if entry is None:
+        console.print(
+            f"  [bold red][fail][/] {filename} not found in OSF node {cfg.osf_node_id}"
+        )
+        cfg.failed.append(filename)
+        return False
+
+    download_url = entry.get("links", {}).get("download", "")
+    if not download_url:
+        console.print(f"  [bold red][fail][/] no download link for {filename} in OSF")
+        cfg.failed.append(filename)
+        return False
+
+    return fetch_tarball(download_url, filename, cfg)
