@@ -1,13 +1,36 @@
 # API Reference
 
-## Endpoint
+The server listens on port **8000** by default.
+
+---
+
+## Endpoints
+
+### `GET /health`
+
+Returns the service status, current version, and UTC timestamp. No request body required.
+
+**Response**
+```json
+{
+  "status": "ok",
+  "version": "20251228",
+  "time": "2025-12-28T10:00:00Z"
+}
+```
+
+```bash
+curl http://localhost:8000/health
+```
+
+---
+
+### `POST /compute`
 
 ```
 POST /compute
 Content-Type: application/json
 ```
-
-The server listens on port **8000** by default.
 
 ---
 
