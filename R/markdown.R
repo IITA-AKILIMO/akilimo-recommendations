@@ -117,9 +117,9 @@ fertilizerAdviseTable <- function(FR, IC, country, areaUnits) {
             if (fert_type %in% names(FERT_LABEL)) dat[, 1] <- FERT_LABEL[[fert_type]]
 
             dat$rep <- if (dat$bag == 0.5) {
-                sprintf("![](net/%s/half.png)", fertColCode)
+                sprintf("![](../net/%s/half.png)", fertColCode)
             } else {
-                paste0("![](net/", fertColCode, "/", gsub(".", "_", dat$bag, fixed = TRUE), ".png)")
+                paste0("![](../net/", fertColCode, "/", gsub(".", "_", dat$bag, fixed = TRUE), ".png)")
             }
 
             write.csv(dat, paste0("./temp/datall", j, ".csv"), row.names = FALSE)
@@ -144,9 +144,9 @@ fertilizerAdviseTable <- function(FR, IC, country, areaUnits) {
     totalSalemoney    <- data.frame(title = paste(acairm$totalSalePrice,  acairm$currency))
     totalRevenuemoney <- data.frame(title = paste(acairm$revenue,         acairm$currency))
 
-    totalCostmoney$moneypack    <- paste0("![](net/cash/Picture", ratioFertCost,  ".png)")
-    totalSalemoney$moneypack    <- paste0("![](net/cash/Picture", ratioTotalSale, ".png)")
-    totalRevenuemoney$moneypack <- paste0("![](net/cash/Picture", ratioRevenue,   ".png)")
+    totalCostmoney$moneypack    <- paste0("![](../net/cash/Picture", ratioFertCost,  ".png)")
+    totalSalemoney$moneypack    <- paste0("![](../net/cash/Picture", ratioTotalSale, ".png)")
+    totalRevenuemoney$moneypack <- paste0("![](../net/cash/Picture", ratioRevenue,   ".png)")
 
     write.csv(totalCostmoney,    "./temp/totalCostmoney.csv",    row.names = FALSE)
     write.csv(totalSalemoney,    "./temp/totalSalemoney.csv",    row.names = FALSE)
