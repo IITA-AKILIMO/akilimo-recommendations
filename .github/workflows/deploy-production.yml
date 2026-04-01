@@ -1,22 +1,20 @@
-name: SHH Service deployemnt
+name: SSH service deployment
 
 on:
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+#  pull_request:
+#    branches: [ "main" ]
 
 permissions:
   contents: read
 
 env:
-  APP_DIR: "/home/akilimo/projects/new_akilimo"   # default fallback
+  APP_DIR: "/home/akilimo/projects/new_akilimo"
   SERVICE_NAME: "akilimo-api.service"
-  NGINX_TEST_CMD: "sudo nginx -t"
-  NGINX_RESTART_CMD: "sudo systemctl restart nginx"
   QUIET_PERIOD: "60" # seconds to wait after last commit
 
-# Ensure only one deployment for main runs at a time
+# Ensure only one deployment runs at a time
 concurrency:
   group: deploy-main
   cancel-in-progress: true
@@ -31,17 +29,16 @@ jobs:
 
       - name: Smart debounce wait
         run: |
-          echo "Starting smart debounce for $QUIET_PERIOD seconds..."
           last_commit_time=$(git log -1 --format=%ct)
           current_time=$(date +%s)
           elapsed=$((current_time - last_commit_time))
           wait_time=$((QUIET_PERIOD - elapsed))
-          
+
           if [ $wait_time -gt 0 ]; then
-            echo "Last commit was $elapsed seconds ago. Waiting $wait_time more seconds..."
+            echo "Last commit was ${elapsed}s ago — waiting ${wait_time}s..."
             sleep $wait_time
           else
-            echo "Last commit was $elapsed seconds ago. No wait needed."
+            echo "Last commit was ${elapsed}s ago — no wait needed."
           fi
 
       - name: Deploy via SSH
@@ -50,52 +47,25 @@ jobs:
           APP_DIR: ${{ secrets.APP_DIR_OVERRIDE || env.APP_DIR }}
           BRANCH: ${{ github.ref_name }}
           SERVICE_NAME: ${{ secrets.SERVICE_NAME_OVERRIDE || env.SERVICE_NAME }}
-          NGINX_TEST_CMD: ${{ env.NGINX_TEST_CMD }}
-          NGINX_RESTART_CMD: ${{ env.NGINX_RESTART_CMD }}
-          ZENODO_RECORD_ID: ${{ secrets.ZENODO_RECORD_ID }}
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          envs: APP_DIR, BRANCH, SERVICE_NAME, NGINX_TEST_CMD, NGINX_RESTART_CMD, ZENODO_RECORD_ID
+          envs: APP_DIR, BRANCH, SERVICE_NAME
           script: |
             set -e
 
-            echo "Deploying branch: $BRANCH"
-            echo "Deployment directory: $APP_DIR"
-            echo "Service: $SERVICE_NAME"
+            echo "Deploying branch: $BRANCH to $APP_DIR (service: $SERVICE_NAME)"
 
             cd $APP_DIR
             git fetch origin
             git checkout $BRANCH
             git pull origin $BRANCH
 
-            echo "Pulling runtime data from Zenodo..."
-            cd $APP_DIR/scripts
-            if [ -f ".env" ]; then
-              # Prefer server-local .env; inject ZENODO_RECORD_ID from secret if set
-              if [ -n "$ZENODO_RECORD_ID" ]; then
-                export ZENODO_RECORD_ID="$ZENODO_RECORD_ID"
-              fi
-            else
-              cp .env.example .env
-              if [ -n "$ZENODO_RECORD_ID" ]; then
-                sed -i "s/^ZENODO_RECORD_ID=.*/ZENODO_RECORD_ID=$ZENODO_RECORD_ID/" .env
-              fi
-            fi
-            poetry run setup-data
-            cd $APP_DIR
-
-            echo "Reloading systemd daemon..."
             sudo systemctl daemon-reload
-
-            echo "Restarting service $SERVICE_NAME..."
             sudo systemctl restart $SERVICE_NAME
 
-            echo "Testing Nginx configuration..."
-            $NGINX_TEST_CMD
-
-            echo "Restarting Nginx..."
-            $NGINX_RESTART_CMD
+            sudo nginx -t
+            sudo systemctl restart nginx
 
             echo "Deployment completed successfully"
