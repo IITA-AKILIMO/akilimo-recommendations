@@ -86,24 +86,24 @@ run_fixture("in_18_NG_IC_fresh_cob_manual_sms_email_riskAtt1")
 check_pdf("IC English (NG)",  "./Rmd/IC_markdown_VFT.Rmd", "temp/test_IC_en.pdf")
 
 # CIS — Cassava-Intercrop Swahili (TZ)
-# Skipped: net/Akilimo Dashboard CIS.png is missing from the data assets.
-skip_pdf("CIS Swahili (TZ)", "net/Akilimo Dashboard CIS.png missing from data assets")
+run_fixture("in_33_TZ_IC_CIS_riskAtt2")
+check_pdf("CIS Swahili (TZ)", "./Rmd/CIS_markdown_swa.Rmd", "temp/test_CIS_sw.pdf")
 
 # PP — Post-Planting (English, NG)
-# Skipped: no PP fixture exists in tests/input yet.
-skip_pdf("PP English (NG)",  "no PP fixture in tests/input")
+run_fixture("in_30_NG_PP_riskAtt0")
+check_pdf("PP English (NG)",  "./Rmd/PP_markdownVFT.Rmd",   "temp/test_PP_en.pdf")
 
 # PP — Post-Planting (Swahili, TZ)
-# Skipped: no PP fixture exists in tests/input yet.
-skip_pdf("PP Swahili (TZ)",  "no PP fixture in tests/input")
+run_fixture("in_31_TZ_PP_riskAtt0")
+check_pdf("PP Swahili (TZ)",  "./Rmd/PP_markdown_swa.Rmd",  "temp/test_PP_sw.pdf")
 
 # SP — Soil Preparation (English, NG)
 run_fixture("in_29_NG_SP_riskAtt0")
-check_pdf("SP English (NG)",  "./Rmd/SP_markdownVFT.Rmd",  "temp/test_SP_en.pdf")
+check_pdf("SP English (NG)",  "./Rmd/SP_markdownVFT.Rmd",   "temp/test_SP_en.pdf")
 
 # SP — Soil Preparation (Swahili, TZ)
-# Skipped: no TZ SP fixture exists in tests/input yet.
-skip_pdf("SP Swahili (TZ)",  "no TZ SP fixture in tests/input")
+run_fixture("in_32_TZ_SP_riskAtt0")
+check_pdf("SP Swahili (TZ)",  "./Rmd/SP_markdown_swa.Rmd",  "temp/test_SP_sw.pdf")
 
 # ---------------------------------------------------------------------------
 cat(sprintf("\n%d passed, %d failed, %d skipped\n", pass, fail, skip))

@@ -35,7 +35,11 @@ test_files <- c(
     "in_26_NG_FR_starch_matna_riskAtt2",
     "in_27_NG_FR_starch_matna_high_invest_riskAtt2_v2",
     "in_28_NG_FR_out_of_scope_location_riskAtt1",
-    "in_29_NG_SP_riskAtt0"
+    "in_29_NG_SP_riskAtt0",
+    "in_30_NG_PP_riskAtt0",
+    "in_31_TZ_PP_riskAtt0",
+    "in_32_TZ_SP_riskAtt0",
+    "in_33_TZ_IC_CIS_riskAtt2"
 )
 
 cmd <- 'curl -X POST http://localhost:8000/compute --data "@./tests/input/FILE.json"'
