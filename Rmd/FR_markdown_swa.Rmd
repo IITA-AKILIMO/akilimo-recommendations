@@ -3,46 +3,10 @@ title:
 output:
   flexdashboard::flex_dashboard:
     orientation: rows
+    css: "../net/akilimo.css"
 params:
   temp_dir: "../temp"
 ---
-  
-  <style>
-
-body {
-  padding-top:0px
-}
-
-.navbar{
-  visibility: hidden
-}
-}
-
-</style> 
-
- <style type="text/css">
-
-.chart-title {  /* chart_title  */
-   font-size: 25px;
-   font-family: Gill Sans MT;
-
-</style>
-
-<style>
-/* Whole document: */
-body{
-  font-family: Gill Sans MT;
-  font-size: 20px;
-}
-
-<style>
-#What-you-told-us{
-  background-color: blue;
-  color: white;
-}
-
-
-</style>
 
 ```{r "setup", include=FALSE}
 
@@ -511,11 +475,11 @@ Tani `r  bags_total` ya mihogo: ~ Mifuko `r  bags_total100` ya kilo mia moja ya 
 
 ### Mchanganuo wa gharama na faida
 
-Jumla ya gharama: **`r totalCostmoney$title`**
+Jumla ya gharama: **`r totalCostmoney$title`** `r totalCostmoney$moneypack`
 <br>
-Jumla ya mapato yaliyokokotolewa: **`r totalSalemoney$title`**
+Jumla ya mapato yaliyokokotolewa: **`r totalSalemoney$title`** `r totalSalemoney$moneypack`
 <br>
-Jumla ya mapato yaliyotarajiwa: **`r totalRevenuemoney$title`**
+Jumla ya mapato yaliyotarajiwa: **`r totalRevenuemoney$title`** `r totalRevenuemoney$moneypack`
 
 </div>
 

@@ -2,48 +2,10 @@
 output:
   flexdashboard::flex_dashboard:
     orientation: rows
+    css: "../net/akilimo.css"
 params:
   temp_dir: "../temp"
 ---
-  
-  <style>
-
-body {
-  padding-top:0px;
-  padding-left:15px;
-  padding-right:15px;
-}
-
-.navbar{
-  visibility: hidden;
-}
-}
-
-</style> 
-
- <style type="text/css">
-
-.chart-title {  /* chart_title  */
-   font-size: 30px;
-   font-family: Helvetica;
-
-</style>
-
-<style>
-/* Whole document: */
-body{
-  font-family: Helvetica;
-  font-size: 20px;
-}
-
-<style>
-#What-you-told-us{
-  background-color: blue;
-  color: white;
-}
-
-
-</style>
 
 ```{r "setup", include=FALSE}
 show_text <- FALSE
@@ -584,13 +546,11 @@ revenue <- personalized_info$revenue
 
 
  <font size="4">
-Jumla ya gharama:  **`r totalCostmoney`**
+Jumla ya gharama:  **`r totalCostmoney$title`** `r totalCostmoney$moneypack`
 <br>
-
-Jumla ya mapato yaliyokokotolewa: **`r totalSalemoney`**
+Jumla ya mapato yaliyokokotolewa: **`r totalSalemoney$title`** `r totalSalemoney$moneypack`
 <br>
-
-Jumla ya mapato yaliyotarajiwa: **`r totalRevenuemoney`**
+Jumla ya mapato yaliyotarajiwa: **`r totalRevenuemoney$title`** `r totalRevenuemoney$moneypack`
 
 
 </font>

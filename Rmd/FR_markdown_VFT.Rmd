@@ -3,46 +3,10 @@ title:
 output:
   flexdashboard::flex_dashboard:
     orientation: rows
+    css: "../net/akilimo.css"
 params:
   temp_dir: "../temp"
 ---
-  
-  <style>
-
-body {
-  padding-top:0px
-}
-
-.navbar{
-  visibility: hidden
-}
-}
-
-</style> 
-
- <style type="text/css">
-
-.chart-title {  /* chart_title  */
-   font-size: 25px;
-   font-family: Gill Sans MT;
-
-</style>
-
-<style>
-/* Whole document: */
-body{
-  font-family: Gill Sans MT;
-  font-size: 20px;
-}
-
-<style>
-#What-you-told-us{
-  background-color: blue;
-  color: white;
-}
-
-
-</style>
 
 ```{r "setup", include=FALSE}
 
@@ -496,11 +460,11 @@ revenue <- personalized_info$revenue
 
 ### Cost benefit analysis
 
-Total cost:  **`r totalCostmoney$title`**
+Total cost:  **`r totalCostmoney$title`** `r totalCostmoney$moneypack`
 <br>
-Total calculated revenue: **`r totalSalemoney$title`**
+Total calculated revenue: **`r totalSalemoney$title`** `r totalSalemoney$moneypack`
 <br>
-Your expected net revenue: **`r totalRevenuemoney$title`**
+Your expected net revenue: **`r totalRevenuemoney$title`** `r totalRevenuemoney$moneypack`
 
 </div>
 

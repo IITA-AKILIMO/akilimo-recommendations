@@ -1,0 +1,76 @@
+/* akilimo.css — shared stylesheet for all Rmd PDF templates */
+
+body {
+  padding-top: 0;
+  margin: 0;
+  font-family: 'Gill Sans MT', 'Gill Sans', Calibri, Arial, sans-serif;
+  font-size: 13px;
+  color: #222222;
+  background-color: #ffffff;
+}
+
+.navbar {
+  visibility: hidden;
+  height: 0 !important;
+  min-height: 0 !important;
+}
+
+/* Section headings — override flexdashboard colored chart-title bar */
+.chart-title {
+  font-size: 17px;
+  font-weight: normal;
+  font-family: 'Gill Sans MT', 'Gill Sans', Calibri, Arial, sans-serif;
+  color: #333333;
+  background-color: #ffffff !important;
+  border-bottom: 1px solid #cccccc !important;
+  padding: 6px 0 4px 0;
+}
+
+/* Remove panel borders/shadows */
+.chart-wrapper {
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+.chart-stage {
+  padding: 8px 0;
+}
+
+/* Headings */
+h1, h2, h3, h4 {
+  font-weight: normal;
+  color: #333333;
+  margin-top: 10px;
+  margin-bottom: 4px;
+}
+
+/* Horizontal rules */
+hr {
+  border: none;
+  border-top: 1px solid #cccccc;
+  margin: 10px 0;
+}
+
+/* Tables */
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+th {
+  font-weight: bold;
+  border-bottom: 2px solid #aaaaaa;
+  padding: 5px 8px;
+  text-align: left;
+  background-color: #ffffff;
+}
+
+td {
+  padding: 5px 8px;
+  border-bottom: 1px solid #eeeeee;
+}
+
+tr:nth-child(even) td {
+  background-color: #f8f8f8;
+}
