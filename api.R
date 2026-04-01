@@ -20,6 +20,20 @@ source("R/logging.R")   # bring in logging functions
 library(plumber)
 
 pr <- Plumber$new()
+
+pr$handle(
+  method = "GET",
+  path = "/health",
+  handler = function(res) {
+    res$status <- 200L
+    list(
+      status  = jsonlite::unbox("ok"),
+      version = jsonlite::unbox("20251228"),
+      time    = jsonlite::unbox(format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"))
+    )
+  }
+)
+
 pr$handle(
   method = "POST",
   path = "/compute",
