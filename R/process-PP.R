@@ -54,8 +54,8 @@ getPPrecommendations <- function(areaHa, costLMO,
   # ds$ploughing / ds$ridging are column vectors; ploughing / ridging are scalar flags from the request.
   ds$CP <- (ds$ploughing == ploughing) &
            (ds$ridging   == ridging)   &
-           ifelse(ploughing, ds$method_ploughing == method_ploughing, TRUE) &
-           ifelse(ridging,   ds$method_ridging   == method_ridging,   TRUE)
+           (!ploughing | ds$method_ploughing == method_ploughing) &
+           (!ridging   | ds$method_ridging   == method_ridging)
 
 # Calculate the differences only for rows where 'CP' is TRUE
 # bad: there must be one that is true...
@@ -143,7 +143,9 @@ getPPrecText <- function(ds, country, lang) {
         }
     } else {""}
 
-    paste(recT, rcost, tr("thank", lang))
+    thank <- trimws(sub("^\\.", "", tr("thank", lang)))
+    parts <- Filter(nzchar, trimws(c(recT, rcost)))
+    paste(c(parts, thank), collapse = " ")
   }
 
   #TODO: This only provides the minimal information to return to the user. We may consider adding following information:
