@@ -46,7 +46,6 @@ body{
 ```{r}
 
 
-source("AkilimoFunctions_5D.R")
 ```
 
 
@@ -54,8 +53,8 @@ source("AkilimoFunctions_5D.R")
 #fertilizerAdviseTable()
 #out.width = "40500px",
 
-knitr::include_graphics("net/Akilimo Dashboard IC.png")
-#knitr::include_graphics("/home/akilimo/projects/akilimo_recommendation/net/Akilimo Dashboard IC.png")
+knitr::include_graphics("../net/Akilimo Dashboard IC.png")
+#knitr::include_graphics("../net/Akilimo Dashboard IC.png")
 ```
 
 
@@ -73,8 +72,8 @@ knitr::opts_chunk$set(echo = TRUE)
 options(knitr.kable.NA = '')
 
 
-personalized_info <- read.csv("/home/akilimo/projects/akilimo_recommendation/personalized_info.csv")
-#personalized_info <- read.csv("IC_MarkDownText.csv")
+personalized_info <- read.csv("../temp/IC_MarkDownText.csv")
+#personalized_info <- read.csv("../temp/IC_MarkDownText.csv")
 
 #personalized_info$current_yield <- round(personalized_info$current_yield, digits=0)
  
@@ -98,9 +97,9 @@ personalized_info$hvst_date2 <- paste(personalized_info$actuald, personalized_in
 # totalSalemoney <-read.csv("/home/akilimo/projects/akilimo_recommendation/totalSalemoney.csv")
 # totalCostmoney <-read.csv("/home/akilimo/projects/akilimo_recommendation/totalCostmoney.csv")
 
-totalRevenuemoney <-read.csv("totalRevenuemoney.csv")
-totalSalemoney <-read.csv("totalSalemoney.csv")
-totalCostmoney <-read.csv("totalCostmoney.csv")
+totalRevenuemoney <-read.csv("../temp/totalRevenuemoney.csv")
+totalSalemoney <-read.csv("../temp/totalSalemoney.csv")
+totalCostmoney <-read.csv("../temp/totalCostmoney.csv")
 
 
 # for (i in 1:nrow(personalized_info)){
@@ -145,12 +144,12 @@ library(kableExtra)
  options(knitr.table.format = 'markdown')
 library(dplyr)
 
-#personalized_info <- read.csv("/home/akilimo/projects/akilimo_recommendation/personalized_info.csv")
-personalized_info <- read.csv("personalized_info.csv")
+#personalized_info <- read.csv("../temp/IC_MarkDownText.csv")
+personalized_info <- read.csv("../temp/IC_MarkDownText.csv")
 
  dds <- NULL
-if (file.exists("datall1.csv")) {
-  da1 <-read.csv("datall1.csv", stringsAsFactors = FALSE)
+if (file.exists("../temp/datall1.csv")) {
+  da1 <-read.csv("../temp/datall1.csv", stringsAsFactors = FALSE)
   costt <- formatC(da1$total_cost1, format="f", big.mark=",", digits=0)
   #costt <- formatC(signif(da1$total_cost1, digits=3), format="f", big.mark=",", digits=0)
   da1$unit <- gsub(" bag", "", da1$unit1)
@@ -167,8 +166,8 @@ if (file.exists("datall1.csv")) {
 }
 
 
-if (file.exists("datall2.csv")){
-  da2 <-read.csv("datall2.csv", stringsAsFactors = FALSE)
+if (file.exists("../temp/datall2.csv")){
+  da2 <-read.csv("../temp/datall2.csv", stringsAsFactors = FALSE)
   #cost2 <- formatC(signif(da2$total_cost2, digits=3), format="f", big.mark=",", digits=0)
   cost2 <- formatC(da2$total_cost2, format="f", big.mark=",", digits=0)
   da2$unit <- gsub(" bag", "", da2$unit2)
@@ -184,8 +183,8 @@ if (file.exists("datall2.csv")){
   da2 <- NULL
 }
 
-if (file.exists("datall3.csv")){
-  da3 <-read.csv("datall3.csv", stringsAsFactors = FALSE)
+if (file.exists("../temp/datall3.csv")){
+  da3 <-read.csv("../temp/datall3.csv", stringsAsFactors = FALSE)
   #cost3 <- formatC(signif(da3$total_cost3, digits=3), format="f", big.mark=",", digits=0)
   cost3 <- formatC(da3$total_cost3, format="f", big.mark=",", digits=0)
   da3$unit <- gsub(" bag", "", da3$unit3)
@@ -202,8 +201,8 @@ if (file.exists("datall3.csv")){
 }
 
 
-if (file.exists("datall4.csv")){
-  da4 <-read.csv("datall4.csv", stringsAsFactors = FALSE)
+if (file.exists("../temp/datall4.csv")){
+  da4 <-read.csv("../temp/datall4.csv", stringsAsFactors = FALSE)
   #cost4 <- formatC(signif(da4$total_cost4, digits=3), format="f", big.mark=",", digits=0)
   cost4 <- formatC(da4$total_cost4, format="f", big.mark=",", digits=0)
   da4$unit <- gsub(" bag", "", da4$unit4)
@@ -218,8 +217,8 @@ if (file.exists("datall4.csv")){
   da4 <- NULL
 }
 
-if (file.exists("datall5.csv")){
-  da5 <-read.csv("datall5.csv", stringsAsFactors = FALSE)
+if (file.exists("../temp/datall5.csv")){
+  da5 <-read.csv("../temp/datall5.csv", stringsAsFactors = FALSE)
   #cost5 <- formatC(signif(da5$total_cost5, digits=3), format="f", big.mark=",", digits=0)
   cost5 <- formatC(da5$total_cost5, format="f", big.mark=",", digits=0)
   da5$kgs51 <- round(da5$kgs5, digits=0)
@@ -391,7 +390,7 @@ currency <- personalized_info$currency
  <div class = "col-md-4">
 #### Cost information
 ```{r echo=FALSE}
-personalized_info <- read.csv("personalized_info.csv")
+personalized_info <- read.csv("../temp/IC_MarkDownText.csv")
 	# # calculating cobUP based on maizeUP, maizeUW and conversion from grain to cobs if maizePD == "grain"
 	# if(is.na(personalized_info$maizeUP) & personalized_info$maizePD == "fresh_cob") personalized_info$maizeUP <- 50 #default price for 1 large fresh cob
 	# if(is.na(personalized_info$maizeUP) & personalized_info$maizePD == "grain") {
@@ -422,7 +421,7 @@ Maize price: **`r unitproduct`**
 
 
 ```{r setup, include=FALSE}
- personalized_info <- read.csv("personalized_info.csv")
+ personalized_info <- read.csv("../temp/IC_MarkDownText.csv")
 
 	currency <- personalized_info$currency
 
@@ -436,7 +435,7 @@ costcassava <- paste(formatC(personalized_info$cassUP,format="f", big.mark=",", 
 
  }
 
-sales <- read.csv("IC_MarkDownText.csv")
+sales <- read.csv("../temp/IC_MarkDownText.csv")
 costcassava <- sales$costcassava
 sales$factory <- ifelse(sales$saleSF == TRUE, paste("Cassava sold to: ",sales$nameSF), paste("Cassava sold @", currency, costcassava, "per", unitcassava))
 SFoutput <- subset(sales, select=c(factory))
@@ -463,12 +462,12 @@ library(kableExtra)
  options(knitr.table.format = 'markdown')
 library(dplyr)
 
-#personalized_info <- read.csv("/home/akilimo/projects/akilimo_recommendation/personalized_info.csv")
-personalized_info <- read.csv("personalized_info.csv")
+#personalized_info <- read.csv("../temp/IC_MarkDownText.csv")
+personalized_info <- read.csv("../temp/IC_MarkDownText.csv")
 
  dds <- NULL
-if (file.exists("datall1.csv")) {
-  da1 <-read.csv("datall1.csv", stringsAsFactors = FALSE)
+if (file.exists("../temp/datall1.csv")) {
+  da1 <-read.csv("../temp/datall1.csv", stringsAsFactors = FALSE)
   costt <- formatC(da1$total_cost1, format="f", big.mark=",", digits=0)
   #costt <- formatC(signif(da1$total_cost1, digits=3), format="f", big.mark=",", digits=0)
   da1$unit <- gsub(" bag", "", da1$unit1)
@@ -485,8 +484,8 @@ if (file.exists("datall1.csv")) {
 }
 
 
-if (file.exists("datall2.csv")){
-  da2 <-read.csv("datall2.csv", stringsAsFactors = FALSE)
+if (file.exists("../temp/datall2.csv")){
+  da2 <-read.csv("../temp/datall2.csv", stringsAsFactors = FALSE)
   #cost2 <- formatC(signif(da2$total_cost2, digits=3), format="f", big.mark=",", digits=0)
   cost2 <- formatC(da2$total_cost2, format="f", big.mark=",", digits=0)
   da2$unit <- gsub(" bag", "", da2$unit2)
@@ -502,8 +501,8 @@ if (file.exists("datall2.csv")){
   da2 <- NULL
 }
 
-if (file.exists("datall3.csv")){
-  da3 <-read.csv("datall3.csv", stringsAsFactors = FALSE)
+if (file.exists("../temp/datall3.csv")){
+  da3 <-read.csv("../temp/datall3.csv", stringsAsFactors = FALSE)
   #cost3 <- formatC(signif(da3$total_cost3, digits=3), format="f", big.mark=",", digits=0)
   cost3 <- formatC(da3$total_cost3, format="f", big.mark=",", digits=0)
   da3$unit <- gsub(" bag", "", da3$unit3)
@@ -520,8 +519,8 @@ if (file.exists("datall3.csv")){
 }
 
 
-if (file.exists("datall4.csv")){
-  da4 <-read.csv("datall4.csv", stringsAsFactors = FALSE)
+if (file.exists("../temp/datall4.csv")){
+  da4 <-read.csv("../temp/datall4.csv", stringsAsFactors = FALSE)
   #cost4 <- formatC(signif(da4$total_cost4, digits=3), format="f", big.mark=",", digits=0)
   cost4 <- formatC(da4$total_cost4, format="f", big.mark=",", digits=0)
   da4$unit <- gsub(" bag", "", da4$unit4)
@@ -536,8 +535,8 @@ if (file.exists("datall4.csv")){
   da4 <- NULL
 }
 
-if (file.exists("datall5.csv")){
-  da5 <-read.csv("datall5.csv", stringsAsFactors = FALSE)
+if (file.exists("../temp/datall5.csv")){
+  da5 <-read.csv("../temp/datall5.csv", stringsAsFactors = FALSE)
   #cost5 <- formatC(signif(da5$total_cost5, digits=3), format="f", big.mark=",", digits=0)
   cost5 <- formatC(da5$total_cost5, format="f", big.mark=",", digits=0)
   da5$kgs51 <- round(da5$kgs5, digits=0)
@@ -603,10 +602,10 @@ gsub("<thead>.*</thead>", "", x)
 ```{r echo=FALSE}
 
 #setwd("D:/ACAI_Wrapper/cloud_compute")
-personalized_info <- read.csv("personalized_info.csv")
-totalCostmoney <- read.csv("totalCostmoney.csv")
-totalSalemoney <- read.csv("totalSalemoney.csv")
-totalRevenuemoney <- read.csv("totalRevenuemoney.csv")
+personalized_info <- read.csv("../temp/IC_MarkDownText.csv")
+totalCostmoney <- read.csv("../temp/totalCostmoney.csv")
+totalSalemoney <- read.csv("../temp/totalSalemoney.csv")
+totalRevenuemoney <- read.csv("../temp/totalRevenuemoney.csv")
 dMP <- personalized_info$dMP
 currency<- personalized_info$currency
 bags_total100<- (personalized_info$bags_total)*10
@@ -652,11 +651,11 @@ Your expected net revenue: **`r totalRevenuemoney`**
 ```{r echo=FALSE, message=FALSE, fig.height=8, fig.width=13, warning = FALSE, results='hide'}
 
 #setwd("D:/ACAI_Wrapper/cloud_compute")
-personalized_info <- read.csv("personalized_info.csv")
+personalized_info <- read.csv("../temp/IC_MarkDownText.csv")
 geodata <- personalized_info
 #setwd("D:/ACAI_Wrapper/fertilizer advice Rmd")
 
-# geodata <- read.csv("FR_MarkDownText.csv", stringsAsFactors = FALSE)
+# geodata <- read.csv("../temp/FR_MarkDownText.csv", stringsAsFactors = FALSE)
 # geodata <- unique(geodata)
 #geodata <- read.csv(file = "MarkDownTextD.csv", header = TRUE,  sep = "," )
 data <- subset(geodata[1,], select = c("name", "latitude", "longitude"))
@@ -705,7 +704,7 @@ mapshot(my_map,  height=100, file="map.png")
 ---------------------------------------------------------
 
 ```{r echo=FALSE}
-recommendation_IC <- read.csv("IC_recText.csv", stringsAsFactors = FALSE)
+recommendation_IC <- read.csv("../temp/IC_recText.csv", stringsAsFactors = FALSE)
 ```
   <font size="4">
 `r recommendation_IC`
