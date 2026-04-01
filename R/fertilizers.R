@@ -2,6 +2,10 @@
 
 get_fertilizers2 <- function(js, country) {
 
+	# Normalise UREA prefix to lowercase so both "UREAavailable" and
+	# "ureaavailable" (etc.) are accepted from callers.
+	urea_idx <- grepl("^UREA", names(js))
+	names(js)[urea_idx] <- sub("^UREA", "urea", names(js)[urea_idx])
 
 	get_df <- function(js) {
 		nms <- names(js)
@@ -81,7 +85,14 @@ get_fertilizers2 <- function(js, country) {
 	}
 
 	d_new <- get_new(js)
-	fd <- try(rbind(fd, d_new))
+	fd <- tryCatch(
+		rbind(fd, d_new),
+		error = function(e) {
+			warning("Failed to merge custom fertilizer data: ", e$message,
+					" — custom fertilizers ignored")
+			fd
+		}
+	)
 	rownames(fd) <- NULL
 	na <- rowSums(is.na(fd)) > 0
 	if (any(na)) {

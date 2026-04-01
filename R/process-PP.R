@@ -50,8 +50,12 @@ getPPrecommendations <- function(areaHa, costLMO,
   #  ridging == ridging &
   #  method_ridging == method_ridging)
 
-  ds$CP <-  ifelse(ds$ploughing, ploughing & ds$method_ploughing == method_ploughing, !ploughing) &
-			ifelse(ds$ridging, ridging & ds$method_ridging == method_ridging, !ridging)     
+  # Mark the row that matches the farmer's current practice.
+  # ds$ploughing / ds$ridging are column vectors; ploughing / ridging are scalar flags from the request.
+  ds$CP <- (ds$ploughing == ploughing) &
+           (ds$ridging   == ridging)   &
+           ifelse(ploughing, ds$method_ploughing == method_ploughing, TRUE) &
+           ifelse(ridging,   ds$method_ridging   == method_ridging,   TRUE)
 
 # Calculate the differences only for rows where 'CP' is TRUE
 # bad: there must be one that is true...
@@ -69,10 +73,16 @@ getPPrecommendations <- function(areaHa, costLMO,
 #    ds$dNR <- ds$NR
 #  }
 
-  ds$dTC <- ds$TC - ds$TC[ds$CP]
-  ds$dRP <- ds$RP - ds$RP[ds$CP]
-  ds$dGR <- ds$GR - ds$GR[ds$CP]
-  ds$dNR <- ds$NR - ds$NR[ds$CP]
+  cp_idx <- which(ds$CP)
+  if (length(cp_idx) == 0) {
+      warning("No current-practice row matched in PP recommendations; using lowest-NR row as baseline")
+      cp_idx <- which.min(ds$NR)
+  }
+  cp_idx <- cp_idx[1]  # guard against duplicate matches
+  ds$dTC <- ds$TC - ds$TC[cp_idx]
+  ds$dRP <- ds$RP - ds$RP[cp_idx]
+  ds$dGR <- ds$GR - ds$GR[cp_idx]
+  ds$dNR <- ds$NR - ds$NR[cp_idx]
 
   #minimal required net revenue increase from fertilizer needed (taking into account risk attitude of user)
   # ds$dNRmin <- ds$TC * ifelse(riskAtt == 0, 2.8, ifelse(riskAtt == 1, 2, 1.2))
@@ -92,45 +102,48 @@ getPPrecommendations <- function(areaHa, costLMO,
 #' @export
 #'
 #' @examples
-getPPrecText <- function(ds, country = c("NG", "TZ", "RW")) {
+getPPrecText <- function(ds, country, lang) {
 
-	tr <- get_data("TRNS")
-  
   ds$method_ploughing <- as.character(ds$method_ploughing)
   ds$method_ridging <- as.character(ds$method_ridging)
 
-  ds$method_ploughing <- ifelse(country == "TZ" & ds$method_ploughing == "tractor", "kwa trekta", ds$method_ploughing)
-  ds$method_ploughing <- ifelse(country == "TZ" & ds$method_ploughing == "manual", "kwa jembe la mkono", ds$method_ploughing)
-  ds$method_ridging <- ifelse(country == "TZ" & ds$method_ridging == "tractor", "kwa trekta", ds$method_ridging)
-  ds$method_ridging <- ifelse(country == "TZ" & ds$method_ridging == "manual", "kwa jembe la mkono", ds$method_ridging)
-	
-	cni <- ifelse(country=="NG", 1, ifelse(country=="TZ", 2, 3))
+  method_tractor <- tr("method_tractor", lang)
+  method_manual  <- tr("method_manual",  lang)
+  ds$method_ploughing <- ifelse(ds$method_ploughing == "tractor", method_tractor,
+                         ifelse(ds$method_ploughing == "manual",  method_manual, ds$method_ploughing))
+  ds$method_ridging   <- ifelse(ds$method_ridging   == "tractor", method_tractor,
+                         ifelse(ds$method_ridging   == "manual",  method_manual, ds$method_ridging))
 
   if (ds[1,]$CP) {
-      paste0(tr$optim[cni],
-             ifelse(ds[1,]$method_ploughing == "N/A", tr$no[cni], ds[1,]$method_ploughing), paste(tr$plo[cni]),
-             ifelse(ds[1,]$method_ridging == "N/A", tr$no[cni], ds[cni,]$method_ridging), paste(tr$ridg[cni]), "\n", " ", tr$decnet[cni])
+      paste0(tr("optim", lang),
+             ifelse(ds[1,]$method_ploughing == "N/A", tr("no", lang), ds[1,]$method_ploughing), paste(tr("plo", lang)),
+             ifelse(ds[1,]$method_ridging   == "N/A", tr("no", lang), ds[1,]$method_ridging),   paste(tr("ridg", lang)), "\n", " ", tr("decnet", lang))
   } else {
     recT <- if (ds[1,]$ploughing && ds[1,]$ridging) {
-      if (country == "TZ") {
-        paste0(tr$werec_[2], tr$plofol[2], ds[1,]$method_ploughing, tr$plofol2[2], ds[1,]$method_ridging, tr$ridg[2], "\n")
+      if (lang == "sw") {
+        paste0(tr("werec", lang), tr("plofol", lang), ds[1,]$method_ploughing, tr("plofol2", lang), ds[1,]$method_ridging, tr("ridg", lang), "\n")
       } else {
-        paste0(tr$werec_[cni], ds[1,]$method_ploughing, tr$plofol[cni], ds[1,]$method_ridging, tr$ridg[cni], "\n")		
+        paste0(tr("werec", lang), ds[1,]$method_ploughing, tr("plofol", lang), ds[1,]$method_ridging, tr("ridg", lang), "\n")
       }
     } else if (!(ds[1,]$ploughing || ds[1,]$ridging)) {
-        paste0(tr$zerot[cni], "\n")
+        paste0(tr("zerot", lang), "\n")
     } else if (ds[1,]$ploughing) {
-        paste0(tr$werec_[cni], ds[1,]$method_ploughing, tr$noridg[cni], "\n")
+        paste0(tr("werec", lang), ds[1,]$method_ploughing, tr("noridg", lang), "\n")
     } else if (ds[1,]$ridging) {
-        paste0(tr$noplo[cni], ds[1,]$method_ridging, "\n")
-	} else {""}
-	
-    rcost <- if (ds[1,]$ploughing | ds[1,]$ridging) {
-        paste0(tr$changcost[cni], tr$this[cni], tr$decr[cni], tr$incr[cni], ds[1,]$cost, tr$costb[cni], tr$rtprod[cni], "\n")
+        paste0(tr("noplo", lang), ds[1,]$method_ridging, "\n")
     } else {""}
-	
-	
-    paste(recT, rcost, tr$thank[1])
+
+    rcost <- if (ds[1,]$ploughing | ds[1,]$ridging) {
+        if (ds[1,]$dTC == 0) {
+            paste0(tr("changcost", lang), tr("rtprod", lang), "\n")
+        } else {
+            paste0(tr("this", lang),
+                   ifelse(ds[1,]$dTC < 0, tr("decr", lang), tr("incr", lang)),
+                   tr("costb", lang), abs(ds[1,]$dTC), tr("rtprod", lang), "\n")
+        }
+    } else {""}
+
+    paste(recT, rcost, tr("thank", lang))
   }
 
   #TODO: This only provides the minimal information to return to the user. We may consider adding following information:
@@ -143,7 +156,7 @@ getPPrecText <- function(ds, country = c("NG", "TZ", "RW")) {
 }
 
 
-process_PP <- function(PP, country, areaHa, costLMO, ploughing, ridging,
+process_PP <- function(PP, country, lang, areaHa, costLMO, ploughing, ridging,
 		method_ploughing, method_ridging, FCY, rootUP, riskAtt, user,
 		userField, area, areaUnits, PD, HD, lat, lon, cassPD, cassUW, maxInv) {
 
@@ -153,7 +166,7 @@ process_PP <- function(PP, country, areaHa, costLMO, ploughing, ridging,
 				method_ridging = method_ridging, FCY = FCY, rootUP = rootUP, riskAtt = riskAtt )
 
   # Generate recommendation text
-  recText <- getPPrecText(ds = res, country = country)
+  recText <- getPPrecText(ds = res, country = country, lang = lang)
 
   # Write output files
   write.csv(res, './temp/PP_rec.csv', row.names = FALSE)

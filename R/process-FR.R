@@ -7,28 +7,18 @@
 #' @export
 #'
 #' @examples
-getFRrecText <- function(ds, country) {
-  
-	tr <- get_data("TRNS")
+getFRrecText <- function(ds, country, lang) {
 
-#	ci <- ifelse(country %in% c("NG", "GH", "BI"), 1, 
-#			ifelse(country == "TZ", 2, 
-#			ifelse(country == "RW", 3, NA)))
-	# use english for Rwanda		
-	ci <- ifelse(country == "TZ", 2, 1)
-
-	if (is.null(ds$data)) {	# out of geographic scpoie
-		recText <- tr$recloc[ci]
-		#recText <- tr$norecom[ci]
+	if (is.null(ds$data)) {	# out of geographic scope
+		recText <- tr("recloc", lang)
 	} else if (ds$data$NR <= 0) { # not profitable
-		recText <- tr$frnotrec[ci]
+		recText <- tr("frnotrec", lang)
 	} else if (ds$data$TC == 0) { # profitable, but do not apply
-        recText <- tr$notapply[ci]
-      #TODO: This does not provide details on the reasons why we do not recommend to apply fertilizer.
-      #This might either be due to
-      #1. unfavourable price ratios (root price over fertilizer price is too low),
-      #2. low yield potential (unfavourable planting / harvest date and low WLY),
-      #3. high soil fertility and low response (high FCY or high indigenous nutrient supply).
+        recText <- tr("notapply", lang)
+      # NOTE: recommendation text does not explain the reason for non-application.
+      # Possible causes: unfavourable price ratio, low yield potential, or high
+      # indigenous nutrient supply. Adding cause-specific text requires extending
+      # this branch with additional data from the QUEFTS output.
     } else {
 		frate <- ds$fertilizer_rates
 
@@ -38,27 +28,24 @@ getFRrecText <- function(ds, country) {
 		NR <- formatC(ds$data$NR, format = "f", big.mark = ",", digits = 0)
 		DY <- signif(ds$data$TargetY - ds$data$CurrentY, digits = 2)
 
-		add_more <- function(x, i) {
-            paste0(x, tr$area[i], "\n",
-               tr$willc[i], currency, " ", TC, ".\n",
-               tr$extrap[i], DY, tr$tonof[1],
-               tr$netincr[i], currency, " ", NR, ".")
+		add_more <- function(x) {
+            paste0(x, tr("area", lang), "\n",
+               tr("willc", lang, currency = currency, amount = TC), "\n",
+               tr("frImpact", lang, dy = DY, currency = currency, nr = NR))
 			}
 
-		recText <- if (ci == 1) {
-			add_more(paste0(tr$werec[1], "\n", paste0(round(frate$rate), tr$kgof[1], 
-					frate$type, collapse = "\n")), ci)
+		recText <- if (lang != "sw") {
+			add_more(paste0(tr("werec", lang), "\n",
+				paste0(round(frate$rate), tr("kgof", lang), frate$type, collapse = "\n")))
 		} else {
-			add_more(paste0(tr$werec[2], "\n", paste0(tr$kgof[2], 
-					round(frate$rate), tr$of[2], frate$type, collapse = "\n")), ci)
+			add_more(paste0(tr("werec", lang), "\n",
+				paste0(tr("kgof", lang), round(frate$rate), tr("of", lang), frate$type, collapse = "\n")))
 		}
 		
-      #TODO: This only provides the minimal information to return to the user. We may consider adding following information:
-      #1. Split regime - how should this fertilizer application be distributed over time?
-      #2. Best application method - furrow or full ring application.
-      #3. Possible better alternative fertilizers...
-      #4. Importance of good agronomic practices
-      #5. Possible issues with the input data - very high fertilizer prices or very low root price, very low or very high FCY, very low or very high WY,...
+      # NOTE: recommendation text is minimal. Future enhancements could include:
+      # split application regime, best application method (furrow vs full ring),
+      # alternative fertilizers, agronomic practice guidance, and input sanity
+      # warnings (extreme prices, FCY, or WY values).
 	}
 
 	recText
@@ -263,7 +250,7 @@ getFRrecommendations <- function(lat, lon, HD, PD, maxInv, fertilizers, rootUP, 
 
 
 
-process_FR <- function(lat, lon, HD, maxInv, fertilizers, rootUP, areaHa, country, FCY, 
+process_FR <- function(lat, lon, HD, maxInv, fertilizers, rootUP, areaHa, country, lang, FCY,
 				riskAtt, user, userField, area, areaUnits, PD, cassPD, cassUW) {
 
 	response <- getFRrecommendations(
@@ -272,15 +259,17 @@ process_FR <- function(lat, lon, HD, maxInv, fertilizers, rootUP, areaHa, countr
 		FCY = FCY, riskAtt = riskAtt
 	)
 
-	recText <- getFRrecText(ds=response, country=country)
+	recText <- getFRrecText(ds=response, country=country, lang=lang)
 
-#	write.csv(recText, './temp/FR_recText.csv', row.names = FALSE)
-#	FR_MarkdownText(
-#		rr = response, fertilizers = fertilizers, user = user,
-#		country = country, userField = userField, area = area, areaUnits = areaUnits, PD = PD, HD = HD, 
-#		lat = lat, lon = lon, rootUP = rootUP, cassPD = cassPD, cassUW = cassUW, maxInv = maxInv
-#	)
-	#fertilizerAdviseTable(FR = TRUE, IC = FALSE, country = country, areaUnits = areaUnits)
+	write.csv(recText, './temp/FR_recText.csv', row.names = FALSE)
+	if (!is.null(response$data)) {
+		FR_MarkdownText(
+			rr = response, fertilizers = fertilizers, user = user,
+			country = country, userField = userField, area = area, areaUnits = areaUnits, PD = PD, HD = HD,
+			lat = lat, lon = lon, rootUP = rootUP, cassPD = cassPD, cassUW = cassUW, maxInv = maxInv
+		)
+		fertilizerAdviseTable(FR = TRUE, IC = FALSE, country = country, areaUnits = areaUnits)
+	}
 
 
 	c(rec_type="FR", recommendation=recText, response)

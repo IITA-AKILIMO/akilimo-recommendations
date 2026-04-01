@@ -1,4 +1,24 @@
 
+# Look up a translation string by key and country.
+# Falls back to "NG" (English) when the key is absent or blank for the given country.
+# Stops with an error if the key is missing entirely.
+tr <- function(key, lang, ...) {
+    tbl <- get_data("TRNS")
+    row <- tbl[tbl$key == key, ]
+    if (nrow(row) == 0) stop(sprintf("Missing translation key '%s'", key))
+    val <- if (!is.null(row[[lang]])) row[[lang]] else character(0)
+    if (length(val) == 0 || is.na(val) || !nzchar(trimws(val))) {
+        val <- row[["en"]]
+    }
+    if (length(val) == 0 || is.na(val)) stop(sprintf("Missing translation key '%s'", key))
+    args <- list(...)
+    for (nm in names(args)) {
+        val <- gsub(paste0("\\{", nm, "\\}"), args[[nm]], val, fixed = FALSE)
+    }
+    val
+}
+
+
 get_currency <- function(country) {
 	m <- matrix(c("NG", "NGN", "RW", "RWF", "GH", "GHS", "BI", "BIF", "TZ", "TZS"), ncol=2, byrow=TRUE)
 	i <- match(country, m[,1])
@@ -18,7 +38,7 @@ getRFY <- function(HD, RDY, country) {
   d <- as.numeric(strftime(HD, format = "%j"))
   #data.frame with day of the year (dayNr = [1..366]) and %DM (DMCont = [0..100], by country)
   fd <- get_data("dry_matter")
-  DC <- merge(data.frame(dayNr = d), fd[fd$country == "NG",], sort = FALSE)$DMCont
+  DC <- merge(data.frame(dayNr = d), fd[fd$country == country,], sort = FALSE)$DMCont
   RFY <- RDY / DC * 100
   return(RFY)
 
@@ -43,6 +63,10 @@ getRDY <- function(HD, RFY, country) {
 }
 
 
+# DEFERRED (technical debt): getWMrecommendations is not wired into any request
+# path yet. Kept for a planned future weed-management feature. Do not remove or
+# call until the feature is scoped and implemented.
+#
 #SHORT DEF:   Function to obtain recommendations on land clearing (step 2 of 6 steps).
 #RETURNS:     dataframe with recommendations on whether to slash and/or to spray.
 #DESCRIPTION: Function to obtain recommendations on land clearing (slashing and spraying) based on decision tree in the paper-based tool
@@ -71,6 +95,6 @@ getWMrecommendations <- function(fallowType = c(NA, "bush", "broad_leaves", "gra
   ds <- data.frame(operation = c("slash", "spray"), rec = c(slash, spray))
 
   return(ds)
-
 }
+
 

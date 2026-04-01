@@ -1,5 +1,13 @@
 *.csv
 *.RDS
+dist/
+__pycache__/
+*.pyc
+scripts/.venv/
+scripts/poetry.lock
+scripts/uv.lock
+scripts/.idea/
+scripts/pyproject-old.toml
 *.html
 *.pdf
 *.log
@@ -18,3 +26,6 @@ tests/old/*
 tests/app/*
 tests/request/*
 tests/response/*
+.claude
+.RData
+.idea/*

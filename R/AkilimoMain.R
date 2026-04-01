@@ -1,35 +1,80 @@
 
-run_akilimo <- function(json) {
-	
-	aki_version <- "20251228"
-	dir.create("temp", FALSE, FALSE)
-    body <- try(jsonlite::fromJSON(json))
-	if (inherits(body, "try-error")) {
-		return(list(status = jsonlite::unbox("404 - bad request"), data=NULL))
+bad_request <- function(msg) {
+    list(status = jsonlite::unbox("400 - bad request"),
+         data   = list(message = jsonlite::unbox(msg)))
+}
+
+validate_request <- function(body) {
+    VALID_COUNTRIES <- c("NG", "TZ", "RW", "GH", "BI")
+    VALID_AREA_UNITS <- c("ha", "acre", "are", "m2")
+
+    country   <- body[["country"]]
+    lat       <- body[["lat"]]
+    lon       <- body[["lon"]]
+    area      <- body[["area"]]
+    areaUnits <- body[["areaUnits"]]
+    if (!is.null(areaUnits)) areaUnits <- tolower(areaUnits)
+    flags <- as.logical(c(body[["FR"]], body[["IC"]], body[["PP"]], body[["SPP"]], body[["SPH"]]))
+
+    if (is.null(country)   || nchar(trimws(country)) == 0)
+        return("Missing required field: country")
+    if (!country %in% VALID_COUNTRIES)
+        return(paste("Invalid country:", country, "— must be one of:", paste(VALID_COUNTRIES, collapse = ", ")))
+    if (is.null(lat) || !is.numeric(lat) || lat < -90  || lat > 90)
+        return("Invalid or missing lat — must be numeric between -90 and 90")
+    if (is.null(lon) || !is.numeric(lon) || lon < -180 || lon > 180)
+        return("Invalid or missing lon — must be numeric between -180 and 180")
+    if (is.null(area) || !is.numeric(area) || area <= 0)
+        return("Invalid or missing area — must be a positive number")
+    if (is.null(areaUnits) || !areaUnits %in% VALID_AREA_UNITS)
+        return(paste("Invalid or missing areaUnits — must be one of:", paste(VALID_AREA_UNITS, collapse = ", ")))
+    if (!any(flags))
+        return("At least one recommendation flag must be TRUE (FR, IC, PP, SPP, or SPH)")
+
+    FCY <- body[["FCY"]]
+    if (!is.null(FCY) && (!is.numeric(FCY) || FCY < 0 || FCY > 100))
+        return("Invalid FCY — must be a number between 0 and 100 t/ha")
+
+    for (date_field in c("PD", "HD")) {
+        val <- body[[date_field]]
+        if (!is.null(val) && !is.na(val) && nchar(as.character(val)) > 0) {
+            if (is.na(as.Date(as.character(val), format = "%Y-%m-%d")))
+                return(paste(date_field, "must be a valid date in YYYY-MM-DD format"))
+        }
     }
 
-    # extract parameters from the JSON payload
-    country <- from_json("country", body)
-    lat <- from_json("lat", body, NA)
-    lon <- from_json("lon", body, NA)
-    area <- from_json("area", body, 1)
-    areaUnits <- from_json("areaUnits", body, "ha")
+    NULL  # no error
+}
 
-    # not used?
-	#intercrop <- from_json("intercrop", body, default_value = FALSE)
-    IC <- from_json("IC", body, default_value = FALSE)
-    FR <- from_json("FR", body, default_value = FALSE)
-    PP <- from_json("PP", body, default_value = FALSE)
+
+setup_temp_dir <- function() {
+    dir.create("temp", FALSE, FALSE)
+    old_files <- list.files("temp", full.names = TRUE)
+    if (length(old_files) > 0) suppressWarnings(file.remove(old_files))
+}
+
+
+# Extract and normalise all common request parameters into a named list.
+parse_request <- function(body) {
+    country   <- from_json("country",   body)
+    lat       <- from_json("lat",       body)
+    lon       <- from_json("lon",       body)
+    area      <- from_json("area",      body)
+    areaUnits <- tolower(from_json("areaUnits", body))
+
+    IC  <- from_json("IC",  body, default_value = FALSE)
+    FR  <- from_json("FR",  body, default_value = FALSE)
+    PP  <- from_json("PP",  body, default_value = FALSE)
     SPP <- from_json("SPP", body, default_value = FALSE)
     SPH <- from_json("SPH", body, default_value = FALSE)
 
-    PD <- from_json("PD", body, default_value = 0)
-    HD <- from_json("HD", body, default_value = 0)
+    PD        <- as.Date(from_json("PD", body, default_value = 0), format = "%Y-%m-%d")
+    HD        <- as.Date(from_json("HD", body, default_value = 0), format = "%Y-%m-%d")
     PD_window <- from_json("PD_window", body, default_value = 0)
     HD_window <- from_json("HD_window", body, default_value = 0)
 
-    FCY <- from_json("FCY", body)
-    CMP <- from_json("CMP", body)
+    FCY    <- from_json("FCY",    body)
+    CMP    <- from_json("CMP",    body)
     saleSF <- from_json("saleSF", body, default_value = FALSE)
     nameSF <- from_json("nameSF", body, default_value = NA)
     cassPD <- from_json("cassPD", body, default_value = "roots")
@@ -38,201 +83,214 @@ run_akilimo <- function(json) {
     maxInv <- from_json("maxInv", body, default_value = NA)
     if (!isTRUE(maxInv > 0)) maxInv <- NA
 
-    user <- get_user(body)    
-	userField <- from_json("userField", body)
-	riskAtt <- from_json("riskAtt", body, default_value = 0)
+    user      <- get_user(body)
+    userField <- from_json("userField", body)
+    riskAtt   <- from_json("riskAtt",   body, default_value = 0)
 
-#    if (country == "BI") {
-#		country <- "BU" #use non standard country code for Burundi
-#    }
+    lang_raw <- from_json("lang", body, default_value = "en")
+    lang <- if (lang_raw %in% c("en", "sw")) lang_raw else "en"
 
-	selected_key <- unique(c("FR", "PP", "IC", "SP", "SP")[c(FR, PP, IC, SPP, SPH)])
-    #riskAtt <- 0
+    flag_to_key  <- c(FR = "FR", PP = "PP", IC = "IC", SPP = "SP", SPH = "SP")
+    active_flags <- c(FR = FR, PP = PP, IC = IC, SPP = SPP, SPH = SPH)
+    selected_key <- unique(flag_to_key[active_flags])
 
-    PD <- as.Date(PD, format = "%Y-%m-%d")
-    HD <- as.Date(HD, format = "%Y-%m-%d")
-
-    ## if cassava is to be sold to a processing factory, there should be a default price by factry and product
-    # calculating rootUP based on cassUP, cassUW and conversion factor for cassava product sold
-    rootConv <- data.frame(cassPD = c("roots", "chips", "flour", "gari"), conversion = c(1, 3, 3.2, 3.5))
-    # Extract conversion factor once
-    conversion_factor1 <- rootConv[rootConv$cassPD == cassPD, "conversion"]
-
-	UPUW <- get_cassUPUW(cassUP, cassUW, cassPD, country, saleSF, nameSF)
-	cassUP <- UPUW[1]
-	cassUW <- UPUW[2]		
-
-    # Calculate rootUP values using the same denominator 
-    cass_denominator <- cassUW * conversion_factor1 / 1000
-    # Compute each rootUP variant
-    rootUP <- cassUP / cass_denominator
-
-    # Define unit conversion factors to hectares
-	areaUnits[areaUnits == "ekari"] <- "acre"
-	areaUnits[areaUnits == "hekta"] <- "ha"
-	
-    unit_factors <- c(ha=1, acre=2.47105, are=100, m2=10000, string=1000)
-
-    # Fallback to 10000 (i.e., square meters) if unit is unknown or missing
-	## seems rather risky!!
-    area_conversion_factor <- unit_factors[[areaUnits]]
-    if (is.null(area_conversion_factor)) area_conversion_factor <- 10000
-    # Calculate area in hectares
-    areaHa <- area / area_conversion_factor
-
-    # Ensure PD and HD are Date objects
-    PD <- as.Date(PD)
-    HD <- as.Date(HD)
-
-	message(paste0(selected_key, ": ", country, ", planting: ", PD, ", harvest: ", HD))
-
-#	result <- list()
-    if (FR) {
-
-		fertilizers <- get_fertilizers2(body, country)
-
-		result <- process_FR(lat=lat, lon=lon, HD=HD, maxInv=maxInv, 
-				fertilizers=fertilizers, rootUP=rootUP, areaHa=areaHa, country=country, 
-				FCY=FCY, riskAtt=riskAtt, user=user, userField=userField, area=area, 
-				areaUnits=areaUnits, PD=PD, cassPD=cassPD, cassUW=cassUW)
-
-    } else if (IC) {
-	
-		fertilizers <- get_fertilizers2(body, country)
-
-		if (country == "NG") {
-			maizePD <- from_json("maizePD", body, default_value = "fresh_cob")
-			maizeUW <- from_json("maizeUW", body, default_value = NA)
-			# Ensure maizeUW is numeric if using grain
-			if (maizePD == "grain") {
-				maizeUW <- as.numeric(as.character(maizeUW))
-			}
-			if (maizeUW == 0) maizeUW <- NA
-
-			maizeUP <- from_json("maizeUP", body)
-			# Set default price and weight if maizeUP is zero
-			if (maizeUP == 0) {
-				maizeUW <- 1
-				if (maizePD == "fresh_cob") {
-					maizeUP <- 50    # Default price for 1 large fresh cob
-				} else if (maizePD == "grain") {
-					maizeUP <- 230   # Default price for 1 kg of maize grain
-				}
-			}
-			# Calculate cobUP  # 1 kg of grain ~ 7.64 cobs
-			cobUP <- ifelse (maizePD == "fresh_cob", maizeUP, maizeUP / maizeUW / 7.64) 
-
-			result <- process_IC_NG(
-			  IC = IC, country = country, areaHa = areaHa, CMP = CMP, cobUP = cobUP, fertilizers = fertilizers,
-			  riskAtt = riskAtt, maizePD = maizePD, user = user, userField = userField,
-			  area = area, areaUnits = areaUnits, PD = PD, HD = HD, lat = lat, lon = lon,
-			  maizeUW = maizeUW, cassUW = cassUW, saleSF = saleSF, nameSF = nameSF,
-			  rootUP = rootUP, cassPD = cassPD, maxInv = maxInv, maizeUP = maizeUP
-			)
-			
-		} else if (country == "TZ") {
-
-			sweetPotatoPD <- from_json("sweetPotatoPD", body, default_value = "tubers")
-			sweetPotatoUW <- from_json("sweetPotatoUW", body, default_value = NA)
-			sweetPotatoUP <- from_json("sweetPotatoUP", body, default_value = NA)
-			if (sweetPotatoUW == 0) sweetPotatoUW <- 1000 ## if it is not given default is a ton
-		   
-			# Conversion factors for sweetPotato products
-			tuberConv <- data.frame(
-				sweetPotatoPD = c("tubers", "flour"), # sweetpotato "tubers"? ouch.
-				conversion = c(1, 3.2)
-			)
-			# Get the conversion factor
-			conversion_factor3 <- tuberConv[tuberConv$sweetPotatoPD == sweetPotatoPD, "conversion"]
-			# Compute tuberUP
-			tuberUP <- sweetPotatoUP / sweetPotatoUW / conversion_factor3 * 1000
-
-			# Set default price and weight for Tanzania if price is missing
-			if (sweetPotatoUP == 0 && country == "TZ") {
-				sweetPotatoUW <- 1000
-				if (sweetPotatoPD == "tubers") {
-					sweetPotatoUP <- 120000
-				} else if (sweetPotatoPD == "flour") {
-					sweetPotatoUP <- 384000
-				}
-			}
-
-			result <- process_IC_TZ(
-			  IC = IC, country = country, areaHa = areaHa, FCY = FCY, tuberUP = tuberUP, rootUP = rootUP,
-			  fertilizers = fertilizers, riskAtt = riskAtt, user = user, 
-			  userField = userField, area = area, areaUnits = areaUnits,
-			  PD = PD, HD = HD, lat = lat, lon = lon, sweetPotatoUP = sweetPotatoUP, 
-			  sweetPotatoPD = sweetPotatoPD, sweetPotatoUW = sweetPotatoUW, cassUW = cassUW, 
-			  cassPD = cassPD, maxInv = maxInv
-			)
-		}
-		
-	} else if (PP) {
-
-		ploughing <- from_json("ploughing", body, default_value = FALSE)
-		harrowing <- from_json("harrowing", body, default_value = FALSE)
-		ridging <- from_json("ridging", body, default_value = FALSE)
-		method_ploughing <- from_json("method_ploughing", body)
-		method_harrowing <- from_json("method_harrowing", body)
-		method_ridging <- from_json("method_ridging", body)
-		if (method_ploughing == "NA") method_ploughing <- "N/A"
-		method_ridging <- ifelse(method_ridging == "NA", "N/A", tolower(method_ridging))
-
-		costLMO <- get_costLMO(body, country, areaHa, areaUnits, ploughing, harrowing, ridging,
-								method_ploughing, method_harrowing, method_ridging)
-								
-		result <- process_PP(
-			PP = PP, country = country, areaHa = areaHa, costLMO = costLMO,
-			ploughing = ploughing, ridging = ridging,
-			method_ploughing = method_ploughing, method_ridging = method_ridging,
-			FCY = FCY, rootUP = rootUP, riskAtt = riskAtt,
-			user = user, userField = userField, area = area, areaUnits = areaUnits,
-			PD = PD, HD = HD, lat = lat, lon = lon,
-			cassPD = cassPD, cassUW = cassUW, maxInv = maxInv
-		)
-
-    } else if (SPP || SPH) {
-	
-		cassUP_m1 <- from_json("cassUP_m1", body)
-		cassUP_m2 <- from_json("cassUP_m2", body)
-		cassUP_p1 <- from_json("cassUP_p1", body)
-		cassUP_p2 <- from_json("cassUP_p2", body)
-		rootUP_m1 <- cassUP_m1 / cass_denominator
-		rootUP_m2 <- cassUP_m2 / cass_denominator
-		rootUP_p1 <- cassUP_p1 / cass_denominator
-		rootUP_p2 <- cassUP_p2 / cass_denominator
-
-		result <- process_SP(
-			SPP = SPP, SPH = SPH, PD_window = PD_window, HD_window = HD_window,	areaHa = areaHa,
-			country = country, lat = lat, lon = lon, PD = PD, HD = HD, saleSF = saleSF, nameSF = nameSF,
-			FCY = FCY, rootUP = rootUP, rootUP_m1 = rootUP_m1, rootUP_m2 = rootUP_m2, 
-			rootUP_p1 = rootUP_p1, rootUP_p2 = rootUP_p2, user = user, userField = userField,
-			area = area, areaUnits = areaUnits, maxInv = maxInv, ploughing = ploughing, ridging = ridging, method_ploughing = method_ploughing,	method_ridging = method_ridging, CMP = CMP, 
-			riskAtt = riskAtt, cassPD = cassPD, cassUW = cassUW, cassUP = cassUP,
-			cassUP_m1 = cassUP_m1, cassUP_m2 = cassUP_m2, cassUP_p1 = cassUP_p1, cassUP_p2 = cassUP_p2
-		)
+    UPUW   <- get_cassUPUW(cassUP, cassUW, cassPD, country, saleSF, nameSF)
+    cassUP <- UPUW[1]
+    cassUW <- UPUW[2]
+    if (!is.numeric(cassUW) || cassUW <= 0) {
+        warning("cassUW is zero or invalid; defaulting to 1000 kg")
+        cassUW <- 1000
     }
 
+    rootConv          <- data.frame(cassPD = c("roots", "chips", "flour", "gari"), conversion = c(1, 3, 3.2, 3.5))
+    conversion_factor <- rootConv[rootConv$cassPD == cassPD, "conversion"]
+    cass_denominator  <- cassUW * conversion_factor / 1000
+    rootUP            <- cassUP / cass_denominator
 
-    request_token <- jsonlite::unbox(from_json("request_token", body))
+    areaUnits[areaUnits == "ekari"] <- "acre"
+    areaUnits[areaUnits == "hekta"] <- "ha"
+    unit_factors <- c(ha = 1, acre = 2.47105, are = 100, m2 = 10000, string = 1000)
+    areaHa <- area / unit_factors[[areaUnits]]
 
-    if (is.null(selected_key)) {
-		res$status <- 404
-		data <- list(
-			request_token = request_token,
-			message = jsonlite::unbox("No valid recommendation found")
-		)
-		return(list(status = jsonlite::unbox("error"), data = data))
+    list(
+        country = country, lang = lang, lat = lat, lon = lon, area = area, areaUnits = areaUnits,
+        IC = IC, FR = FR, PP = PP, SPP = SPP, SPH = SPH,
+        PD = PD, HD = HD, PD_window = PD_window, HD_window = HD_window,
+        FCY = FCY, CMP = CMP, saleSF = saleSF, nameSF = nameSF,
+        cassPD = cassPD, cassUW = cassUW, cassUP = cassUP, maxInv = maxInv,
+        user = user, userField = userField, riskAtt = riskAtt,
+        selected_key = selected_key, areaHa = areaHa,
+        rootUP = rootUP, cass_denominator = cass_denominator
+    )
+}
+
+
+# Route to the appropriate processor based on the active recommendation flag.
+dispatch_recommendations <- function(p, body) {
+
+    if (p$FR) {
+
+        fertilizers <- get_fertilizers2(body, p$country)
+        process_FR(
+            lat = p$lat, lon = p$lon, HD = p$HD, maxInv = p$maxInv,
+            fertilizers = fertilizers, rootUP = p$rootUP, areaHa = p$areaHa,
+            country = p$country, lang = p$lang, FCY = p$FCY, riskAtt = p$riskAtt,
+            user = p$user, userField = p$userField, area = p$area,
+            areaUnits = p$areaUnits, PD = p$PD, cassPD = p$cassPD, cassUW = p$cassUW
+        )
+
+    } else if (p$IC) {
+
+        fertilizers <- get_fertilizers2(body, p$country)
+
+        if (p$country == "NG") {
+
+            maizePD <- from_json("maizePD", body, default_value = "fresh_cob")
+            maizeUW <- from_json("maizeUW", body, default_value = NA)
+            if (maizePD == "grain") maizeUW <- as.numeric(as.character(maizeUW))
+            if (!is.na(maizeUW) && maizeUW == 0) maizeUW <- NA
+
+            maizeUP <- as.numeric(from_json("maizeUP", body, default_value = 0))
+            if (!is.na(maizeUP) && maizeUP == 0) {
+                maizeUW <- 1
+                maizeUP <- if (maizePD == "fresh_cob") 50 else 230
+            }
+            cobUP <- ifelse(maizePD == "fresh_cob", maizeUP, maizeUP / maizeUW / 7.64)
+
+            process_IC_NG(
+                IC = p$IC, country = p$country, lang = p$lang, areaHa = p$areaHa, CMP = p$CMP,
+                cobUP = cobUP, fertilizers = fertilizers, riskAtt = p$riskAtt,
+                maizePD = maizePD, user = p$user, userField = p$userField,
+                area = p$area, areaUnits = p$areaUnits, PD = p$PD, HD = p$HD,
+                lat = p$lat, lon = p$lon, maizeUW = maizeUW, cassUW = p$cassUW,
+                saleSF = p$saleSF, nameSF = p$nameSF, rootUP = p$rootUP,
+                cassPD = p$cassPD, maxInv = p$maxInv, maizeUP = maizeUP
+            )
+
+        } else if (p$country %in% c("RW", "GH", "BI")) {
+            return(bad_request(paste(
+                "Intercropping (IC) recommendations are not yet available for country:", p$country,
+                "— supported countries are NG and TZ"
+            )))
+
+        } else if (p$country == "TZ") {
+
+            sweetPotatoPD <- from_json("sweetPotatoPD", body, default_value = "tubers")
+            sweetPotatoUW <- from_json("sweetPotatoUW", body, default_value = NA)
+            sweetPotatoUP <- from_json("sweetPotatoUP", body, default_value = NA)
+            if (!is.na(sweetPotatoUW) && sweetPotatoUW == 0) sweetPotatoUW <- 1000
+
+            # Apply price defaults BEFORE computing tuberUP to avoid dividing by zero price
+            if (is.na(sweetPotatoUP) || sweetPotatoUP == 0) {
+                sweetPotatoUW <- 1000
+                sweetPotatoUP <- if (sweetPotatoPD == "tubers") 120000 else 384000
+            }
+
+            tuberConv <- data.frame(
+                sweetPotatoPD = c("tubers", "flour"),
+                conversion    = c(1, 3.2)
+            )
+            conversion_factor3 <- tuberConv[tuberConv$sweetPotatoPD == sweetPotatoPD, "conversion"]
+            tuberUP <- sweetPotatoUP / sweetPotatoUW / conversion_factor3 * 1000
+
+            process_IC_TZ(
+                IC = p$IC, country = p$country, lang = p$lang, areaHa = p$areaHa, FCY = p$FCY,
+                tuberUP = tuberUP, rootUP = p$rootUP, fertilizers = fertilizers,
+                riskAtt = p$riskAtt, user = p$user, userField = p$userField,
+                area = p$area, areaUnits = p$areaUnits, PD = p$PD, HD = p$HD,
+                lat = p$lat, lon = p$lon, sweetPotatoUP = sweetPotatoUP,
+                sweetPotatoPD = sweetPotatoPD, sweetPotatoUW = sweetPotatoUW,
+                cassUW = p$cassUW, cassPD = p$cassPD, maxInv = p$maxInv
+            )
+        }
+
+    } else if (p$PP) {
+
+        ploughing        <- from_json("ploughing",        body, default_value = FALSE)
+        harrowing        <- from_json("harrowing",        body, default_value = FALSE)
+        ridging          <- from_json("ridging",          body, default_value = FALSE)
+        method_ploughing <- from_json("method_ploughing", body)
+        method_harrowing <- from_json("method_harrowing", body)
+        method_ridging   <- from_json("method_ridging",   body)
+        if (method_ploughing == "NA") method_ploughing <- "N/A"
+        method_ridging <- ifelse(method_ridging == "NA", "N/A", tolower(method_ridging))
+
+        costLMO <- get_costLMO(body, p$country, p$areaHa, p$areaUnits,
+                               ploughing, harrowing, ridging,
+                               method_ploughing, method_harrowing, method_ridging)
+
+        process_PP(
+            PP = p$PP, country = p$country, lang = p$lang, areaHa = p$areaHa, costLMO = costLMO,
+            ploughing = ploughing, ridging = ridging,
+            method_ploughing = method_ploughing, method_ridging = method_ridging,
+            FCY = p$FCY, rootUP = p$rootUP, riskAtt = p$riskAtt,
+            user = p$user, userField = p$userField, area = p$area,
+            areaUnits = p$areaUnits, PD = p$PD, HD = p$HD, lat = p$lat, lon = p$lon,
+            cassPD = p$cassPD, cassUW = p$cassUW, maxInv = p$maxInv
+        )
+
+    } else if (p$SPP || p$SPH) {
+
+        cassUP_m1 <- from_json("cassUP_m1", body)
+        cassUP_m2 <- from_json("cassUP_m2", body)
+        cassUP_p1 <- from_json("cassUP_p1", body)
+        cassUP_p2 <- from_json("cassUP_p2", body)
+        rootUP_m1 <- cassUP_m1 / p$cass_denominator
+        rootUP_m2 <- cassUP_m2 / p$cass_denominator
+        rootUP_p1 <- cassUP_p1 / p$cass_denominator
+        rootUP_p2 <- cassUP_p2 / p$cass_denominator
+
+        ploughing        <- from_json("ploughing",        body, default_value = FALSE)
+        harrowing        <- from_json("harrowing",        body, default_value = FALSE)
+        ridging          <- from_json("ridging",          body, default_value = FALSE)
+        method_ploughing <- from_json("method_ploughing", body)
+        method_harrowing <- from_json("method_harrowing", body)
+        method_ridging   <- from_json("method_ridging",   body)
+
+        process_SP(
+            SPP = p$SPP, SPH = p$SPH, PD_window = p$PD_window, HD_window = p$HD_window,
+            areaHa = p$areaHa, country = p$country, lang = p$lang, lat = p$lat, lon = p$lon,
+            PD = p$PD, HD = p$HD, saleSF = p$saleSF, nameSF = p$nameSF,
+            FCY = p$FCY, rootUP = p$rootUP, rootUP_m1 = rootUP_m1, rootUP_m2 = rootUP_m2,
+            rootUP_p1 = rootUP_p1, rootUP_p2 = rootUP_p2,
+            user = p$user, userField = p$userField, area = p$area, areaUnits = p$areaUnits,
+            maxInv = p$maxInv, ploughing = ploughing, ridging = ridging,
+            method_ploughing = method_ploughing, method_ridging = method_ridging,
+            CMP = p$CMP, riskAtt = p$riskAtt, cassPD = p$cassPD, cassUW = p$cassUW,
+            cassUP = p$cassUP, cassUP_m1 = cassUP_m1, cassUP_m2 = cassUP_m2,
+            cassUP_p1 = cassUP_p1, cassUP_p2 = cassUP_p2
+        )
     }
+}
 
-	# it would be clearer to use "message" instead of recommendation
-	#r$data$message <- jsonlite::unbox(r$data$message)
-	result$recommendation <- jsonlite::unbox(gsub("[ ]+", " ", result$recommendation))
-	result$rec_type <- jsonlite::unbox(result$rec_type)
-	
-	
-	c(list(status = jsonlite::unbox("success"), version = jsonlite::unbox(aki_version)), result)
-}  
+
+build_response <- function(result, aki_version) {
+    if (is.null(result)) return(bad_request("No valid recommendation found"))
+    result$recommendation <- jsonlite::unbox(gsub("[ ]+", " ", result$recommendation))
+    result$rec_type        <- jsonlite::unbox(result$rec_type)
+    c(list(status = jsonlite::unbox("success"), version = jsonlite::unbox(aki_version)), result)
+}
+
+
+run_akilimo <- function(json) {
+
+    aki_version <- "20251228"
+    setup_temp_dir()
+
+    body <- try(jsonlite::fromJSON(json))
+    if (inherits(body, "try-error")) return(bad_request("Malformed JSON body"))
+
+    err <- validate_request(body)
+    if (!is.null(err)) return(bad_request(err))
+
+    params <- parse_request(body)
+
+    message(paste0(params$selected_key, ": ", params$country,
+                   ", planting: ", params$PD, ", harvest: ", params$HD))
+
+    result <- dispatch_recommendations(params, body)
+    build_response(result, aki_version)
+}
 
 
 
@@ -269,33 +327,20 @@ get_cassUPUW <- function(cassUP, cassUW, cassPD, country, saleSF, nameSF) {
 		cassUP <- max(SF$price)
 		cassUW <- 1000
     } else if (cassUP == 0) {
-		if (country == "NG") {
-			  if (cassPD == "roots") { cassUP <- 12000; cassUW <- 1000 }
-			  if (cassPD == "chips") { cassUP <- 36000; cassUW <- 1000 }
-			  if (cassPD == "flour") { cassUP <- 38400; cassUW <- 1000 }
-			  if (cassPD == "gari") { cassUP <- 42000; cassUW <- 1000 }
-		} else if (country == "TZ") {
-			  if (cassPD == "roots") { cassUP <- 180000; cassUW <- 1000 }
-			  if (cassPD == "chips") { cassUP <- 540000; cassUW <- 1000 }
-			  if (cassPD == "flour") { cassUP <- 576000; cassUW <- 1000 }
-			  if (cassPD == "gari") { cassUP <- 630000; cassUW <- 1000 }
-		} else if (country == "GH") {
-			  if (cassPD == "roots") { cassUP <- 450; cassUW <- 1000 }
-			  if (cassPD == "chips") { cassUP <- 450; cassUW <- 1000 }
-			  if (cassPD == "flour") { cassUP <- 450; cassUW <- 1000 }
-			  if (cassPD == "gari") { cassUP <- 450; cassUW <- 1000 }
-		} else if (country == "RW") {
-			  if (cassPD == "roots") { cassUP <- 75000; cassUW <- 1000 }
-			  if (cassPD == "chips") { cassUP <- 75000; cassUW <- 1000 }
-			  if (cassPD == "flour") { cassUP <- 75000; cassUW <- 1000 }
-			  if (cassPD == "gari") { cassUP <- 75000; cassUW <- 1000 }
-		} else if (country == "BI") {
-			  if (cassPD == "roots") { cassUP <- 700000; cassUW <- 1000 }
-			  if (cassPD == "chips") { cassUP <- 700000; cassUW <- 1000 }
-			  if (cassPD == "flour") { cassUP <- 700000; cassUW <- 1000 }
-			  if (cassPD == "gari") { cassUP <- 700000; cassUW <- 1000 }
+		# Default cassava prices (per 1000 kg) by country and product type
+		default_cass_prices <- list(
+			NG = c(roots = 12000,  chips = 36000,  flour = 38400,  gari = 42000),
+			TZ = c(roots = 180000, chips = 540000,  flour = 576000, gari = 630000),
+			GH = c(roots = 450,    chips = 450,     flour = 450,    gari = 450),
+			RW = c(roots = 75000,  chips = 75000,   flour = 75000,  gari = 75000),
+			BI = c(roots = 700000, chips = 700000,  flour = 700000, gari = 700000)
+		)
+		country_prices <- default_cass_prices[[country]]
+		if (!is.null(country_prices) && !is.null(country_prices[[cassPD]])) {
+			cassUP <- country_prices[[cassPD]]
+			cassUW <- 1000
 		} else {
-			# error
+			warning(paste("No default cassava price for country:", country, "product:", cassPD))
 		}
 	}
 	c(cassUP, cassUW )
@@ -306,16 +351,11 @@ get_costLMO <- function(body, country, areaHa, areaUnits, ploughing, harrowing, 
 
     # Determine area basis for cost calculation
 	cost_LMO_areaBasis <- from_json("cost_LMO_areaBasis", body, default_value = "areaUnit")
-    area_basis <- switch(cost_LMO_areaBasis, 
-			"areaUnit" = areaHa, 
+    area_basis <- switch(cost_LMO_areaBasis,
+			"areaUnit" = areaHa,
 			"acre" = 0.404686, "ha" = 1, 0.0001)  # fallback default (likely m²)
 
-# for getWMrecommendations 
-#		fallowType <- from_json("fallowType", body, default_value = "none")
 		fallowHeight <- from_json("fallowHeight", body, default_value = NA)
-#		fallowGreen <- from_json("fallowGreen", body, default_value = FALSE)
-#		problemWeeds <- from_json("problemWeeds", body, default_value = FALSE)
-
 
 		tractor_plough <- from_json("tractor_plough", body, default_value = FALSE)
 		tractor_harrow <- from_json("tractor_harrow", body, default_value = FALSE)
@@ -328,16 +368,16 @@ get_costLMO <- function(body, country, areaHa, areaUnits, ploughing, harrowing, 
 		cost_manual_ridging <- from_json("cost_manual_ridging", body, default_value = NA)
 		cost_weeding1 <- from_json("cost_weeding1", body, default_value = NA)
 		cost_weeding2 <- from_json("cost_weeding2", body, default_value = NA)
-		if (cost_manual_ploughing == 0) cost_manual_ploughing <- NA
-		if (cost_manual_harrowing == 0) cost_manual_harrowing <- NA
-		if (cost_manual_ridging == 0) cost_manual_ridging <- NA
-		if (cost_tractor_ploughing == 0) cost_tractor_ploughing <- NA
-		if (cost_tractor_harrowing == 0) cost_tractor_harrowing <- NA
-		if (cost_tractor_ridging == 0) cost_tractor_ridging <- NA
+		if (!is.na(cost_manual_ploughing)  && cost_manual_ploughing  == 0) cost_manual_ploughing  <- NA
+		if (!is.na(cost_manual_harrowing)  && cost_manual_harrowing  == 0) cost_manual_harrowing  <- NA
+		if (!is.na(cost_manual_ridging)    && cost_manual_ridging    == 0) cost_manual_ridging    <- NA
+		if (!is.na(cost_tractor_ploughing) && cost_tractor_ploughing == 0) cost_tractor_ploughing <- NA
+		if (!is.na(cost_tractor_harrowing) && cost_tractor_harrowing == 0) cost_tractor_harrowing <- NA
+		if (!is.na(cost_tractor_ridging)   && cost_tractor_ridging   == 0) cost_tractor_ridging   <- NA
 
-		if (cost_weeding1 == 0) cost_weeding1 <- NA
-		if (cost_weeding2 == 0) cost_weeding2 <- NA
-		if (fallowHeight == 0) fallowHeight <- NA
+		if (!is.na(cost_weeding1)  && cost_weeding1  == 0) cost_weeding1  <- NA
+		if (!is.na(cost_weeding2)  && cost_weeding2  == 0) cost_weeding2  <- NA
+		if (!is.na(fallowHeight)   && fallowHeight   == 0) fallowHeight   <- NA
 
 		# create dataframe with cost of land management operations
 		costLMO <- data.frame(
@@ -353,56 +393,41 @@ get_costLMO <- function(body, country, areaHa, areaUnits, ploughing, harrowing, 
 		man <- costLMO$method == "manual"
 		tract <- costLMO$method == "tractor"
 
-		if (country == "NG") {
-		  if (is.na(cost_manual_ploughing)) {
-			costLMO[costLMO$operation == "ploughing" & man, "costHa"] <- 17000 * 2.47105
-		  }
-		  if (is.na(cost_manual_harrowing)) {
-			costLMO[costLMO$operation == "harrowing" & man, "costHa"] <- 15000 * 2.47105
-		  }  
-		  if (is.na(cost_manual_ridging)) {
-			costLMO[costLMO$operation == "ridging" & man, "costHa"] <- 12000 * 2.47105
-		  }
-		  if (is.na(cost_tractor_ploughing) & tractor_plough) {
-			costLMO[costLMO$operation == "ploughing" & tract, "costHa"] <- 6000 * 2.47105
-		  }
-		  if (is.na(cost_tractor_harrowing) & tractor_harrow) {
-			costLMO[costLMO$operation == "harrowing" & tract, "costHa"] <- 6000 * 2.47105
-		  } 
-		  if (is.na(cost_tractor_ridging) & tractor_ridger) {
-			costLMO[costLMO$operation == "ridging" & tract, "costHa"] <- 6000 * 2.47105
-		  }
-		  if (is.na(cost_weeding1)) {
-			costLMO[costLMO$operation == "weeding1", "costHa"] <- 30000 * 2.47105
-		  }
-		  if (is.na(cost_weeding2)) {
-			costLMO[costLMO$operation == "weeding2", "costHa"] <- 30000 * 2.47105
-		  }
-		} else if (country == "TZ") {
-		  if (is.na(cost_manual_ploughing)) {
-			costLMO[costLMO$operation == "ploughing" & man, "costHa"] <- 175000 * 2.47105
-		  }
-		  if (is.na(cost_manual_harrowing)) {
-			costLMO[costLMO$operation == "harrowing" & man, "costHa"] <- 150000 * 2.47105
-		  }
-		  if (is.na(cost_manual_ridging)) {
-			costLMO[costLMO$operation == "ridging" & man, "costHa"] <- 225000 * 2.47105
-		  }
-		  if (is.na(cost_tractor_ploughing) & tractor_plough) {
-			costLMO[costLMO$operation == "ploughing" & tract, "costHa"] <- 150000 * 2.47105
-		  }
-		  if (is.na(cost_tractor_harrowing) & tractor_harrow) {
-			costLMO[costLMO$operation == "harrowing" & tract, "costHa"] <- 100000 * 2.47105
-		  }
-		  if (is.na(cost_tractor_ridging) & tractor_ridger) {
-			costLMO[costLMO$operation == "ridging" & tract, "costHa"] <- 115000 * 2.47105
-		  }
-		  if (is.na(cost_weeding1)) {
-			costLMO[costLMO$operation == "weeding1", "costHa"] <- 60000 * 2.47105
-		  }
-		  if (is.na(cost_weeding2)) {
-			costLMO[costLMO$operation == "weeding2", "costHa"] <- 45000 * 2.47105
-		  }
+		# Conversion factor: cost per acre → cost per hectare
+		ACRES_PER_HA <- 2.47105
+
+		# Default land management operation costs (per acre) by country
+		default_lmo_costs <- list(
+			NG = list(
+				manual_ploughing  = 17000, manual_harrowing  = 15000, manual_ridging  = 12000,
+				tractor_ploughing =  6000, tractor_harrowing =  6000, tractor_ridging =  6000,
+				weeding1          = 30000, weeding2          = 30000
+			),
+			TZ = list(
+				manual_ploughing  = 175000, manual_harrowing  = 150000, manual_ridging  = 225000,
+				tractor_ploughing = 150000, tractor_harrowing = 100000, tractor_ridging = 115000,
+				weeding1          =  60000, weeding2          =  45000
+			)
+		)
+
+		lmo <- default_lmo_costs[[country]]
+		if (!is.null(lmo)) {
+		  if (is.na(cost_manual_ploughing))
+			costLMO[costLMO$operation == "ploughing" & man,   "costHa"] <- lmo$manual_ploughing  * ACRES_PER_HA
+		  if (is.na(cost_manual_harrowing))
+			costLMO[costLMO$operation == "harrowing" & man,   "costHa"] <- lmo$manual_harrowing  * ACRES_PER_HA
+		  if (is.na(cost_manual_ridging))
+			costLMO[costLMO$operation == "ridging"   & man,   "costHa"] <- lmo$manual_ridging    * ACRES_PER_HA
+		  if (is.na(cost_tractor_ploughing) & tractor_plough)
+			costLMO[costLMO$operation == "ploughing" & tract, "costHa"] <- lmo$tractor_ploughing * ACRES_PER_HA
+		  if (is.na(cost_tractor_harrowing) & tractor_harrow)
+			costLMO[costLMO$operation == "harrowing" & tract, "costHa"] <- lmo$tractor_harrowing * ACRES_PER_HA
+		  if (is.na(cost_tractor_ridging)   & tractor_ridger)
+			costLMO[costLMO$operation == "ridging"   & tract, "costHa"] <- lmo$tractor_ridging   * ACRES_PER_HA
+		  if (is.na(cost_weeding1))
+			costLMO[costLMO$operation == "weeding1",          "costHa"] <- lmo$weeding1          * ACRES_PER_HA
+		  if (is.na(cost_weeding2))
+			costLMO[costLMO$operation == "weeding2",          "costHa"] <- lmo$weeding2          * ACRES_PER_HA
 		}
 
 		if (any(!is.na(c(cost_manual_ploughing, cost_manual_harrowing, cost_manual_ridging,
@@ -419,4 +444,3 @@ get_costLMO <- function(body, country, areaHa, areaUnits, ploughing, harrowing, 
 		}
 		costLMO
 }
-

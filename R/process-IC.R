@@ -165,12 +165,14 @@ getICrecText <- function(x, maizePD) {
 
   paste0(recF, recD)
 
-  #TODO: This only provides the minimal information to return to the user. We may consider adding following information:
-  #1. Make sure they grow the right maize variety (should be mature in 95 days max), and the right cassava variety. Should also make recommendations on the right cassava variety.
-  #2. Fertilizer application will also increase cassava yield - but this is not accounted for in cost-benefit calculations.
-  #3. Some explanation included on why fertilizer is not recommended, or why high density is not recommended - need to evaluate if this is not too cryptic.
-  #4. Possible issues with the input data - especially if user provides unrealistic prices for maize produce / fertilizers.
-  #5. Currently reports the increase in maize production in nr of cobs, even if the user reported to sell as grain (NEEDS TO BE URGENTLY ADDRESSED - CONFUSING! Requires adapting the getICrecommendations function)
+  # NOTE: recommendation text is minimal. Known gaps:
+  # 1. No variety guidance (maize should mature in ≤95 days; cassava variety not mentioned).
+  # 2. Fertilizer effect on cassava yield is not reflected in cost-benefit figures.
+  # 3. No explanation when fertilizer or high density is not recommended.
+  # 4. No sanity check on unrealistic input prices.
+  # 5. KNOWN BUG: maize output is always reported in number of cobs, even when the
+  #    user selected grain as the product type. Fix requires updating getICrecommendations()
+  #    to return grain-equivalent output when maizePD == "grain".
 
 
 }
@@ -178,7 +180,7 @@ getICrecText <- function(x, maizePD) {
 
 # Process recommendations for Nigeria (NG)
 process_IC_NG <- function(
-	IC, country, areaHa, CMP, cobUP, fertilizers, riskAtt, maizePD, user, userField, area, areaUnits,
+	IC, country, lang, areaHa, CMP, cobUP, fertilizers, riskAtt, maizePD, user, userField, area, areaUnits,
 	PD, HD, lat, lon, maizeUW, cassUW, saleSF, nameSF, rootUP, cassPD, maxInv, maizeUP) {
 	
 	
@@ -207,14 +209,12 @@ process_IC_NG <- function(
     ICrecom <- FALSE
   }
 
-	c(list(type="IC", recommendation=recText) , res)
-
-#	list(rec_type="IC", recommendation=recText, res)
+	c(list(rec_type="IC", recommendation=recText) , res)
 
 }
 
 # Process recommendations for Tanzania (TZ)
-process_IC_TZ <- function(IC, country, areaHa, FCY, tuberUP, rootUP, fertilizers, riskAtt, 
+process_IC_TZ <- function(IC, country, lang, areaHa, FCY, tuberUP, rootUP, fertilizers, riskAtt, 
 			user, userField, area, areaUnits, PD, HD, lat, lon, sweetPotatoUP, sweetPotatoPD, 
 			sweetPotatoUW, cassUW, cassPD, maxInv) {
 
@@ -222,9 +222,9 @@ process_IC_TZ <- function(IC, country, areaHa, FCY, tuberUP, rootUP, fertilizers
   res <- getCISrecommendations(areaHa = areaHa, FCY = FCY, tuberUP = tuberUP, rootUP = rootUP,
 					fertilizers = fertilizers, riskAtt = riskAtt)
 
-  if (NROW(res$fertilizer_rates) > 0) {
-    recText <- getCISrecText(res)
+  recText <- getCISrecText(res, country, lang)
 
+  if (NROW(res$fertilizer_rates) > 0) {
     write.csv(recText, './temp/CIS_recText.csv', row.names = FALSE)
 
     CIS_MarkdownText(rr = res, fertilizers = fertilizers,
@@ -238,7 +238,6 @@ process_IC_TZ <- function(IC, country, areaHa, FCY, tuberUP, rootUP, fertilizers
 
 	  ICrecom <- TRUE
   } else {
-    recText <- res$data$reason_F
     ICrecom <- FALSE
   }
 
@@ -294,19 +293,17 @@ getCISrecommendations <- function(areaHa = 1, FCY = 11,
     #evaluating if a solution was found
     if (dTC == 0) {
       dGR <- 0
-      #trans
-      reason_F <- "Mbolea sahihi haipatikani."
+      reason_F <- "no_fertilizer_available"
       rec_F <- FALSE
-    } else { #trans
-      reason_F <- "Tunakushauri usitumie mbolea kwa sababu itakuongezea gharama hatimae utapata hasara."
+    } else {
+      reason_F <- "fertilizer_recommended"
       rec_F <- TRUE
     }
   } else {
     dTC <- 0
     FR <- 0
     dGR <- 0
-    #trans
-    reason_F <- "Kilimo mchanganyiko haupendekezwi.Panda muhogo peke yake."
+    reason_F <- "no_intercrop"
     rec_F <- FALSE
   }
 
@@ -320,17 +317,14 @@ getCISrecommendations <- function(areaHa = 1, FCY = 11,
     #check profitability of fertilizer use
     if (dNR > dNRmin) {
       rec_F <- TRUE
-      #trans
-      reason_F <- "Matumizi ya mbolea inapendekezwa."
+      reason_F <- "fertilizer_recommended"
     }else {
       dTC <- 0
       dGR <- 0
       dNR <- 0
       FR <- FR * 0
       rec_F <- FALSE
-
-      #trans
-      reason_F <- "Tunakushauri usitumie mbolea kwa sababu itakuongezea gharama hatimae utapata hasara"
+      reason_F <- "fertilizer_not_profitable"
     }
   }
 
@@ -354,54 +348,45 @@ getCISrecommendations <- function(areaHa = 1, FCY = 11,
 
 
 
-#' @param ds is output of getCISrecommendations
-#' @param country
+#' @param d is output of getCISrecommendations
+#' @param country country code (e.g. "TZ")
 #'
 #' @return the advice as text to print in app
-getCISrecText <- function(d) {
+getCISrecText <- function(d, country, lang) {
 
 	ds <- d[["data"]]
 
   if (!ds$rec_IC) {
-    # recIC <- "Intercropping is not recommended. Growing a cassava monocrop will give you a higher profit.\n"
-    # recF  <- "If you consider investing in fertilizer, please use our Fertilizer Recommendations Tool to obtain fertilizer advice for a cassava monocrop."
-
-    recIC <- "Kilimo mchanganyiko haipendekezwi. Kupanda muhogo peke yake utakupatia faida ya juu.\n"
-    recF <- "Kama ungependa kuwekeza katika mbolea, tafadhali tumia chombo chetu cha mapandekezo ya mbolea ili kupata ushauri wa kupanda muhogo bila mseto."
+    recIC <- paste0(tr("cisNoIC", lang), "\n")
+    recF  <- tr("cisNoICfert", lang)
   } else {
-
-    recIC <- "Tunapendekeza kuchanganya muhogo na viazi vitamu (kilimo mseto). Hii itakupatia faida ya juu na mapato ya haraka kutoka kwenye viazi vitamu."
-    #recIC <- "This will generate a higher profit overall, and also give you access to early income from sweet potato.\n"
+    recIC <- tr("cisRecIC", lang)
     if (!ds$rec_F) {
-      #recF <- paste0("Fertilizer use is not recommended because ", ds$reason_F, ".\n")
-      recF <- paste0("Haishauriwi kutumia  mbolea kwa sababu ", ds$reason_F, ".\n")
+      recF <- if (ds$reason_F == "no_fertilizer_available") {
+        tr("cisFertNoAvail", lang)
+      } else {
+        tr("cisFertNotProfit", lang)
+      }
     } else {
-      dTC <- formatC(signif(ds$dTC, digits = 3), format = "f", big.mark = ",", digits = 0)
-      dNR <- formatC(signif(ds$dNR, digits = 3), format = "f", big.mark = ",", digits = 0)
-      currency <- "TZS"
-
-      #recF <- paste0("We recommend applying\n",
-      # paste0(round(ds[["fertilizer_rates"]]$rate), " kg of ", ds[["fertilizer_rates"]]$type, collapse="\n"),
-      # "\nfor the area of your field.\n",
-      # "This will cost ", currency, " ", dTC, ". ",
-      # "We expect a net value increase of ", currency, " ", dNR, " for the area of your field.")
-
-      recF <- paste0("Tunapendekeza utumie\n",
-                     paste0("kilo ", round(d[["fertilizer_rates"]]$rate), " ya ", ds[["fertilizer_rates"]]$type, collapse = "\n"), " ",
-                     "\nkatika eneo la shamba lako.\n",
-                     "Hii itagharimu shilingi ", currency, " ", dTC, ". ",
-                     "Tunatarajia jumla ya ongezeko la thamani kwa ", currency, " ", dNR, " katika eneo la shamba lako.")
+      dTC      <- formatC(signif(ds$dTC, digits = 3), format = "f", big.mark = ",", digits = 0)
+      dNR      <- formatC(signif(ds$dNR, digits = 3), format = "f", big.mark = ",", digits = 0)
+      currency <- get_currency(country)
+      fs       <- d[["fertilizer_rates"]]
+      recF <- paste0(tr("cisFertYesPfx", lang), "\n",
+                     paste0(tr("cisRatePre", lang), round(fs$rate), tr("cisRatePost", lang), fs$type, collapse = "\n"), " ",
+                     "\n", tr("cisFertField", lang), "\n",
+                     tr("cisCostPfx", lang, currency = currency, amount = dTC), " ",
+                     tr("cisNet", lang, currency = currency, amount = dNR))
     }
-
   }
 
   paste0(recIC, recF)
 
-  #TODO: This only provides the minimal information to return to the user. We may consider adding following information:
-  #1. Make sure they grow the right sweet potato variety (Mayai), and the right cassava variety (Kizimbani).
-  #2. We purposefully did not include recommendations on the exact yield increases as the data is rather weak to justify this. Can be added later when more data is available.
-  #3. Some explanation included on why fertilizer is not recommended, or why intercropping is not recommended - need to evaluate if this is not too cryptic.
-  #4. Possible issues with the input data - especially if user provides unrealistic prices for sweet potato/cassava produce / fertilizers.
+  # NOTE: recommendation text is minimal. Known gaps:
+  # 1. No variety guidance (sweet potato: Mayai; cassava: Kizimbani).
+  # 2. Yield increase figures are intentionally omitted — data too weak to justify.
+  # 3. No explanation when fertilizer or intercropping is not recommended.
+  # 4. No sanity check on unrealistic input prices.
 
 }
 

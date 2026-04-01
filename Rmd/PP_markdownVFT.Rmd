@@ -45,7 +45,7 @@ body{
 ```{r}
 
 
-source("AkilimoFunctions_5C.R")
+source("AkilimoFunctions_5D.R")
 ```
 
 
@@ -53,8 +53,7 @@ source("AkilimoFunctions_5C.R")
 #fertilizerAdviseTable()
 #out.width = "40500px",
 
-#knitr::include_graphics("Akilimo Dashboard PP.png")
-knitr::include_graphics("/home/akilimo/projects/akilimo_recommendation/net/Akilimo Dashboard PP.png")
+knitr::include_graphics("net/Akilimo Dashboard PP.png")
 
 ```
 

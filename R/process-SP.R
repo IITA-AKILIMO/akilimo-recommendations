@@ -10,72 +10,40 @@
 #' @export
 #'
 #' @examples
-getSPrecText <- function(ds, country, PD, HD) {
-
-	tr <- get_data("TRNS")
-  
-  	cni <- ifelse(country %in% c("GH", "NG"), 1, ifelse(country=="TZ", 2, 3))
+getSPrecText <- function(ds, country, lang, PD, HD) {
 
   if (is.null(ds)) {
-    rec <- tr$norecom[cni]
+    rec <- tr("norecom", lang)
   } else {
     if (ds[1,]$CP) {
-        rec <- paste0(tr$recrev[cni], " ( ", format(ds[1,]$PD, "%d %B %Y"), " ) ",
-                      tr$hvsdate[cni], " ( ", format(ds[1,]$HD, "%d %B %Y"), " ) ",
-                      tr$nochange[cni])
+        rec <- paste0(tr("recrev", lang, pd_date = format(ds[1,]$PD, "%d %B %Y")),
+                      tr("hvsdate", lang, hd_date = format(ds[1,]$HD, "%d %B %Y")),
+                      tr("nochange", lang))
 
-      #TODO: This does not provide details on the reasons. This might either be due to
-      #1. unfavourable price conditions at other planting/harvest dates,
-      #2. low starch content at later harvest dates (if selling to as starch factory)
-      #3. unattractive yields (at earlier harvest dates),
-      #4. combination of both.
-      #We may also want to include some information on the impact on cropping practices, requirement to ridge, risks of pest and disease issues,...
+      # NOTE: "no change" text gives no reason. Possible causes: unfavourable prices at
+      # other dates, low starch at later harvest (starch factory sales), or unattractive
+      # yields at earlier dates. Could also add cropping practice impact and pest/disease
+      # risk guidance.
 
     } else {
 
       if (ds[1,]$PD != ds[ds$CP == TRUE,]$PD) {
-        #trans
-        if (country %in% c("NG", "GH")) {
-          recP <- paste0(tr$recPln[1], format(ds[1,]$PD, "%d %B %Y"), ", ",
-                         abs(ds[1,]$rPWnr), " ", tr$wks[1], " ", 
-						 ifelse(ds[1,]$rPWnr < 0, tr$early[1], tr$late[1]), " ", tr$recPlnP[1], "\n")
-
-        } else {
-          recP <- paste0(tr$recPln[cni], " ", format(ds[1,]$PD, "%d %B %Y"), ", ",
-                         tr$wks[cni], " ", abs(ds[1,]$rPWnr), " ", " ", ifelse(ds[1,]$rPWnr < 0, tr$early[cni], tr$late[cni]), " ", tr$recPlnP[cni], "\n")
-        }
+        recP <- paste0(tr("recPln", lang,
+                          date      = format(ds[1,]$PD, "%d %B %Y"),
+                          weeks     = abs(ds[1,]$rPWnr),
+                          direction = ifelse(ds[1,]$rPWnr < 0, tr("early", lang), tr("late", lang))), "\n")
       } else {
-        # recP <- NULL
-        if (country %in% c("NG", "GH")) {
-          recP <- paste0("Your revenue will be highest at your proposed planting date, on ", format(ds[1,]$PD, "%d %B %Y"), ".")
-        } else if (country == "TZ") {
-          recP <- paste0("Mapato yako yatakuwa makubwa zaidi ukipanda tarehe, ", format(ds[1,]$PD, "%d %B %Y"), ".")
-        } else {
-          recP <- paste0("kinyarwanda, ", format(ds[1,]$PD, "%d %B %Y"), ".")
-        }
-
+        recP <- tr("recPopt", lang, date = format(ds[1,]$PD, "%d %B %Y"))
       }
 
 
       if (ds[1,]$HD != ds[ds$CP == TRUE,]$HD) {
-        if (country %in% c("NG", "GH")) {
-          recH <- paste0(tr$recHvs[1], format(ds[1,]$PD, "%d %B %Y"), ", ",
-                         abs(ds[1,]$rPWnr), " ", tr$wks[1], " ", 
-						 ifelse(ds[1,]$rPWnr < 0, tr$early[1], tr$late[1]), tr$recPhv[1], "\n")
-        } else {
-          recH <- paste0(tr$recHvs[cni], " ", format(ds[1,]$PD, "%d %B %Y"), ", ", 
-						tr$wks[cni], " ", abs(ds[1,]$rPWnr), " ", 
-						ifelse(ds[1,]$rPWnr < 0, tr$early[cni], tr$late[cni]), tr$recPhv[cni], "\n")
-        }
-      }else {
-        recH <- NULL
-        if (country %in% c("NG", "GH")) {
-          recH <- paste0("Your selected harvest date is optimal, harvest your cassava on ", format(ds[1,]$HD, "%d %B %Y"), ".")
-        }else if (country == "TZ") {
-          recH <- paste0("Tarehe uliyochagua ya kuvuna ni bora, vuna mihogo yako tarehe ", format(ds[1,]$HD, "%d %B %Y"), ".")
-        }else {
-          recH <- paste0("kinyarwanda ", format(ds[1,]$HD, "%d %B %Y"), ".")
-        }
+        recH <- paste0(tr("recHvs", lang,
+                          date      = format(ds[1,]$HD, "%d %B %Y"),
+                          weeks     = abs(ds[1,]$rHWnr),
+                          direction = ifelse(ds[1,]$rHWnr < 0, tr("early", lang), tr("late", lang))), "\n")
+      } else {
+        recH <- tr("recHopt", lang, date = format(ds[1,]$HD, "%d %B %Y"))
       }
 
       DP <- signif(ds[1,]$RP - ds[ds$CP == TRUE,]$RP, digits = 2)
@@ -84,49 +52,44 @@ getSPrecText <- function(ds, country, PD, HD) {
 
       if (DP == 0) {
         if (dGR == 0) {
-            recR <- paste0(tr$rechange[cni],
-                     ifelse(!is.null(recH), tr$hvst[cni], tr$plnt[cni]))
+            recR <- tr("rechange", lang,
+                       action = ifelse(!is.null(recH), tr("hvst", lang), tr("plnt", lang)))
         } else {
-            recR <- paste0(tr$recRatt1[cni], currency, " ", dGR, " ", tr$recRatt2[cni])
+            recR <- tr("recRatt1", lang, currency = currency, amount = dGR)
         }
       } else {
+        direction_str <- ifelse(DP < 0, tr("dec", lang), tr("inc", lang))
+        action_str    <- ifelse(!is.null(recH), tr("hvst", lang), tr("plnt", lang))
         if (dGR == 0) {
-            recR <- paste0(" ", tr$exp[cni],
-                           ifelse(DP < 0, tr$dec[cni], tr$inc[cni]), " ",
-						   tr$root[cni], " ", abs(DP), " ", tr$ton[cni], tr$notot[cni],
-                           ifelse(!is.null(recH), tr$hvst[cni], tr$plnt[cni]))
+            recR <- tr("recRyieldOnly", lang,
+                       direction = direction_str, amount = abs(DP), action = action_str)
         } else {
-            recR <- paste0(" ", tr$exp[cni],
-                           ifelse(DP < 0, tr$dec[cni], tr$inc[cni]), " ", 
-						   tr$root[cni], " ", abs(DP), " ", tr$ton[cni],
-                           ifelse(DP < 0, tr$but[cni], tr$and[cni]),
-                           tr$valinc[cni], currency, " ", dGR, ".")
+            recR <- tr("recRfull", lang,
+                       direction = direction_str,
+                       amount    = abs(DP),
+                       conj      = ifelse(DP < 0, tr("but", lang), tr("and", lang)),
+                       currency  = currency,
+                       value     = dGR)
         }
       }
 
-      if ((ds[1,]$PD != ds[ds$CP,]$PD) & (ds[1,]$HD != ds[ds$CP,]$HD)) {
-
-         rec <- paste0(tr$recrev[cni], " ( ", format(ds[1,]$PD, "%d %B %Y"), " ) ",
-                        tr$hvsdate[cni], " ( ", format(ds[1,]$HD, "%d %B %Y"), " ) ",
-                        tr$nochange[cni])
-      } else {
-        rec <- paste0(recP, recH, recR)
-      }
+      rec <- paste0(recP, recH, recR)
 
 
-      #TODO: This only provides the minimal information to return to the user. We may consider adding following information:
-      #1. Risks of harvesting later (especially in CBSD-affected areas)
-      #2. Importance of using the right varieties
-      #3. Reasons underlying recommendations (driven by yield, price or both)
-      #4. Implications on agronomic practices, requirements for ridging, fertilizer application,...
-      #5. Possible issues with the input data - especially if user provides unrealistic prices.
+      # NOTE: recommendation text is minimal. Future enhancements could include:
+      # 1. Risks of harvesting later (especially in CBSD-affected areas)
+      # 2. Importance of using the right varieties
+      # 3. Reasons underlying recommendations (driven by yield, price, or both)
+      # 4. Implications on agronomic practices, requirements for ridging, fertilizer application
+      # 5. Possible issues with the input data — especially unrealistic prices
     }
   }
+  rec
 }
 
 
 
-## schedule planting and harvest dates is absed on searching highest return on investemnt within 1- or 2-months window around the user intended plant/harvest dates;
+## schedule planting and harvest dates is based on searching highest return on investemnt within 1- or 2-months window around the user intended plant/harvest dates;
 ## For every location,pecalculated INS for the FCY class and WLY are sourced and then current yield is modelled,
 ## a data frame is created constituting relevant planting and harvest windows, for every combination predicted yield is scaled
 ## based on farmer-reported current yield relative to modelled current and Water linited Yield and for every
@@ -214,7 +177,9 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
     # ds$RFWY <- getRFY(HD = ds$HD, RDY = ds$WY, country = country)
     #
     for (k in 1:nrow(ds)) {
-      ds$RFCY[k] <- getRFY(HD = ds$HD[k], RDY = ds$CY[k], country = "NG") ## TZ function is giving very strange values, need to be checked
+      # NOTE: hardcoded to "NG" — TZ dry-to-fresh conversion in getRFY() produces
+      # unreliable values and has not yet been validated for Tanzania.
+      ds$RFCY[k] <- getRFY(HD = ds$HD[k], RDY = ds$CY[k], country = "NG")
       ds$RFWY[k] <- getRFY(HD = ds$HD[k], RDY = ds$WY[k], country = "NG")
     }
 
@@ -262,7 +227,7 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
 
 
 process_SP <- function(
-  SPP, SPH, country, PD_window, HD_window, areaHa, lat, lon, PD, HD, saleSF, nameSF, FCY,
+  SPP, SPH, country, lang, PD_window, HD_window, areaHa, lat, lon, PD, HD, saleSF, nameSF, FCY,
   rootUP, rootUP_m1, rootUP_m2, rootUP_p1, rootUP_p2, user, userField,
   area, areaUnits, maxInv, ploughing, ridging, method_ploughing, method_ridging, CMP, riskAtt,
   cassPD, cassUW, cassUP, cassUP_m1, cassUP_m2, cassUP_p1, cassUP_p2) {
@@ -271,11 +236,7 @@ process_SP <- function(
 	success <- FALSE
 	res <- NULL
 	if ((PD_window == 0) && (HD_window == 0)) {
-		recText <- if (country %in% c("NG", "GH")) {
-			"AKILIMO provides advice for schedule planting if only at least your planting or harvest time or both are flexible. Please provide this information and you will be advised when the best time is for your location."
-		} else {
-			"AKILIMO hutoa ushauri wa upandaji wa ratiba ikiwa angalau wakati wako wa upandaji au wakati wa kuvuna au zote mbili zinabadilika. Tafadhali toa habari hii na utashauriwa wakati mzuri wa kupanda na kuvuna kwa eneo lako"
-		}
+		recText <- tr("spinfo", lang)
 	} else if ((HD - PD) <= 30) {
 		recText <- "Planting date should be at least 1 month after planting date."
 	} else {
@@ -287,19 +248,11 @@ process_SP <- function(
 			rootUP_p2 = rootUP_p2)
 
 		if (!is.data.frame(res)) {
-
-			if (country == "TZ") {
-				recText <- "Hatuna mapendekezo yoyote kwa eneo lako kwa sababu eneo lako liko nje la eneo ambalo AKILIMO linafanya kazi kwa sasa"
-			} else { #if (country %in% c("NG", "GH")) {
-				# fertilizer??
-				recText <- "We do not have fertilizer recommendation for your location because your location is out of the recommendation domain AKILIMO is currently serving."
-			} #else {
-			#  return("kinyarwanda here")
-			#}	
+			recText <- tr("recloc", lang)
 		} else {
 			success <- TRUE
 
-			recText <- getSPrecText(ds = res, country = country,PD = PD, HD = HD)
+			recText <- getSPrecText(ds = res, country = country, lang = lang, PD = PD, HD = HD)
 			write.csv(recText, './temp/SP_recText.csv', row.names = FALSE)
 
 			SP_MarkdownText(
