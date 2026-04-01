@@ -53,8 +53,8 @@ body{
 #fertilizerAdviseTable()
 #out.width = "40500px",
 
-knitr::include_graphics("../net/Akilimo Dashboard IC.png")
-#knitr::include_graphics("../net/Akilimo Dashboard IC.png")
+knitr::include_graphics("../net/Akilimo_Dashboard_IC.png")
+#knitr::include_graphics("../net/Akilimo_Dashboard_IC.png")
 ```
 
 

@@ -51,9 +51,9 @@ show_text <- FALSE
 #fertilizerAdviseTable()
 #out.width = "40500px",
 
-knitr::include_graphics("../net/Akilimo Dashboard SP.png")
+knitr::include_graphics("../net/Akilimo_Dashboard_SP.png")
 
-#knitr::include_graphics("../net/Akilimo Dashboard SP.png")
+#knitr::include_graphics("../net/Akilimo_Dashboard_SP.png")
 ```
 
 
