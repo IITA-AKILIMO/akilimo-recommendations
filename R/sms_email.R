@@ -68,6 +68,7 @@ generate_pdfs <- function(user, FR, IC, PP, SP, country, result = NULL, params =
     tryCatch(
       expr,
       error = function(e) {
+        log_write("WARN", label, "PDF generation failed:", conditionMessage(e))
         warning(label, " PDF generation failed: ", conditionMessage(e))
         invisible(NULL)
       }

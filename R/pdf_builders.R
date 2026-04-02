@@ -32,8 +32,12 @@ render_pdf <- function(html, path) {
     stderr = TRUE
   )
 
-  if (!file.exists(path) || file.size(path) == 0) {
-    stop("WeasyPrint failed:\n", paste(result, collapse = "\n"))
+  status <- attr(result, "status") %||% 0L
+
+  if (!file.exists(path) || file.size(path) == 0 || (!is.null(status) && status != 0L)) {
+    output <- paste(result, collapse = "\n")
+    log_write("ERROR", "WeasyPrint output:\n", output)
+    stop("WeasyPrint failed (exit ", status, "):\n", output)
   }
 
   invisible(path)
