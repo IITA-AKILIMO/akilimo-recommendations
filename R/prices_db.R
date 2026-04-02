@@ -202,17 +202,25 @@ seed_prices_db <- function(conn) {
 # Returns data.frame with columns Country, Item, Price  (matching old CSV)
 # ---------------------------------------------------------------------------
 
-get_default_prices <- function(country) {
+get_default_prices <- function(country = NULL) {
     conn <- .prices_db_conn
     if (is.null(conn)) stop("prices_db: connection not open — call open_prices_db() first")
 
-    rows <- DBI::dbGetQuery(conn,
-        "SELECT country AS Country, item AS Item, price AS Price
-         FROM default_prices
-         WHERE country = ?",
-        params = list(country)
-    )
-    rows
+    # NULL country returns all rows — matches old CSV behaviour where callers
+    # (e.g. fertilizers.R) load the full table and filter themselves.
+    if (is.null(country)) {
+        DBI::dbGetQuery(conn,
+            "SELECT country AS Country, item AS Item, price AS Price
+             FROM default_prices"
+        )
+    } else {
+        DBI::dbGetQuery(conn,
+            "SELECT country AS Country, item AS Item, price AS Price
+             FROM default_prices
+             WHERE country = ?",
+            params = list(country)
+        )
+    }
 }
 
 # ---------------------------------------------------------------------------
