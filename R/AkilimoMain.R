@@ -47,15 +47,16 @@ validate_request <- function(body) {
 }
 
 
-setup_temp_dir <- function() {
+setup_temp_dir <- function(country = "XX", rec_type = "UNK") {
     dir.create("temp", FALSE, FALSE)
     # Clean up per-request subdirectories older than 1 hour
     subdirs <- list.dirs("temp", full.names = TRUE, recursive = FALSE)
     old <- subdirs[file.info(subdirs)$mtime < Sys.time() - 3600]
     for (d in old) unlink(d, recursive = TRUE)
-    # Create an isolated directory for this request
-    req_id  <- paste0(format(Sys.time(), "%Y%m%d%H%M%S"), "_",
-                      paste0(as.hexmode(sample.int(.Machine$integer.max, 2)), collapse = ""))
+    # Create an isolated directory: YYYYMMDD_HHMMSS_{country}_{type}_{rand4}
+    rand4   <- paste0(as.hexmode(sample.int(65535L, 2)), collapse = "")
+    req_id  <- paste0(format(Sys.time(), "%Y%m%d_%H%M%S"), "_",
+                      toupper(country), "_", toupper(rec_type), "_", rand4)
     req_dir <- file.path("temp", req_id)
     dir.create(req_dir)
     req_dir
@@ -283,7 +284,6 @@ build_response <- function(result, aki_version) {
 run_akilimo <- function(json) {
 
     aki_version <- "20251228"
-    set_temp_dir(setup_temp_dir())
 
     body <- try(jsonlite::fromJSON(json))
     if (inherits(body, "try-error")) return(bad_request("Malformed JSON body"))
@@ -292,21 +292,41 @@ run_akilimo <- function(json) {
     if (!is.null(err)) return(bad_request(err))
 
     params <- parse_request(body)
+    set_temp_dir(setup_temp_dir(country  = params$country,
+                                rec_type = paste(params$selected_key, collapse = "_")))
 
     message(paste0(params$selected_key, ": ", params$country,
                    ", planting: ", params$PD, ", harvest: ", params$HD))
 
     result <- dispatch_recommendations(params, body)
 
-    PDFs <- generate_pdfs(
-        user    = params$user,
-        FR      = params$FR,
-        IC      = params$IC,
-        PP      = params$PP,
-        SP      = params$SPP || params$SPH,
-        country = params$country
+    PDFs <- tryCatch(
+        generate_pdfs(
+            user    = params$user,
+            FR      = params$FR,
+            IC      = params$IC,
+            PP      = params$PP,
+            SP      = params$SPP || params$SPH,
+            country = params$country,
+            result  = result,
+            params  = params
+        ),
+        error = function(e) {
+            warning("generate_pdfs failed: ", conditionMessage(e))
+            character(0)
+        }
     )
-    if (isTRUE(params$user$send_email)) sendEmailReport(params$user, PDFs)
+
+    if (isTRUE(params$user$send_email)) {
+        if (length(PDFs) > 0) {
+            tryCatch(
+                sendEmailReport(params$user, PDFs),
+                error = function(e) warning("sendEmailReport failed: ", conditionMessage(e))
+            )
+        } else {
+            log_write("WARN", "Email requested but no PDFs were generated — skipping sendEmailReport.")
+        }
+    }
 
     build_response(result, aki_version)
 }
