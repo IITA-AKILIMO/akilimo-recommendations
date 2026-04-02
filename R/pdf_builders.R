@@ -368,33 +368,64 @@ build_pp_pdf <- function(rr, user, country,
   chart_path <- tp("pp_chart.png")
   tryCatch({
     ds2 <- ds
-    ds2$ploughing_label <- ifelse(ds2$method_ploughing == "N/A", "No ploughing",
-                            ifelse(ds2$method_ploughing == "manual", "Manual\nploughing", "Tractor\nploughing"))
-    ds2$ridging_label   <- ifelse(ds2$method_ridging   == "N/A", "No ridging",
-                            ifelse(ds2$method_ridging   == "manual", "Manual\nridging",   "Tractor\nridging"))
-    pp_plot <- ggplot2::ggplot(data = ds2[!ds2$CP, ],
+    ds2$ploughing_label <- ifelse(ds2$method_ploughing == "N/A", "no\nploughing",
+                            ifelse(ds2$method_ploughing == "manual", "manual\nploughing", "tractor\nploughing"))
+    ds2$ridging_label   <- ifelse(ds2$method_ridging   == "N/A", "no\nridging",
+                            ifelse(ds2$method_ridging   == "manual", "manual\nridging",   "tractor\nridging"))
+
+    ds_non_cp <- ds2[!ds2$CP, ]
+    ds_cp     <- ds2[ ds2$CP, ]
+    ds_rec    <- ds2[1, ]
+
+    # Colour each tile's text by sign of dNR / opposite sign of dTC
+    ds_non_cp$col_nr  <- ifelse(ds_non_cp$dNR > 0, "1",
+                          ifelse(ds_non_cp$dNR < 0, "-1", "0"))
+    ds_non_cp$col_tc  <- ifelse(ds_non_cp$dTC > 0, "-1",
+                          ifelse(ds_non_cp$dTC < 0, "1",  "0"))
+
+    pp_plot <- ggplot2::ggplot(data = ds_non_cp,
                                ggplot2::aes(x = ploughing_label, y = ridging_label)) +
-      ggplot2::geom_tile(ggplot2::aes(fill = dNR), colour = "grey95", linewidth = 1, alpha = 0.8) +
-      ggplot2::scale_fill_gradient2(low = "royalblue3", high = "green3", mid = "white", midpoint = 0,
-                                    labels = scales::comma, name = currency) +
-      ggplot2::geom_tile(data = ds2[ds2$CP, ], colour = "black", linewidth = 2, fill = NA) +
-      ggplot2::geom_tile(data = ds2[1, ],      colour = "purple", linewidth = 2, fill = NA) +
-      ggplot2::geom_text(data = ds2[ds2$CP, ], fontface = "bold",
-                         ggplot2::aes(label = "Your current\npractice"), size = 3.5) +
-      ggplot2::geom_text(ggplot2::aes(label = paste0(
-        ifelse(dNR > 0, "+ ", ifelse(dNR < 0, "- ", " ")),
-        formatC(signif(abs(dNR), digits = 3), format = "f", big.mark = ",", digits = 0))),
-        fontface = "bold", size = 3.5,
-        colour = ifelse(ds2[!ds2$CP, ]$dNR > 0, "green3",
-                 ifelse(ds2[!ds2$CP, ]$dNR < 0, "red", "grey50"))) +
-      ggplot2::geom_text(data = ds2[1, ], colour = "purple", fontface = "bold",
-                         ggplot2::aes(label = "Recommended\npractice\n\n"), size = 3.5) +
-      ggplot2::xlab(html_label("ploughing_label", lang)) +
-      ggplot2::ylab(html_label("ridging_label",   lang)) +
+      ggplot2::geom_tile(ggplot2::aes(fill = dNR), colour = "grey95", linewidth = 1, alpha = 0.2) +
+      ggplot2::scale_fill_gradient2(low = "royalblue3", high = "green", mid = "white", midpoint = 0) +
+      ggplot2::geom_tile(data = ds_cp,  colour = "black",  linewidth = 2, fill = NA) +
+      ggplot2::geom_tile(data = ds_rec, colour = "purple", linewidth = 2, fill = NA) +
+      # Current practice label
+      ggplot2::geom_text(data = ds_cp, fontface = "bold",
+                         ggplot2::aes(label = "Your current practice"), size = 4) +
+      # Net value line (coloured by sign of dNR)
+      ggplot2::geom_text(ggplot2::aes(
+        label = paste0("Net value: ",
+                       ifelse(dNR > 0, "+ ", ifelse(dNR < 0, "- ", " ")),
+                       formatC(signif(abs(dNR), digits = 3), format = "f", big.mark = ",", digits = 0),
+                       " ", currency, "\n"),
+        colour = col_nr),
+        fontface = "bold", size = 4) +
+      # Cost line (coloured by inverse sign of dTC)
+      ggplot2::geom_text(ggplot2::aes(
+        label = paste0("\n Cost: ",
+                       ifelse(dTC > 0, "+ ", ifelse(dTC < 0, "- ", " ")),
+                       formatC(signif(abs(dTC), digits = 3), format = "f", big.mark = ",", digits = 0),
+                       " ", currency),
+        colour = col_tc),
+        fontface = "bold", size = 4) +
+      ggplot2::scale_colour_manual(values = c("-1" = "red", "0" = "grey50", "1" = "green3")) +
+      # Recommended practice label
+      ggplot2::geom_text(data = ds_rec, colour = "purple", fontface = "bold",
+                         ggplot2::aes(label = "Recommended practice\n\n\n"), size = 4) +
+      ggplot2::xlab("Ploughing") +
+      ggplot2::ylab("Ridging") +
       ggplot2::theme_bw() +
-      ggplot2::theme(axis.title = ggplot2::element_blank(),
-                     axis.text  = ggplot2::element_text(size = 11, colour = "black", face = "bold"))
-    ggplot2::ggsave(chart_path, pp_plot, width = 8, height = 5, units = "in", dpi = 150)
+      ggplot2::theme(
+        axis.title      = ggplot2::element_blank(),
+        axis.text       = ggplot2::element_text(size = 15, colour = "black", face = "bold"),
+        axis.text.y     = ggplot2::element_text(angle = 90, hjust = 0.5, vjust = -1),
+        legend.position = "none",
+        panel.grid      = ggplot2::element_blank(),
+        panel.background = ggplot2::element_blank(),
+        panel.border    = ggplot2::element_blank(),
+        axis.ticks      = ggplot2::element_blank()
+      )
+    ggplot2::ggsave(chart_path, pp_plot, width = 9, height = 5, units = "in", dpi = 150)
   }, error = function(e) {
     warning("PP chart generation failed: ", e$message)
     chart_path <<- NULL
