@@ -138,6 +138,61 @@ Neither file is committed (both matched by `.gitignore`).
 | `PLIVO_AUTH_ID` | — | Plivo account ID (SMS) |
 | `PLIVO_AUTH_TOKEN` | — | Plivo auth token (SMS) |
 | `PLIVO_SRC_NUMBER` | — | Plivo sender number (SMS) |
+| `PRICES_DB_PATH` | `data/input/prices.sqlite` | Path to the SQLite price database |
+| `PRICE_API_URL` | — | Base URL of the external price service (unset = auto-refresh disabled) |
+| `PRICE_API_TOKEN` | — | Bearer token for the price API |
+| `PRICE_MAX_AGE_DAYS` | `7` | Days before fertilizer/cassava prices trigger an auto-refresh |
+| `STARCH_PRICE_MAX_AGE_DAYS` | `30` | Days before starch factory prices trigger an auto-refresh |
+
+### Price database (SQLite)
+
+Fertilizer, labour, cassava, and starch factory prices are stored in a local
+SQLite file (`data/input/prices.sqlite`). The file is created automatically on
+first server start — seeded from the bundled CSV files — and updated via the
+refresh script below.
+
+#### Manual price refresh
+
+Use `refresh_prices.R` to pull the latest prices from the configured
+`PRICE_API_URL` and write them into the database:
+
+```bash
+# Refresh everything (all countries, both price types)
+Rscript refresh_prices.R
+
+# Refresh fertilizer/labour/cassava prices for Nigeria only
+Rscript refresh_prices.R --country NG --type default
+
+# Refresh starch factory prices for all countries
+Rscript refresh_prices.R --type starch
+
+# Validate what the API would return without writing to the DB
+Rscript refresh_prices.R --dry-run
+```
+
+`PRICE_API_URL` must be set in `.env` before running. If it is not set, the
+script exits with an error immediately.
+
+#### Scheduled refresh (cron)
+
+To keep prices current automatically, add a cron job on the server. Example —
+refresh all prices every Monday at 02:00:
+
+```cron
+0 2 * * 1  cd /opt/akilimo && Rscript refresh_prices.R >> logs/price-refresh.log 2>&1
+```
+
+Adjust the schedule to match how frequently your price source publishes updates.
+
+#### Auto-refresh during requests
+
+When `PRICE_API_URL` is set, the API server also checks price freshness on
+each incoming request (after parsing, before computing). If prices are older
+than `PRICE_MAX_AGE_DAYS` (default 7), a background refresh runs silently.
+A failed auto-refresh is logged as WARN and never blocks the recommendation.
+
+See [docs/PRICES-SQLITE-PLAN.md](PRICES-SQLITE-PLAN.md) for full implementation
+details and the external API contract.
 
 ### Python data scripts
 
