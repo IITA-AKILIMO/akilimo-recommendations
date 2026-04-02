@@ -288,26 +288,23 @@ html_personal_info <- function(user, userField, area, areaUnits,
 
 #' Render a location section for the PDF report.
 #'
-#' Primary path: if MAP_API_URL is set in the environment, fetches a static map
-#' PNG via HTTP (GET {MAP_API_URL}?lat={lat}&lon={lon}&zoom=10&size=800x{height})
-#' and embeds it as base64.
+#' Resolution order:
+#'   1. MAPBOX_TOKEN set → Mapbox Static Images API (streets-v12, pin marker)
+#'   2. MAP_API_URL set  → generic static-map service
+#'                         GET {MAP_API_URL}?lat=…&lon=…&zoom=10&size=800x{h}
+#'   3. Neither set      → styled HTML coordinate card (offline, always works)
 #'
-#' Fallback (always works offline): renders a styled HTML coordinate card
-#' showing the lat/lon values — no network, no browser, no pandoc required.
+#' On any network/HTTP error the function falls through to the next option.
 #'
 #' @param lat       Latitude.
 #' @param lon       Longitude.
-#' @param height_px Map image height in pixels (used only for the HTTP path).
+#' @param height_px Image height in pixels (width fixed at 800).
 #' @param lang      Language code.
 #' @return character(1)
 html_location_map <- function(lat, lon, height_px = 300, lang = "en") {
-  map_api_url <- Sys.getenv("MAP_API_URL", unset = "")
 
-  if (nzchar(map_api_url)) {
+  .fetch_map_png <- function(url) {
     map_png <- tp("map.png")
-    url <- sprintf("%s?lat=%.6f&lon=%.6f&zoom=10&size=800x%d",
-                   map_api_url, lat, lon, as.integer(height_px))
-
     ok <- tryCatch({
       resp <- httr::GET(url, httr::timeout(10),
                         httr::write_disk(map_png, overwrite = TRUE))
@@ -316,15 +313,40 @@ html_location_map <- function(lat, lon, height_px = 300, lang = "en") {
       log_write("WARN", "html_location_map: map fetch failed:", conditionMessage(e))
       FALSE
     })
+    if (ok) map_png else NULL
+  }
 
-    if (ok) {
-      inner <- sprintf('<div class="map-image">%s</div>',
-                       img_base64(map_png, alt = "Farm location"))
+  w <- 800L
+  h <- as.integer(height_px)
+
+  # ── 1. Mapbox Static Images API ──────────────────────────────────────────────
+  mapbox_token <- Sys.getenv("MAPBOX_TOKEN", unset = "")
+  if (nzchar(mapbox_token)) {
+    # pin-s = small pin; ee4d5f = Akilimo red marker
+    url <- sprintf(
+      "https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/pin-s+ee4d5f(%.6f,%.6f)/%.6f,%.6f,10,0/%dx%d@2x?access_token=%s",
+      lon, lat, lon, lat, w, h, mapbox_token
+    )
+    png <- .fetch_map_png(url)
+    if (!is.null(png)) {
+      inner <- sprintf('<div class="map-image">%s</div>', img_base64(png, alt = "Farm location"))
       return(html_section(html_label("your_location", lang), inner))
     }
   }
 
-  # Offline fallback — coordinate card, no external dependencies
+  # ── 2. Generic static-map service ───────────────────────────────────────────
+  map_api_url <- Sys.getenv("MAP_API_URL", unset = "")
+  if (nzchar(map_api_url)) {
+    url <- sprintf("%s?lat=%.6f&lon=%.6f&zoom=10&size=%dx%d",
+                   map_api_url, lat, lon, w, h)
+    png <- .fetch_map_png(url)
+    if (!is.null(png)) {
+      inner <- sprintf('<div class="map-image">%s</div>', img_base64(png, alt = "Farm location"))
+      return(html_section(html_label("your_location", lang), inner))
+    }
+  }
+
+  # ── 3. Offline fallback — coordinate card ───────────────────────────────────
   inner <- sprintf(
     '<div class="location-coords">
        <div class="coord-row"><span class="coord-label">Lat</span><span class="coord-value">%.6f</span></div>
