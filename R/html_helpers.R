@@ -3,7 +3,7 @@
 # All functions return character(1) — an HTML string fragment.
 # Full documents are assembled by the build_*_pdf() functions in pdf_builders.R.
 #
-# Dependencies: base64enc (for img_base64), leaflet + mapview (for maps).
+# Dependencies: base64enc (for img_base64), httr (for static map fetch).
 # FERT_COLOUR and FERT_LABEL are defined in markdown.R (sourced first).
 
 # ── PDF label lookup ──────────────────────────────────────────────────────────
@@ -286,26 +286,34 @@ html_personal_info <- function(user, userField, area, areaUnits,
 
 # ── Location map ──────────────────────────────────────────────────────────────
 
-#' Render a leaflet map to a temp PNG and return a section with the embedded image.
+#' Fetch a static map PNG via HTTP and return a section with the embedded image.
+#'
+#' Uses the OpenStreetMap-based staticmap service — no browser, no pandoc, no
+#' PhantomJS required. Falls back gracefully to an empty string on network error.
+#'
 #' @param lat       Latitude.
 #' @param lon       Longitude.
-#' @param height_px PNG height in pixels.
+#' @param height_px Map image height in pixels (width is fixed at 800).
 #' @param lang      Language code.
 #' @return character(1)
 html_location_map <- function(lat, lon, height_px = 300, lang = "en") {
   map_png <- tp("map.png")
 
-  m <- leaflet::leaflet() |>
-    leaflet::setView(lng = lon, lat = lat, zoom = 10) |>
-    leaflet::addProviderTiles(leaflet::providers$Esri.NatGeoWorldMap) |>
-    leaflet::addCircleMarkers(lng = lon, lat = lat,
-                              color = "white", fillColor = "transparent",
-                              weight = 10, radius = 30) |>
-    leaflet::addScaleBar()
+  url <- sprintf(
+    "https://staticmap.openstreetmap.de/staticmap.php?center=%.6f,%.6f&zoom=10&size=800x%d&markers=%.6f,%.6f,lightblue1",
+    lat, lon, as.integer(height_px), lat, lon
+  )
 
-  mapview::mapshot(m, file = map_png, vwidth = 800, vheight = height_px,
-                   remove_controls = c("zoomControl", "layersControl",
-                                       "homeButton", "drawToolbar", "easyButton"))
+  ok <- tryCatch({
+    resp <- httr::GET(url, httr::timeout(10),
+                      httr::write_disk(map_png, overwrite = TRUE))
+    httr::status_code(resp) == 200L && file.exists(map_png) && file.size(map_png) > 0
+  }, error = function(e) {
+    log_write("WARN", "html_location_map: static map fetch failed:", conditionMessage(e))
+    FALSE
+  })
+
+  if (!ok) return("")
 
   inner <- sprintf('<div class="map-image">%s</div>', img_base64(map_png, alt = "Farm location"))
   html_section(html_label("your_location", lang), inner)
