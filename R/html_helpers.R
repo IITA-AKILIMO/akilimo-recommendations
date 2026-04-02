@@ -442,7 +442,7 @@ html_fertilizer_table <- function(fr, area, areaUnits, currency,
 #' @param lang          Language code.
 #' @return character(1)
 html_cost_benefit <- function(sum_total, totalSale, netRevenue, currency, lang = "en") {
-  # Compute cash-stack ratios (same logic as fertilizerAdviseTable())
+  # Compute cash-stack ratios
   if (min(sum_total, netRevenue) == sum_total) {
     ratio_cost    <- 1L
     ratio_sale    <- max(1L, min(10L, as.integer(round(totalSale   / sum_total))))

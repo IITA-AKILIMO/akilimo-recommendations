@@ -71,7 +71,7 @@ Check off each item after the fix is committed.
 - [ ] **QUA-5** Multiple files — `dNRmin` profitability threshold duplicated in IC (×2), FR, PP
 - [ ] **QUA-6** `AkilimoMain.R:276` — `aki_version` hardcoded date string
 - [ ] **QUA-8** Multiple files — large commented-out code blocks
-- [ ] **QUA-12** `markdown.R:312` — `PPSP_MarkdownText` writes `"PP_MarkDownText.csv"` to working directory root
+- [x] **QUA-12** `markdown.R` — `PPSP_MarkdownText` writes to wrong dir — resolved: function deleted (Rmd pipeline removed)
 - [ ] **QUA-14** `AkilimoMain.R:357–444` — `get_costLMO` has inconsistent tab/space indentation
 - [ ] **API-6** `AkilimoMain.R` — `validate_request` does not check that `PD_window`/`HD_window` are non-negative integers
 - [ ] **TRANS-3** `misc.R:5–18` — `tr()` does not validate that `lang` is a known column name
@@ -86,7 +86,7 @@ Check off each item after the fix is committed.
 ## Nice to Have (LOW)
 
 - [ ] **QUA-9** `get_data.R:193` — `get_data` signature should default-`NULL` unused arguments
-- [ ] **QUA-15** `markdown.R:208` — debug `message()` call in `IC_MarkdownText` hot path
+- [x] **QUA-15** `markdown.R` — debug `message()` in `IC_MarkdownText` hot path — resolved: function deleted (Rmd pipeline removed)
 - [ ] **QUA-16** `process-SP.R:241` — hardcoded English string with copy-paste factual error ("after planting date" should be "after planting date" → harvest); replace with `tr("sphdpd", lang)`
 - [ ] **QUA-17** `process-SP.R:216` — debug `message()` call in `getSPrecommendations` hot path; replace with `warning()` or remove
 

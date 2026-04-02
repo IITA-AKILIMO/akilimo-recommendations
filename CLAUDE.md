@@ -155,7 +155,8 @@ Spatial data lives under `./data/` (gitignored):
 ## Required R Packages
 ```r
 c("plumber", "limSolve", "ncdf4", "httr", "mailR", "base64enc",
-  "leaflet", "mapview", "ggplot2", "scales", "jsonlite", "tinytest")
+  "ggplot2", "ragg", "scales", "jsonlite", "DBI", "RSQLite",
+  "dotenv", "lubridate", "dplyr", "tidyr", "tinytest")
 ```
 
 ## API Request Schema

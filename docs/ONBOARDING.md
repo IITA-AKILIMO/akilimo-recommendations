@@ -133,7 +133,7 @@ Processors no longer write CSV files to the temp dir. All data needed for PDF ge
 `generate_pdfs()` calls the appropriate `build_*_pdf()` for each active flag. Each builder:
 
 1. Assembles HTML using fragment helpers from `html_helpers.R`
-2. Renders a map PNG via `leaflet` + `mapview::mapshot()`
+2. Fetches a map PNG via Mapbox Static API → generic HTTP → offline coordinate card fallback
 3. Renders any charts via `ggplot2::ggsave()`
 4. Calls `render_pdf(html, out_path)` which invokes WeasyPrint via `system2()`
 
@@ -180,7 +180,7 @@ HTML fragment builders shared across all PDF types.
 | `html_two_col(left, right)` | CSS Grid two-column wrapper |
 | `html_three_col(col1, col2, col3)` | CSS Grid three-column wrapper |
 | `html_personal_info(...)` | "What you told us" section |
-| `html_location_map(lat, lon, ...)` | Renders leaflet map → PNG → base64 `<img>` |
+| `html_location_map(lat, lon, ...)` | Map PNG (Mapbox/HTTP/offline card) → base64 `<img>` |
 | `html_fertilizer_table(...)` | Fertilizer prices + cassava price + max investment |
 | `html_cost_benefit(...)` | Three-row cost/revenue/net section with cash images |
 | `html_recommendation(recText, lang)` | Bold full-width recommendation paragraph |
