@@ -23,10 +23,6 @@ pkgs <- c(
   # Report generation (WeasyPrint — HTML/CSS → PDF via Python CLI)
   "base64enc",
 
-  # Mapping
-  "leaflet",
-  "mapview",
-
   # Data wrangling
   "jsonlite",
   "tidyr",

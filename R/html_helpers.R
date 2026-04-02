@@ -3,7 +3,7 @@
 # All functions return character(1) — an HTML string fragment.
 # Full documents are assembled by the build_*_pdf() functions in pdf_builders.R.
 #
-# Dependencies: base64enc (for img_base64), leaflet + mapview (for maps).
+# Dependencies: base64enc (for img_base64), httr (for static map fetch).
 # FERT_COLOUR and FERT_LABEL are defined in markdown.R (sourced first).
 
 # ── PDF label lookup ──────────────────────────────────────────────────────────
@@ -286,28 +286,74 @@ html_personal_info <- function(user, userField, area, areaUnits,
 
 # ── Location map ──────────────────────────────────────────────────────────────
 
-#' Render a leaflet map to a temp PNG and return a section with the embedded image.
+#' Render a location section for the PDF report.
+#'
+#' Resolution order:
+#'   1. MAPBOX_TOKEN set → Mapbox Static Images API (streets-v12, pin marker)
+#'   2. MAP_API_URL set  → generic static-map service
+#'                         GET {MAP_API_URL}?lat=…&lon=…&zoom=10&size=800x{h}
+#'   3. Neither set      → styled HTML coordinate card (offline, always works)
+#'
+#' On any network/HTTP error the function falls through to the next option.
+#'
 #' @param lat       Latitude.
 #' @param lon       Longitude.
-#' @param height_px PNG height in pixels.
+#' @param height_px Image height in pixels (width fixed at 800).
 #' @param lang      Language code.
 #' @return character(1)
 html_location_map <- function(lat, lon, height_px = 300, lang = "en") {
-  map_png <- tp("map.png")
 
-  m <- leaflet::leaflet() |>
-    leaflet::setView(lng = lon, lat = lat, zoom = 10) |>
-    leaflet::addProviderTiles(leaflet::providers$Esri.NatGeoWorldMap) |>
-    leaflet::addCircleMarkers(lng = lon, lat = lat,
-                              color = "white", fillColor = "transparent",
-                              weight = 10, radius = 30) |>
-    leaflet::addScaleBar()
+  .fetch_map_png <- function(url) {
+    map_png <- tp("map.png")
+    ok <- tryCatch({
+      resp <- httr::GET(url, httr::timeout(10),
+                        httr::write_disk(map_png, overwrite = TRUE))
+      httr::status_code(resp) == 200L && file.exists(map_png) && file.size(map_png) > 0
+    }, error = function(e) {
+      log_write("WARN", "html_location_map: map fetch failed:", conditionMessage(e))
+      FALSE
+    })
+    if (ok) map_png else NULL
+  }
 
-  mapview::mapshot(m, file = map_png, vwidth = 800, vheight = height_px,
-                   remove_controls = c("zoomControl", "layersControl",
-                                       "homeButton", "drawToolbar", "easyButton"))
+  w <- 800L
+  h <- as.integer(height_px)
 
-  inner <- sprintf('<div class="map-image">%s</div>', img_base64(map_png, alt = "Farm location"))
+  # ── 1. Mapbox Static Images API ──────────────────────────────────────────────
+  mapbox_token <- Sys.getenv("MAPBOX_TOKEN", unset = "")
+  if (nzchar(mapbox_token)) {
+    # pin-s = small pin; ee4d5f = Akilimo red marker
+    url <- sprintf(
+      "https://api.mapbox.com/styles/v1/mapbox/streets-v12/static/pin-s+ee4d5f(%.6f,%.6f)/%.6f,%.6f,10,0/%dx%d@2x?access_token=%s",
+      lon, lat, lon, lat, w, h, mapbox_token
+    )
+    png <- .fetch_map_png(url)
+    if (!is.null(png)) {
+      inner <- sprintf('<div class="map-image">%s</div>', img_base64(png, alt = "Farm location"))
+      return(html_section(html_label("your_location", lang), inner))
+    }
+  }
+
+  # ── 2. Generic static-map service ───────────────────────────────────────────
+  map_api_url <- Sys.getenv("MAP_API_URL", unset = "")
+  if (nzchar(map_api_url)) {
+    url <- sprintf("%s?lat=%.6f&lon=%.6f&zoom=10&size=%dx%d",
+                   map_api_url, lat, lon, w, h)
+    png <- .fetch_map_png(url)
+    if (!is.null(png)) {
+      inner <- sprintf('<div class="map-image">%s</div>', img_base64(png, alt = "Farm location"))
+      return(html_section(html_label("your_location", lang), inner))
+    }
+  }
+
+  # ── 3. Offline fallback — coordinate card ───────────────────────────────────
+  inner <- sprintf(
+    '<div class="location-coords">
+       <div class="coord-row"><span class="coord-label">Lat</span><span class="coord-value">%.6f</span></div>
+       <div class="coord-row"><span class="coord-label">Lon</span><span class="coord-value">%.6f</span></div>
+     </div>',
+    lat, lon
+  )
   html_section(html_label("your_location", lang), inner)
 }
 

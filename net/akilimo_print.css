@@ -220,6 +220,34 @@ table.data-table tr:nth-child(even) td {
   object-fit: cover;
 }
 
+/* ── Coordinate card (offline fallback for location map) ────────────── */
+
+.location-coords {
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 12px 16px;
+  display: inline-block;
+  min-width: 180px;
+}
+
+.coord-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.coord-label {
+  font-weight: bold;
+  color: #555;
+  width: 28px;
+}
+
+.coord-value {
+  font-family: monospace;
+  color: #222;
+}
+
 /* ── Horizontal rules ───────────────────────────────────────────────── */
 
 hr {
