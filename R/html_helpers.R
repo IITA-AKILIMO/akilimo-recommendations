@@ -286,36 +286,52 @@ html_personal_info <- function(user, userField, area, areaUnits,
 
 # ── Location map ──────────────────────────────────────────────────────────────
 
-#' Fetch a static map PNG via HTTP and return a section with the embedded image.
+#' Render a location section for the PDF report.
 #'
-#' Uses the OpenStreetMap-based staticmap service — no browser, no pandoc, no
-#' PhantomJS required. Falls back gracefully to an empty string on network error.
+#' Primary path: if MAP_API_URL is set in the environment, fetches a static map
+#' PNG via HTTP (GET {MAP_API_URL}?lat={lat}&lon={lon}&zoom=10&size=800x{height})
+#' and embeds it as base64.
+#'
+#' Fallback (always works offline): renders a styled HTML coordinate card
+#' showing the lat/lon values — no network, no browser, no pandoc required.
 #'
 #' @param lat       Latitude.
 #' @param lon       Longitude.
-#' @param height_px Map image height in pixels (width is fixed at 800).
+#' @param height_px Map image height in pixels (used only for the HTTP path).
 #' @param lang      Language code.
 #' @return character(1)
 html_location_map <- function(lat, lon, height_px = 300, lang = "en") {
-  map_png <- tp("map.png")
+  map_api_url <- Sys.getenv("MAP_API_URL", unset = "")
 
-  url <- sprintf(
-    "https://staticmap.openstreetmap.de/staticmap.php?center=%.6f,%.6f&zoom=10&size=800x%d&markers=%.6f,%.6f,lightblue1",
-    lat, lon, as.integer(height_px), lat, lon
+  if (nzchar(map_api_url)) {
+    map_png <- tp("map.png")
+    url <- sprintf("%s?lat=%.6f&lon=%.6f&zoom=10&size=800x%d",
+                   map_api_url, lat, lon, as.integer(height_px))
+
+    ok <- tryCatch({
+      resp <- httr::GET(url, httr::timeout(10),
+                        httr::write_disk(map_png, overwrite = TRUE))
+      httr::status_code(resp) == 200L && file.exists(map_png) && file.size(map_png) > 0
+    }, error = function(e) {
+      log_write("WARN", "html_location_map: map fetch failed:", conditionMessage(e))
+      FALSE
+    })
+
+    if (ok) {
+      inner <- sprintf('<div class="map-image">%s</div>',
+                       img_base64(map_png, alt = "Farm location"))
+      return(html_section(html_label("your_location", lang), inner))
+    }
+  }
+
+  # Offline fallback — coordinate card, no external dependencies
+  inner <- sprintf(
+    '<div class="location-coords">
+       <div class="coord-row"><span class="coord-label">Lat</span><span class="coord-value">%.6f</span></div>
+       <div class="coord-row"><span class="coord-label">Lon</span><span class="coord-value">%.6f</span></div>
+     </div>',
+    lat, lon
   )
-
-  ok <- tryCatch({
-    resp <- httr::GET(url, httr::timeout(10),
-                      httr::write_disk(map_png, overwrite = TRUE))
-    httr::status_code(resp) == 200L && file.exists(map_png) && file.size(map_png) > 0
-  }, error = function(e) {
-    log_write("WARN", "html_location_map: static map fetch failed:", conditionMessage(e))
-    FALSE
-  })
-
-  if (!ok) return("")
-
-  inner <- sprintf('<div class="map-image">%s</div>', img_base64(map_png, alt = "Farm location"))
   html_section(html_label("your_location", lang), inner)
 }
 
