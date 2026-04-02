@@ -1,78 +1,30 @@
 [Unit]
 Description=AKILIMO R Recommendation Engine
-Documentation=https://github.com/IITA-AKILIMO/akilimo-recommendations
-After=network-online.target
-Wants=network-online.target
+After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/akilimo/projects/akilimo-recommendations
-ExecStart=/usr/bin/Rscript /home/akilimo/projects/akilimo-recommendations/api.R
-ExecReload=/bin/kill -HUP $MAINPID
-
-# Restart configuration
-Restart=on-failure
-RestartSec=5s
-StartLimitInterval=300s
-StartLimitBurst=5
-
-# User and security
 User=akilimo
 Group=akilimo
-UMask=0027
+WorkingDirectory=/home/akilimo/projects/new_akilimo
 
-# PATH — must include wherever WeasyPrint is installed.
-#
-# If installed system-wide (recommended for services):
-#   sudo pip3 install weasyprint
-#   → binary lands in /usr/local/bin — already covered below.
-#
-# If installed per-user (pip install --user weasyprint as the akilimo user):
-#   → binary lands in /home/akilimo/.local/bin — add that to PATH:
-#   Environment=PATH=/home/akilimo/.local/bin:/usr/local/bin:/usr/bin:/bin
-#
-# If using a Python virtualenv at /opt/akilimo-venv:
-#   Environment=PATH=/opt/akilimo-venv/bin:/usr/local/bin:/usr/bin:/bin
-#
-# Verify the correct path with:
-#   sudo -u akilimo which weasyprint
-#
-Environment=PATH=/usr/local/bin:/usr/bin:/bin
-Environment=R_LIBS_USER=/home/akilimo/R/library
-EnvironmentFile=/home/akilimo/projects/akilimo-recommendations/.env
+# Enhanced PATH to include pipx binaries and venvs
+Environment="PATH=/home/akilimo/.local/bin:/home/akilimo/.local/pipx/venvs:/usr/local/bin:/usr/bin:/bin"
 
-# Read/write access
-# temp/   — per-request working directory for CSV intermediates and PDF temp files
-# data/   — SQLite price database (prices.sqlite is written here)
-# logs/   — application log files
-ReadWritePaths=/home/akilimo/projects/akilimo-recommendations/temp \
-               /home/akilimo/projects/akilimo-recommendations/data \
-               /home/akilimo/projects/akilimo-recommendations/logs
+ExecStart=/home/akilimo/projects/new_akilimo/start-akilimo.sh
 
-# Logging
+Restart=on-failure
+RestartSec=5s
+
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=akilimo-api
+LogRateLimitIntervalSec=30s
+LogRateLimitBurst=1000
 
-# Security hardening
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=read-only
-ProtectKernelTunables=true
-ProtectKernelModules=true
-ProtectControlGroups=true
-
-# Resource limits
-LimitNOFILE=65536
-MemoryMax=2G
-CPUQuota=200%
-
-# Process management
-TimeoutStartSec=60s
-TimeoutStopSec=30s
-KillMode=mixed
-KillSignal=SIGTERM
+# Optional file logging (commented out)
+#StandardOutput=append:/home/akilimo/projects/new_akilimo/logs/akilimo-api.log
+#StandardError=append:/home/akilimo/projects/new_akilimo/logs/akilimo-api-error.log
 
 [Install]
 WantedBy=multi-user.target
