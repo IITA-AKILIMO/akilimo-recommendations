@@ -3,13 +3,16 @@
 akpath <- Sys.getenv("AKILIMO_ROOT", unset = ".")
 setwd(akpath)
 
-# Use ragg as the ggplot2 graphics device — faster than Cairo, better font
-# rendering, and no X11 dependency on headless Linux servers.
-if (requireNamespace("ragg", quietly = TRUE)) {
-  ggplot2::set_default_device(ragg::agg_png)
-} else if (.Platform$OS.type == "unix") {
-  # Fallback: Cairo works headless without an extra R package
-  options(bitmapType = "cairo")
+# Headless PNG rendering — no X11 display required.
+# ragg is preferred (faster, better fonts); Cairo is the fallback.
+# Both avoid the "unable to open connection to X11 display" error on servers.
+if (.Platform$OS.type == "unix") {
+  if (requireNamespace("ragg", quietly = TRUE)) {
+    options(bitmapType = "cairo")          # keeps png() working
+    options(device    = ragg::agg_png)     # ggplot2::ggsave() picks this up
+  } else {
+    options(bitmapType = "cairo")
+  }
 }
 
 srcdir <- file.path(akpath, "R")
