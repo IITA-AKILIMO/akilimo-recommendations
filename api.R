@@ -35,6 +35,21 @@ for (f in c("misc.R", "logging.R", "get_data.R", "prices_db.R", "fertilizers.R",
 # Open (or create and seed) the SQLite price database.
 open_prices_db()
 
+# Verify WeasyPrint is available. Log a clear error at startup rather than
+# discovering it on the first PDF request.
+local({
+  res <- tryCatch(
+    system2("weasyprint", "--version", stdout = TRUE, stderr = TRUE),
+    error = function(e) NULL
+  )
+  if (is.null(res) || length(res) == 0) {
+    log_write("ERROR", "WeasyPrint not found — PDF generation will fail.",
+              "Install with: pip install weasyprint")
+  } else {
+    log_write("INFO", "WeasyPrint:", paste(res, collapse = " "))
+  }
+})
+
 library(plumber)
 
 pr <- Plumber$new()

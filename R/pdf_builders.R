@@ -24,18 +24,28 @@
 render_pdf <- function(html, path) {
   html_tmp <- tp("render_tmp.html")
   writeLines(html, html_tmp, useBytes = TRUE)
+  log_write("DEBUG", "render_pdf: HTML written to", html_tmp, "— rendering to", path)
 
-  result <- system2(
-    "weasyprint",
-    args   = c(shQuote(html_tmp), shQuote(path)),
-    stdout = TRUE,
-    stderr = TRUE
+  result <- tryCatch(
+    system2(
+      "weasyprint",
+      args   = c(shQuote(html_tmp), shQuote(path)),
+      stdout = TRUE,
+      stderr = TRUE
+    ),
+    error = function(e) {
+      log_write("ERROR", "render_pdf: system2 threw — HTML preserved at:", html_tmp)
+      log_write("ERROR", "system2 error:", conditionMessage(e))
+      stop("WeasyPrint could not be started (", conditionMessage(e),
+           ") — HTML at: ", html_tmp)
+    }
   )
 
   status <- attr(result, "status") %||% 0L
 
   if (!file.exists(path) || file.size(path) == 0 || (!is.null(status) && status != 0L)) {
     output <- paste(result, collapse = "\n")
+    log_write("ERROR", "WeasyPrint exited", status, "— HTML preserved at:", html_tmp)
     log_write("ERROR", "WeasyPrint output:\n", output)
     stop("WeasyPrint failed (exit ", status, "):\n", output)
   }
