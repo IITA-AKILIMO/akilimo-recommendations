@@ -33,10 +33,9 @@ The script targets **Debian/Ubuntu**. For other distros, pass `--no-system` and 
 ```bash
 sudo apt-get update
 sudo apt-get install -y \
-  pandoc \
   openjdk-17-jre-headless \
   libnetcdf-dev libhdf5-dev \
-  wkhtmltopdf \
+  libpango-1.0-0 libpangoft2-1.0-0 libgdk-pixbuf2.0-0 \
   libssl-dev libcurl4-openssl-dev libxml2-dev
 ```
 
@@ -46,11 +45,9 @@ sudo apt-get install -y \
 |---------|------------|
 | `openjdk-17-jre-headless` | mailR (SMTP email via Java) — only needed if `EMAIL_PROVIDER=smtp` |
 | `libnetcdf-dev`, `libhdf5-dev` | ncdf4 R package — reads yield raster data |
-| `libpango-1.0-0`, `libpangoft2-1.0-0` | WeasyPrint — PDF rendering (font layout) |
+| `libpango-1.0-0`, `libpangoft2-1.0-0`, `libgdk-pixbuf2.0-0` | WeasyPrint — PDF rendering (font layout, image support) |
 | `libssl-dev`, `libcurl4-openssl-dev` | httr R package — HTTP requests |
 | `libxml2-dev` | xml2 R package (dependency of several packages) |
-
-> `pandoc`, `wkhtmltopdf`, and `phantomjs` are no longer required — the PDF pipeline now uses WeasyPrint.
 
 ### WeasyPrint (PDF renderer)
 
