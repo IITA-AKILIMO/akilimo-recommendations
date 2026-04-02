@@ -129,7 +129,7 @@ No R code changes are required unless you are introducing a new composite senten
    lang <- if (lang_raw %in% c("en", "sw", "fr")) lang_raw else "en"
    ```
 
-3. Publish the updated `translations.csv` to Zenodo (see [SETUP.md](../SETUP.md#maintainer-publishing-data-updates)).
+3. Publish the updated `translations.csv` to OSF or Zenodo (see [SETUP.md](../SETUP.md#maintainer-publishing-data-updates)).
 
 Keys that lack a translation for the new language automatically fall back to English.
 

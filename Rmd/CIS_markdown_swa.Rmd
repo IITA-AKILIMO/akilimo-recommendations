@@ -1,52 +1,15 @@
 ---
-output: 
+output:
   flexdashboard::flex_dashboard:
     orientation: rows
+    css: "../net/akilimo.css"
+params:
+  temp_dir: "../temp"
 ---
-  
-  <style>
-
-body {
-  padding-top:0px;
-  padding-left:15px;
-  padding-right:15px;
-}
-
-.navbar{
-  visibility: hidden;
-}
-}
-
-</style> 
-
- <style type="text/css">
-
-.chart-title {  /* chart_title  */
-   font-size: 30px;
-   font-family: Helvetica;
-
-</style>
-
-<style>
-/* Whole document: */
-body{
-  font-family: Helvetica;
-  font-size: 20px;
-}
-
-<style>
-#What-you-told-us{
-  background-color: blue;
-  color: white;
-}
-
-
-</style>
 
 ```{r "setup", include=FALSE}
 show_text <- FALSE
 
-source("AkilimoFunctions_dev.R")
 ```
 
 
@@ -54,8 +17,8 @@ source("AkilimoFunctions_dev.R")
 #fertilizerAdviseTable()
 #out.width = "40500px",
 
-#knitr::include_graphics("/home/akilimo/projects/akilimo_recommendation/net/Akilimo Dashboard IC.png")
-knitr::include_graphics("net/Akilimo Dashboard CIS.png")
+#knitr::include_graphics("../net/Akilimo_Dashboard_IC.png")
+knitr::include_graphics("../net/Akilimo_Dashboard_CIS.png")
 ```
 
 
@@ -73,8 +36,8 @@ knitr::opts_chunk$set(echo = TRUE)
 options(knitr.kable.NA = '')
 
 
-#personalized_info <- read.csv("/home/akilimo/projects/akilimo_recommendation/personalized_info.csv")
-personalized_info <- read.csv("personalized_info.csv")
+#personalized_info <- read.csv(paste0(params$temp_dir, "/IC_MarkDownText.csv"))
+personalized_info <- read.csv(paste0(params$temp_dir, "/CIS_MarkDownText.csv"))
 
 #personalized_info$current_yield <- round(personalized_info$current_yield, digits=0)
  
@@ -110,9 +73,9 @@ personalized_info$hvst_date2 <- paste(personalized_info$actuald, personalized_in
 # totalSalemoney <-read.csv("/home/akilimo/projects/akilimo_recommendation/totalSalemoney.csv")
 # totalCostmoney <-read.csv("/home/akilimo/projects/akilimo_recommendation/totalCostmoney.csv")
 
-totalRevenuemoney <-read.csv("totalRevenuemoney.csv")
-totalSalemoney <-read.csv("totalSalemoney.csv")
-totalCostmoney <-read.csv("totalCostmoney.csv")
+totalRevenuemoney <-read.csv(paste0(params$temp_dir, "/totalRevenuemoney.csv"))
+totalSalemoney <-read.csv(paste0(params$temp_dir, "/totalSalemoney.csv"))
+totalCostmoney <-read.csv(paste0(params$temp_dir, "/totalCostmoney.csv"))
 
 
 # for (i in 1:nrow(personalized_info)){
@@ -168,11 +131,11 @@ library(kableExtra)
  options(knitr.table.format = 'markdown')
 library(dplyr)
 
-personalized_info <- read.csv("CIS_MarkDownText.csv")
+personalized_info <- read.csv(paste0(params$temp_dir, "/CIS_MarkDownText.csv"))
 
 dds <- NULL
-if (file.exists("datall1.csv")) {
-  da1 <-read.csv("datall1.csv", stringsAsFactors = FALSE)
+if (file.exists(paste0(params$temp_dir, "/datall1.csv"))) {
+  da1 <-read.csv(paste0(params$temp_dir, "/datall1.csv"), stringsAsFactors = FALSE)
   costt <- formatC(da1$total_cost1, format="f", big.mark=",", digits=0)
   #costt <- formatC(signif(da1$total_cost1, digits=3), format="f", big.mark=",", digits=0)
   da1$unit <- gsub(" bag", "", da1$unit1)
@@ -189,8 +152,8 @@ if (file.exists("datall1.csv")) {
 }
 
 
-if (file.exists("datall2.csv")){
-  da2 <-read.csv("datall2.csv", stringsAsFactors = FALSE)
+if (file.exists(paste0(params$temp_dir, "/datall2.csv"))){
+  da2 <-read.csv(paste0(params$temp_dir, "/datall2.csv"), stringsAsFactors = FALSE)
   #cost2 <- formatC(signif(da2$total_cost2, digits=3), format="f", big.mark=",", digits=0)
   cost2 <- formatC(da2$total_cost2, format="f", big.mark=",", digits=0)
   da2$unit <- gsub(" bag", "", da2$unit2)
@@ -207,8 +170,8 @@ if (file.exists("datall2.csv")){
   da2 <- NULL
 }
 
-if (file.exists("datall3.csv")){
-  da3 <-read.csv("datall3.csv", stringsAsFactors = FALSE)
+if (file.exists(paste0(params$temp_dir, "/datall3.csv"))){
+  da3 <-read.csv(paste0(params$temp_dir, "/datall3.csv"), stringsAsFactors = FALSE)
   #cost3 <- formatC(signif(da3$total_cost3, digits=3), format="f", big.mark=",", digits=0)
   cost3 <- formatC(da3$total_cost3, format="f", big.mark=",", digits=0)
   da3$unit <- gsub(" bag", "", da3$unit3)
@@ -225,8 +188,8 @@ if (file.exists("datall3.csv")){
 }
 
 
-if (file.exists("datall4.csv")){
-  da4 <-read.csv("datall4.csv", stringsAsFactors = FALSE)
+if (file.exists(paste0(params$temp_dir, "/datall4.csv"))){
+  da4 <-read.csv(paste0(params$temp_dir, "/datall4.csv"), stringsAsFactors = FALSE)
   #cost4 <- formatC(signif(da4$total_cost4, digits=3), format="f", big.mark=",", digits=0)
   cost4 <- formatC(da4$total_cost4, format="f", big.mark=",", digits=0)
   da4$unit <- gsub(" bag", "", da4$unit4)
@@ -242,8 +205,8 @@ if (file.exists("datall4.csv")){
   da4 <- NULL
 }
 
-if (file.exists("datall5.csv")){
-  da5 <-read.csv("datall5.csv", stringsAsFactors = FALSE)
+if (file.exists(paste0(params$temp_dir, "/datall5.csv"))){
+  da5 <-read.csv(paste0(params$temp_dir, "/datall5.csv"), stringsAsFactors = FALSE)
   #cost5 <- formatC(signif(da5$total_cost5, digits=3), format="f", big.mark=",", digits=0)
   cost5 <- formatC(da5$total_cost5, format="f", big.mark=",", digits=0)
   da5$kgs51 <- round(da5$kgs5, digits=0)
@@ -333,8 +296,8 @@ knitr::opts_chunk$set(echo = TRUE)
 options(knitr.kable.NA = '')
 
 
-#personalized_info <- read.csv("/home/akilimo/projects/akilimo_recommendation/personalized_info.csv")
-personalized_info <- read.csv("CIS_MarkDownText.csv")
+#personalized_info <- read.csv(paste0(params$temp_dir, "/IC_MarkDownText.csv"))
+personalized_info <- read.csv(paste0(params$temp_dir, "/CIS_MarkDownText.csv"))
 
 personalized_info$unitcassava <- ifelse(personalized_info$unitcassava == "roots", "mizizi", "unga")
 
@@ -386,11 +349,11 @@ Bei ya Muhogo   **`r currency`** **`r costcassava`** **`r unitcassava`**
 ```{r conditional_block4, echo=FALSE, message=FALSE, fig.height=8, fig.width=13, warning = FALSE, results='hide', eval = show_text}
 
 #setwd("D:/ACAI_Wrapper/cloud_compute")
-personalized_info <- read.csv("personalized_info.csv")
+personalized_info <- read.csv(paste0(params$temp_dir, "/CIS_MarkDownText.csv"))
 geodata <- personalized_info
 #setwd("D:/ACAI_Wrapper/fertilizer advice Rmd")
 
-# geodata <- read.csv("FR_MarkDownText.csv", stringsAsFactors = FALSE)
+# geodata <- read.csv(paste0(params$temp_dir, "/FR_MarkDownText.csv"), stringsAsFactors = FALSE)
 # geodata <- unique(geodata)
 #geodata <- read.csv(file = "MarkDownTextD.csv", header = TRUE,  sep = "," )
 data <- subset(geodata[1,], select = c("name", "latitude", "longitude"))
@@ -563,10 +526,10 @@ mapshot(my_map,  height=100, file="map.png")
 ```{r echo=FALSE}
 
 #setwd("D:/ACAI_Wrapper/cloud_compute")
-personalized_info <- read.csv("personalized_info.csv")
-totalCostmoney <- read.csv("totalCostmoney.csv")
-totalSalemoney <- read.csv("totalSalemoney.csv")
-totalRevenuemoney <- read.csv("totalRevenuemoney.csv")
+personalized_info <- read.csv(paste0(params$temp_dir, "/CIS_MarkDownText.csv"))
+totalCostmoney <- read.csv(paste0(params$temp_dir, "/totalCostmoney.csv"))
+totalSalemoney <- read.csv(paste0(params$temp_dir, "/totalSalemoney.csv"))
+totalRevenuemoney <- read.csv(paste0(params$temp_dir, "/totalRevenuemoney.csv"))
 dMP <- personalized_info$dMP
 currency<- personalized_info$currency
 bags_total100<- (personalized_info$bags_total)*10
@@ -583,13 +546,11 @@ revenue <- personalized_info$revenue
 
 
  <font size="4">
-Jumla ya gharama:  **`r totalCostmoney`**
+Jumla ya gharama:  **`r totalCostmoney$title`** `r totalCostmoney$moneypack`
 <br>
-
-Jumla ya mapato yaliyokokotolewa: **`r totalSalemoney`**
+Jumla ya mapato yaliyokokotolewa: **`r totalSalemoney$title`** `r totalSalemoney$moneypack`
 <br>
-
-Jumla ya mapato yaliyotarajiwa: **`r totalRevenuemoney`**
+Jumla ya mapato yaliyotarajiwa: **`r totalRevenuemoney$title`** `r totalRevenuemoney$moneypack`
 
 
 </font>
@@ -597,7 +558,7 @@ Jumla ya mapato yaliyotarajiwa: **`r totalRevenuemoney`**
 
 ```{r conditional_block2, eval=show_text, echo=FALSE}
 
-personalized_info <- read.csv("personalized_info.csv")
+personalized_info <- read.csv(paste0(params$temp_dir, "/CIS_MarkDownText.csv"))
 	# # calculating cobUP based on maizeUP, maizeUW and conversion from grain to cobs if maizePD == "grain"
 	# if(is.na(personalized_info$maizeUP) & personalized_info$maizePD == "fresh_cob") personalized_info$maizeUP <- 50 #default price for 1 large fresh cob
 	# if(is.na(personalized_info$maizeUP) & personalized_info$maizePD == "grain") {
@@ -656,7 +617,7 @@ personalized_info <- read.csv("personalized_info.csv")
 ---------------------------------------------------------
 
 ```{r echo=FALSE}
-recommendation_IC <- read.csv("CIS_recText.csv", stringsAsFactors = FALSE)
+recommendation_IC <- read.csv(paste0(params$temp_dir, "/CIS_recText.csv"), stringsAsFactors = FALSE)
 ```
   <font size="4">
 `r recommendation_IC`

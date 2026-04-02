@@ -47,8 +47,9 @@ getSPrecText <- function(ds, country, lang, PD, HD) {
       }
 
       DP <- signif(ds[1,]$RP - ds[ds$CP == TRUE,]$RP, digits = 2)
+      DP_fmt <- formatC(abs(DP), format = "f", big.mark = ",", digits = 0)
       currency <- get_currency(country)
-      dGR <- formatC(signif(ds[1,]$dGR, digits = 3), format = "f", big.mark = ",", digits = 0)	  
+      dGR <- formatC(signif(ds[1,]$dGR, digits = 3), format = "f", big.mark = ",", digits = 0)
 
       if (DP == 0) {
         if (dGR == 0) {
@@ -62,11 +63,11 @@ getSPrecText <- function(ds, country, lang, PD, HD) {
         action_str    <- ifelse(!is.null(recH), tr("hvst", lang), tr("plnt", lang))
         if (dGR == 0) {
             recR <- tr("recRyieldOnly", lang,
-                       direction = direction_str, amount = abs(DP), action = action_str)
+                       direction = direction_str, amount = DP_fmt, action = action_str)
         } else {
             recR <- tr("recRfull", lang,
                        direction = direction_str,
-                       amount    = abs(DP),
+                       amount    = DP_fmt,
                        conj      = ifelse(DP < 0, tr("but", lang), tr("and", lang)),
                        currency  = currency,
                        value     = dGR)
@@ -221,7 +222,7 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
 		#recommendation is highest GR, earliest harvesting, latest planting combination
 		ds <- ds[order(-ds$dGR, ds$rHWnr, -ds$rPWnr),]
 	}
-    write.csv(ds, "./temp/SP_rec.csv", row.names = FALSE)
+    write.csv(ds, tp("SP_rec.csv"), row.names = FALSE)
 	ds
 }
 
@@ -253,16 +254,6 @@ process_SP <- function(
 			success <- TRUE
 
 			recText <- getSPrecText(ds = res, country = country, lang = lang, PD = PD, HD = HD)
-			write.csv(recText, './temp/SP_recText.csv', row.names = FALSE)
-
-			SP_MarkdownText(
-				user = user, country = country, userField = userField, area = area, areaUnits = areaUnits,
-				PD = PD, HD = HD, lat = lat, lon = lon, saleSF = saleSF, nameSF = nameSF,
-				maxInv = maxInv, ploughing = ploughing, ridging = ridging, method_ploughing = method_ploughing,
-				method_ridging = method_ridging, CMP = CMP, riskAtt = riskAtt, PD_window = PD_window, 
-				HD_window = HD_window, cassPD = cassPD, cassUW = cassUW, cassUP = cassUP, 
-				cassUP_m1 = cassUP_m1, cassUP_m2 = cassUP_m2, cassUP_p1 = cassUP_p1, cassUP_p2 = cassUP_p2
-			)
 		}
 	}
 

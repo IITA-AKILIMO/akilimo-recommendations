@@ -124,29 +124,30 @@ getICrecText <- function(x, maizePD) {
   } else {
     dTC <- formatC(signif(ds$dTC, digits = 3), format = "f", big.mark = ",", digits = 0)
     dNR <- formatC(signif(ds$dNR, digits = 3), format = "f", big.mark = ",", digits = 0)
-    dMP <- signif(ds$dMP, digits = 2)
+    dMP      <- signif(ds$dMP, digits = 2)
     currency <- "NGN"
-    fs$rate <- round(fs$rate)
+    fs$rate_fmt <- formatC(round(fs$rate), format = "f", big.mark = ",", digits = 0)
 
     if (maizePD == "grain") {
       #1 kg of grain ~ 7.64 cobs
-      dMP <- round(dMP / 7.64, digits = 0)
+      dMP_fmt <- formatC(round(dMP / 7.64, digits = 0), format = "f", big.mark = ",", digits = 0)
 
       #trans
       recF <- paste0("We recommend applying\n",
-                     paste0(fs$rate, " kg of ", fs$type, collapse = "\n"), " ",
+                     paste0(fs$rate_fmt, " kg of ", fs$type, collapse = "\n"), " ",
                      "\nfor the area of your field.\n",
                      "This will cost ", currency, " ", dTC, ". ",
-                     "We expect an extra production of ", dMP, " kg of maize for the area of your field, ",
+                     "We expect an extra production of ", dMP_fmt, " kg of maize for the area of your field, ",
                      "and a net value increase of ", currency, " ", dNR, ".\n")
 
     } else {
+      dMP_fmt <- formatC(round(dMP, digits = 0), format = "f", big.mark = ",", digits = 0)
       #trans
       recF <- paste0("We recommend applying\n",
-                     paste0(fs$rate, " kg of ", fs$type, collapse = "\n"), " ",
+                     paste0(fs$rate_fmt, " kg of ", fs$type, collapse = "\n"), " ",
                      "\nfor the area of your field.\n",
                      "This will cost ", currency, " ", dTC, ". ",
-                     "We expect an extra production of ", dMP, " cobs for the area of your field, ",
+                     "We expect an extra production of ", dMP_fmt, " cobs for the area of your field, ",
                      "and a net value increase of ", currency, " ", dNR, ".\n")
     }
   }
@@ -185,31 +186,16 @@ process_IC_NG <- function(
 	
 	
 	CMP <- min(5, max(1, as.numeric(CMP)))
-	
+
   # Generate IC recommendations
-  res <- getICrecommendations(areaHa = areaHa, CMP = CMP, cobUP = cobUP, 
-							fertilizers = fertilizers, riskAtt = riskAtt)
+  res <- getICrecommendations(areaHa = areaHa, CMP = CMP, cobUP = cobUP,
+                              fertilizers = fertilizers, riskAtt = riskAtt)
 
-  if (NROW(res$fertilizer_rates) > 0) {
-    recText <- getICrecText(res, maizePD)
+  recText <- getICrecText(res, maizePD)
 
-    write.csv(res, './temp/IC_rec.csv', row.names = FALSE)
-    write.csv(recText, './temp/IC_recText.csv', row.names = FALSE)
-
-    IC_MarkdownText(rr = res, fertilizers = fertilizers, user = user, country = country, 
-			userField = userField, area = area, areaUnits = areaUnits, PD = PD, HD = HD, 
-			lat = lat, lon = lon, maizeUW = maizeUW, maizePD = maizePD, cassUW = cassUW,
-			saleSF = saleSF, nameSF = nameSF, rootUP = rootUP, cassPD = cassPD, maxInv = maxInv,
-			CMP = CMP, maizeUP = maizeUP, riskAtt = riskAtt)
-
-	fertilizerAdviseTable(FR = FALSE, IC = TRUE, country = country, areaUnits = areaUnits)
-    ICrecom <- TRUE
-  } else {
-    recText <- res$data$reason_F
-    ICrecom <- FALSE
-  }
-
-	c(list(rec_type="IC", recommendation=recText) , res)
+  c(list(rec_type = "IC", subtype = "IC", recommendation = recText,
+         fertilizers = fertilizers, maizeUP = maizeUP, maizeUW = maizeUW,
+         maizePD = maizePD, CMP = CMP), res)
 
 }
 
@@ -224,27 +210,10 @@ process_IC_TZ <- function(IC, country, lang, areaHa, FCY, tuberUP, rootUP, ferti
 
   recText <- getCISrecText(res, country, lang)
 
-  if (NROW(res$fertilizer_rates) > 0) {
-    write.csv(recText, './temp/CIS_recText.csv', row.names = FALSE)
-
-    CIS_MarkdownText(rr = res, fertilizers = fertilizers,
-      user = user, country = country, userField = userField, area = area,
-      areaUnits = areaUnits, PD = PD, HD = HD, lat = lat,lon = lon,
-      sweetPotatoUP = sweetPotatoUP, sweetPotatoPD = sweetPotatoPD,
-      sweetPotatoUW = sweetPotatoUW, rootUP = rootUP, cassUW = cassUW,
-      cassPD = cassPD, maxInv = maxInv, tuberUP = tuberUP)
-
-	  fertilizerAdviseTable(FR = FALSE, IC = TRUE, country = "TZ", areaUnits = areaUnits)
-
-	  ICrecom <- TRUE
-  } else {
-    ICrecom <- FALSE
-  }
-
-  #return(list(ICrecom = ICrecom, plumberRes = res, recText = recText))
-  #list(recom = ICrecom, data=c(res, message=recText, rec_type="IC"))
-
-	c(list(rec_type="IC", recommendation=recText) , res)
+  c(list(rec_type = "IC", subtype = "CIS", recommendation = recText,
+         fertilizers = fertilizers, sweetPotatoUP = sweetPotatoUP,
+         sweetPotatoPD = sweetPotatoPD, sweetPotatoUW = sweetPotatoUW,
+         tuberUP = tuberUP), res)
   
 }
 
@@ -372,8 +341,9 @@ getCISrecText <- function(d, country, lang) {
       dNR      <- formatC(signif(ds$dNR, digits = 3), format = "f", big.mark = ",", digits = 0)
       currency <- get_currency(country)
       fs       <- d[["fertilizer_rates"]]
+      fs$rate_fmt <- formatC(round(fs$rate), format = "f", big.mark = ",", digits = 0)
       recF <- paste0(tr("cisFertYesPfx", lang), "\n",
-                     paste0(tr("cisRatePre", lang), round(fs$rate), tr("cisRatePost", lang), fs$type, collapse = "\n"), " ",
+                     paste0(tr("cisRatePre", lang), fs$rate_fmt, tr("cisRatePost", lang), fs$type, collapse = "\n"), " ",
                      "\n", tr("cisFertField", lang), "\n",
                      tr("cisCostPfx", lang, currency = currency, amount = dTC), " ",
                      tr("cisNet", lang, currency = currency, amount = dNR))

@@ -1,51 +1,16 @@
 ---
 title:
-output: 
+output:
   flexdashboard::flex_dashboard:
     orientation: rows
+    css: "../net/akilimo.css"
+params:
+  temp_dir: "../temp"
 ---
-  
-  <style>
-
-body {
-  padding-top:0px
-}
-
-.navbar{
-  visibility: hidden
-}
-}
-
-</style> 
-
- <style type="text/css">
-
-.chart-title {  /* chart_title  */
-   font-size: 25px;
-   font-family: Gill Sans MT;
-
-</style>
-
-<style>
-/* Whole document: */
-body{
-  font-family: Gill Sans MT;
-  font-size: 20px;
-}
-
-<style>
-#What-you-told-us{
-  background-color: blue;
-  color: white;
-}
-
-
-</style>
 
 ```{r "setup", include=FALSE}
 
 
-source("AkilimoFunctions_dev.R")
 ```
 
 
@@ -53,8 +18,8 @@ source("AkilimoFunctions_dev.R")
 #fertilizerAdviseTable()
 #out.width = "40500px",
 
-#knitr::include_graphics("Akilimo Dashboard FR.png")
-knitr::include_graphics("/home/akilimo/projects/akilimo_recommendation/net/Akilimo Dashboard FR_swa.png")
+#knitr::include_graphics("Akilimo_Dashboard_FR.png")
+knitr::include_graphics("../net/Akilimo_Dashboard_FR_swa.png")
 
 ```
 
@@ -73,7 +38,7 @@ knitr::opts_chunk$set(echo = TRUE)
 options(knitr.kable.NA = '')
 
 
-personalized_info <- read.csv("FR_MarkDownText.csv")
+personalized_info <- read.csv(paste0(params$temp_dir, "/FR_MarkDownText.csv"))
 
 personalized_info$current_yield <- round(personalized_info$current_yield, digits=0)
  
@@ -93,9 +58,9 @@ personalized_info$hvst_date2 <- paste(personalized_info$actuald, personalized_in
 
 
 
-totalRevenuemoney <-read.csv("totalRevenuemoney.csv")
-totalSalemoney <-read.csv("totalSalemoney.csv")
-totalCostmoney <-read.csv("totalCostmoney.csv")
+totalRevenuemoney <-read.csv(paste0(params$temp_dir, "/totalRevenuemoney.csv"))
+totalSalemoney <-read.csv(paste0(params$temp_dir, "/totalSalemoney.csv"))
+totalCostmoney <-read.csv(paste0(params$temp_dir, "/totalCostmoney.csv"))
 
 
 
@@ -143,11 +108,11 @@ library(kableExtra)
  options(knitr.table.format = 'markdown')
 library(dplyr)
 
-personalized_info <- read.csv("FR_MarkDownText.csv")
+personalized_info <- read.csv(paste0(params$temp_dir, "/FR_MarkDownText.csv"))
 
 dds <- NULL
-if (file.exists("datall1.csv")) {
-  da1 <-read.csv("datall1.csv", stringsAsFactors = FALSE)
+if (file.exists(paste0(params$temp_dir, "/datall1.csv"))) {
+  da1 <-read.csv(paste0(params$temp_dir, "/datall1.csv"), stringsAsFactors = FALSE)
   costt <- formatC(da1$total_cost1, format="f", big.mark=",", digits=0)
   #costt <- formatC(signif(da1$total_cost1, digits=3), format="f", big.mark=",", digits=0)
   da1$unit <- gsub(" bag", "", da1$unit1)
@@ -164,8 +129,8 @@ if (file.exists("datall1.csv")) {
 }
 
 
-if (file.exists("datall2.csv")){
-  da2 <-read.csv("datall2.csv", stringsAsFactors = FALSE)
+if (file.exists(paste0(params$temp_dir, "/datall2.csv"))){
+  da2 <-read.csv(paste0(params$temp_dir, "/datall2.csv"), stringsAsFactors = FALSE)
   #cost2 <- formatC(signif(da2$total_cost2, digits=3), format="f", big.mark=",", digits=0)
   cost2 <- formatC(da2$total_cost2, format="f", big.mark=",", digits=0)
   da2$unit <- gsub(" bag", "", da2$unit2)
@@ -182,8 +147,8 @@ if (file.exists("datall2.csv")){
   da2 <- NULL
 }
 
-if (file.exists("datall3.csv")){
-  da3 <-read.csv("datall3.csv", stringsAsFactors = FALSE)
+if (file.exists(paste0(params$temp_dir, "/datall3.csv"))){
+  da3 <-read.csv(paste0(params$temp_dir, "/datall3.csv"), stringsAsFactors = FALSE)
   #cost3 <- formatC(signif(da3$total_cost3, digits=3), format="f", big.mark=",", digits=0)
   cost3 <- formatC(da3$total_cost3, format="f", big.mark=",", digits=0)
   da3$unit <- gsub(" bag", "", da3$unit3)
@@ -200,13 +165,13 @@ if (file.exists("datall3.csv")){
 }
 
 
-if (file.exists("datall4.csv")){
-  da4 <-read.csv("datall4.csv", stringsAsFactors = FALSE)
+if (file.exists(paste0(params$temp_dir, "/datall4.csv"))){
+  da4 <-read.csv(paste0(params$temp_dir, "/datall4.csv"), stringsAsFactors = FALSE)
   #cost4 <- formatC(signif(da4$total_cost4, digits=3), format="f", big.mark=",", digits=0)
   cost4 <- formatC(da4$total_cost4, format="f", big.mark=",", digits=0)
   da4$unit <- gsub(" bag", "", da4$unit4)
   da4$kgs1 <- round(da4$kgs4, digits=0)
-  da4title1 <-  paste(da4$fertilizer4, ": kilo ", da4$kgs4, " kwa ekari", " ", da4$field_area, " ",  " (~", " mifuko ", " ", da4$bags4, " ", "ya kilo",  " ", da5$unit, ")"," = ",
+  da4title1 <-  paste(da4$fertilizer4, ": kilo ", da4$kgs4, " kwa ekari", " ", da4$field_area, " ",  " (~", " mifuko ", " ", da4$bags4, " ", "ya kilo",  " ", da4$unit, ")"," = ",
                       cost4, " ", da4$currency, sep="")
   da4bag <- da4[,c("rep")]
   
@@ -217,8 +182,8 @@ if (file.exists("datall4.csv")){
   da4 <- NULL
 }
 
-if (file.exists("datall5.csv")){
-  da5 <-read.csv("datall5.csv", stringsAsFactors = FALSE)
+if (file.exists(paste0(params$temp_dir, "/datall5.csv"))){
+  da5 <-read.csv(paste0(params$temp_dir, "/datall5.csv"), stringsAsFactors = FALSE)
   #cost5 <- formatC(signif(da5$total_cost5, digits=3), format="f", big.mark=",", digits=0)
   cost5 <- formatC(da5$total_cost5, format="f", big.mark=",", digits=0)
   da5$kgs51 <- round(da5$kgs5, digits=0)
@@ -234,13 +199,15 @@ if (file.exists("datall5.csv")){
 }
  
  priceinfo <- unique(dds)
+if (!is.null(priceinfo) && nrow(priceinfo) > 0) {
 #priceinfo$type <- priceinfo$fertname
 #priceinfo$cost <- formatC(signif(priceinfo$cost, digits=3), format="f", big.mark=",", digits=0)
 priceinfo$cost <- formatC(priceinfo$cost, format="f", big.mark=",", digits=0)
 priceinfo$cost <- paste(" @", " ", priceinfo$cost, " ", priceinfo$currency, " ", "kwa", sep="")
 priceinfo$unit <- priceinfo$unit
 priceinfo$tts <- paste(priceinfo$cost, " ", priceinfo$unit, sep="")
-priceinfo <-priceinfo[, c("type", "tts")] 
+priceinfo <-priceinfo[, c("type", "tts")]
+} else { priceinfo <- data.frame(type=character(0), tts=character(0)) } 
 # x = kable(priceinfo, format="html") %>%
 #   column_spec(1, bold = T) %>%
 #     kable_styling(full_width = F)
@@ -438,11 +405,11 @@ Kiwango cha juu cha kuwekeza: <b> **`r currency`** **`r maxinvest`**  kwa **`r u
 ```{r echo=FALSE, message=FALSE, fig.height=10, fig.width=15, warning = FALSE, results='hide'}
 
 #setwd("D:/ACAI_Wrapper/cloud_compute")
-personalized_info <- read.csv("FR_MarkDownText.csv")
+personalized_info <- read.csv(paste0(params$temp_dir, "/FR_MarkDownText.csv"))
 geodata <- personalized_info
 #setwd("D:/ACAI_Wrapper/fertilizer advice Rmd")
 
-# geodata <- read.csv("FR_MarkDownText.csv", stringsAsFactors = FALSE)
+# geodata <- read.csv(paste0(params$temp_dir, "/FR_MarkDownText.csv"), stringsAsFactors = FALSE)
 # geodata <- unique(geodata)
 #geodata <- read.csv(file = "MarkDownTextD.csv", header = TRUE,  sep = "," )
 data <- subset(geodata[1,], select = c("name", "latitude", "longitude"))
@@ -484,10 +451,10 @@ mapshot(my_map,  height=150, file="map.png")
 ```{r echo=FALSE}
 
 #setwd("D:/ACAI_Wrapper/cloud_compute")
-personalized_info <- read.csv("FR_MarkDownText.csv")
-totalCostmoney <- read.csv("totalCostmoney.csv")
-totalSalemoney <- read.csv("totalSalemoney.csv")
-totalRevenuemoney <- read.csv("totalRevenuemoney.csv")
+personalized_info <- read.csv(paste0(params$temp_dir, "/FR_MarkDownText.csv"))
+totalCostmoney <- read.csv(paste0(params$temp_dir, "/totalCostmoney.csv"))
+totalSalemoney <- read.csv(paste0(params$temp_dir, "/totalSalemoney.csv"))
+totalRevenuemoney <- read.csv(paste0(params$temp_dir, "/totalRevenuemoney.csv"))
 
 currency<- personalized_info$currency
 bags_total100<- (personalized_info$bags_total)*10
@@ -508,11 +475,11 @@ Tani `r  bags_total` ya mihogo: ~ Mifuko `r  bags_total100` ya kilo mia moja ya 
 
 ### Mchanganuo wa gharama na faida
 
-Jumla ya gharama: **`r totalCostmoney`**
+Jumla ya gharama: **`r totalCostmoney$title`** `r totalCostmoney$moneypack`
 <br>
-Jumla ya mapato yaliyokokotolewa: **`r totalSalemoney`**
+Jumla ya mapato yaliyokokotolewa: **`r totalSalemoney$title`** `r totalSalemoney$moneypack`
 <br>
-Jumla ya mapato yaliyotarajiwa: **`r totalRevenuemoney`**
+Jumla ya mapato yaliyotarajiwa: **`r totalRevenuemoney$title`** `r totalRevenuemoney$moneypack`
 
 </div>
 
@@ -525,7 +492,7 @@ Jumla ya mapato yaliyotarajiwa: **`r totalRevenuemoney`**
 ---------------------------------------------------------
 
 ```{r echo=FALSE}
-recommendation_FR <- read.csv("FR_recText.csv", stringsAsFactors = FALSE)
+recommendation_FR <- read.csv(paste0(params$temp_dir, "/FR_recText.csv"), stringsAsFactors = FALSE)
 ```
   <font size="4">
 `r recommendation_FR`

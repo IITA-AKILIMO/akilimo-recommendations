@@ -13,6 +13,8 @@ scripts/pyproject-old.toml
 *.log
 *.Rout
 *.png
+!net/*.png
+!net/**/*.png
 *.out
 ScriptPackage
 .Rproj.user
@@ -29,3 +31,4 @@ tests/response/*
 .claude
 .RData
 .idea/*
+.ai

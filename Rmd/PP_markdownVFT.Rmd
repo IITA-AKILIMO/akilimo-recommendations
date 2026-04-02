@@ -1,51 +1,16 @@
 ---
 title:
-output: 
+output:
   flexdashboard::flex_dashboard:
     orientation: rows
+    css: "../net/akilimo.css"
+params:
+  temp_dir: "../temp"
 ---
-  
-  <style>
-
-body {
-  padding-top:0px
-}
-
-.navbar{
-  visibility: hidden
-}
-}
-
-</style> 
-
- <style type="text/css">
-
-.chart-title {  /* chart_title  */
-   font-size: 15px;
-   font-family: Gill Sans MT;
-
-</style>
-
-<style>
-/* Whole document: */
-body{
-  font-family: Gill Sans MT;
-  font-size: 10px;
-}
-
-<style>
-#What-you-told-us{
-  background-color: blue;
-  color: white;
-}
-
-
-</style>
 
 ```{r}
 
 
-source("AkilimoFunctions_5D.R")
 ```
 
 
@@ -53,7 +18,7 @@ source("AkilimoFunctions_5D.R")
 #fertilizerAdviseTable()
 #out.width = "40500px",
 
-knitr::include_graphics("net/Akilimo Dashboard PP.png")
+knitr::include_graphics("../net/Akilimo_Dashboard_PP.png")
 
 ```
 
@@ -69,7 +34,7 @@ knitr::include_graphics("net/Akilimo Dashboard PP.png")
 knitr::opts_chunk$set(echo = TRUE)
 options(knitr.kable.NA = '')
 library(lubridate)
-personalized_info <- read.csv("PP_MarkDownText.csv", stringsAsFactors = FALSE)
+personalized_info <- read.csv(paste0(params$temp_dir, "/PP_MarkDownText.csv"), stringsAsFactors = FALSE)
 personalized_info <- unique(personalized_info)
 
 personalized_info$actualmn <- lubridate::month(ymd(personalized_info$plant_date))
@@ -128,7 +93,7 @@ personalized_info$hvst_date2 <- paste(personalized_info$actuald, personalized_in
 
 library(dplyr)
 
-personalized_info <- read.csv("PP_MarkDownText.csv")
+personalized_info <- read.csv(paste0(params$temp_dir, "/PP_MarkDownText.csv"))
 
 personalized_info$currency <- ifelse(personalized_info$country == "NG", "NGN",
                                      ifelse(personalized_info$country =="TZ", "TZS",
@@ -164,8 +129,8 @@ Cassava price  @  **`r currency`** **`r costcassava`** per  `r unitcassava`
 
 ```{r setup, include=FALSE}
 library(kableExtra)
-personalized_info <- read.csv("PP_MarkDownText.csv", stringsAsFactors = FALSE)
-LMOcost <- read.csv("costLMO.csv", stringsAsFactors = FALSE)
+personalized_info <- read.csv(paste0(params$temp_dir, "/PP_MarkDownText.csv"), stringsAsFactors = FALSE)
+LMOcost <- read.csv(paste0(params$temp_dir, "/costLMO.csv"), stringsAsFactors = FALSE)
 #LMOcost <- LMOcost[complete.cases(LMOcost), ]
 LMOcost <- LMOcost[!is.na(LMOcost$cost) & LMOcost$operation != "harrowing", ]
 #LMOcost <- round(LMOcost$cost, digits = 0)
@@ -202,11 +167,11 @@ knitr::kable(LMOcost, align=rep('r'), full_width = F, row.names(LMOcost) <- NULL
 ```{r echo=FALSE, message=FALSE, fig.height=5, fig.width=5, warning = FALSE, results='hide'}
 
 #setwd("D:/ACAI_Wrapper/cloud_compute")
-personalized_info <- read.csv("PP_MarkDownText.csv")
+personalized_info <- read.csv(paste0(params$temp_dir, "/PP_MarkDownText.csv"))
 geodata <- personalized_info
 #setwd("D:/ACAI_Wrapper/fertilizer advice Rmd")
 
-# geodata <- read.csv("FR_MarkDownText.csv", stringsAsFactors = FALSE)
+# geodata <- read.csv(paste0(params$temp_dir, "/FR_MarkDownText.csv"), stringsAsFactors = FALSE)
 # geodata <- unique(geodata)
 #geodata <- read.csv(file = "MarkDownTextD.csv", header = TRUE,  sep = "," )
 data <- subset(geodata[1,], select = c("name", "latitude", "longitude"))
@@ -252,13 +217,13 @@ require(plyr)
 require(dplyr)
 require(ggplot2)
 
-personalized_info <- read.csv("PP_MarkDownText.csv")
+personalized_info <- read.csv(paste0(params$temp_dir, "/PP_MarkDownText.csv"))
 
 personalized_info$currency <- ifelse(personalized_info$country == "NG", "NGN",
                                      ifelse(personalized_info$country =="TZ", "TZS",
                                             ifelse(personalized_info$country =="BU", "BIF")))
 
-ds <- read.csv("PP_rec.csv", stringsAsFactors = FALSE)
+ds <- read.csv(paste0(params$temp_dir, "/PP_rec.csv"), stringsAsFactors = FALSE)
 if(!require("plyr")) install.packages("plyr"); library("plyr")
 
 #create plot with recommendations
@@ -317,7 +282,7 @@ ggplot(data=ds[ds$CP==FALSE,], aes(x=ploughing_label, y=ridging_label))+
 ### Recommendation generated on `r format(Sys.Date(), "%d, %B, %Y")`
 ```{r echo=FALSE}
 #recommendation_PP <- read.csv("/home/akilimo/projects/akilimo_recommendation/PP_recText.csv", stringsAsFactors = FALSE)
-recommendation_PP <- read.csv("PP_recText.csv", stringsAsFactors = FALSE)
+recommendation_PP <- read.csv(paste0(params$temp_dir, "/PP_recText.csv"), stringsAsFactors = FALSE)
 ```
   <font size="4">
 `r recommendation_PP`

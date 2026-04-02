@@ -26,7 +26,9 @@ getFRrecText <- function(ds, country, lang) {
 		TC <- formatC(ds$data$TC, format = "f", big.mark = ",", digits = 0)
 
 		NR <- formatC(ds$data$NR, format = "f", big.mark = ",", digits = 0)
-		DY <- signif(ds$data$TargetY - ds$data$CurrentY, digits = 2)
+		DY <- formatC(signif(ds$data$TargetY - ds$data$CurrentY, digits = 2),
+		              format = "f", big.mark = ",", digits = 0)
+		frate$rate_fmt <- formatC(round(frate$rate), format = "f", big.mark = ",", digits = 0)
 
 		add_more <- function(x) {
             paste0(x, tr("area", lang), "\n",
@@ -36,10 +38,10 @@ getFRrecText <- function(ds, country, lang) {
 
 		recText <- if (lang != "sw") {
 			add_more(paste0(tr("werec", lang), "\n",
-				paste0(round(frate$rate), tr("kgof", lang), frate$type, collapse = "\n")))
+				paste0(frate$rate_fmt, tr("kgof", lang), frate$type, collapse = "\n")))
 		} else {
 			add_more(paste0(tr("werec", lang), "\n",
-				paste0(tr("kgof", lang), round(frate$rate), tr("of", lang), frate$type, collapse = "\n")))
+				paste0(tr("kgof", lang), frate$rate_fmt, tr("of", lang), frate$type, collapse = "\n")))
 		}
 		
       # NOTE: recommendation text is minimal. Future enhancements could include:
@@ -261,16 +263,5 @@ process_FR <- function(lat, lon, HD, maxInv, fertilizers, rootUP, areaHa, countr
 
 	recText <- getFRrecText(ds=response, country=country, lang=lang)
 
-	write.csv(recText, './temp/FR_recText.csv', row.names = FALSE)
-	if (!is.null(response$data)) {
-		FR_MarkdownText(
-			rr = response, fertilizers = fertilizers, user = user,
-			country = country, userField = userField, area = area, areaUnits = areaUnits, PD = PD, HD = HD,
-			lat = lat, lon = lon, rootUP = rootUP, cassPD = cassPD, cassUW = cassUW, maxInv = maxInv
-		)
-		fertilizerAdviseTable(FR = TRUE, IC = FALSE, country = country, areaUnits = areaUnits)
-	}
-
-
-	c(rec_type="FR", recommendation=recText, response)
+	c(rec_type="FR", recommendation=recText, response, list(fertilizers=fertilizers))
 }

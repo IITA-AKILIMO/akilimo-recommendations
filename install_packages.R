@@ -20,10 +20,8 @@ pkgs <- c(
   "httr",
   "mailR",
 
-  # Report generation
-  "webshot",
-  "knitr",
-  "rmarkdown",
+  # Report generation (WeasyPrint replaces webshot/phantomjs — see docs/PDF-GENERATION-PLAN.md)
+  "base64enc",
 
   # Mapping
   "leaflet",
@@ -75,16 +73,20 @@ if (length(missing) > 0) {
 }
 
 # ---------------------------------------------------------------------------
-# webshot: needs phantomjs to render HTML reports to PDF
-# Only checked/installed if webshot is available.
+# WeasyPrint: Python CLI tool used to render HTML reports to PDF.
+# Install with: pip install weasyprint
+# System libraries required on Linux/Debian:
+#   apt-get install -y libpango-1.0-0 libpangoft2-1.0-0 libgdk-pixbuf2.0-0
+# See docs/PDF-GENERATION-PLAN.md §2 for full installation instructions.
 # ---------------------------------------------------------------------------
-if (requireNamespace("webshot", quietly = TRUE)) {
-  if (!webshot::is_phantomjs_installed()) {
-    message("Installing phantomjs...")
-    webshot::install_phantomjs()
-  } else {
-    message("phantomjs: already installed.")
-  }
+if (nchar(Sys.which("weasyprint")) == 0) {
+  warning(
+    "WeasyPrint not found on PATH. PDF generation will fail.\n",
+    "  Install with: pip install weasyprint\n",
+    "  Linux also requires: apt-get install -y libpango-1.0-0 libpangoft2-1.0-0"
+  )
+} else {
+  message("weasyprint: ", system2("weasyprint", "--version", stdout = TRUE, stderr = TRUE))
 }
 
 # ---------------------------------------------------------------------------

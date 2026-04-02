@@ -54,8 +54,8 @@ getPPrecommendations <- function(areaHa, costLMO,
   # ds$ploughing / ds$ridging are column vectors; ploughing / ridging are scalar flags from the request.
   ds$CP <- (ds$ploughing == ploughing) &
            (ds$ridging   == ridging)   &
-           ifelse(ploughing, ds$method_ploughing == method_ploughing, TRUE) &
-           ifelse(ridging,   ds$method_ridging   == method_ridging,   TRUE)
+           (!ploughing | ds$method_ploughing == method_ploughing) &
+           (!ridging   | ds$method_ridging   == method_ridging)
 
 # Calculate the differences only for rows where 'CP' is TRUE
 # bad: there must be one that is true...
@@ -137,13 +137,16 @@ getPPrecText <- function(ds, country, lang) {
         if (ds[1,]$dTC == 0) {
             paste0(tr("changcost", lang), tr("rtprod", lang), "\n")
         } else {
+            dTC_fmt <- formatC(abs(ds[1,]$dTC), format = "f", big.mark = ",", digits = 0)
             paste0(tr("this", lang),
                    ifelse(ds[1,]$dTC < 0, tr("decr", lang), tr("incr", lang)),
-                   tr("costb", lang), abs(ds[1,]$dTC), tr("rtprod", lang), "\n")
+                   tr("costb", lang), dTC_fmt, tr("rtprod", lang), "\n")
         }
     } else {""}
 
-    paste(recT, rcost, tr("thank", lang))
+    thank <- trimws(sub("^\\.", "", tr("thank", lang)))
+    parts <- Filter(nzchar, trimws(c(recT, rcost)))
+    paste(c(parts, thank), collapse = " ")
   }
 
   #TODO: This only provides the minimal information to return to the user. We may consider adding following information:
@@ -165,19 +168,10 @@ process_PP <- function(PP, country, lang, areaHa, costLMO, ploughing, ridging,
 				ridging = ridging, method_ploughing = method_ploughing,
 				method_ridging = method_ridging, FCY = FCY, rootUP = rootUP, riskAtt = riskAtt )
 
-  # Generate recommendation text
   recText <- getPPrecText(ds = res, country = country, lang = lang)
 
-  # Write output files
-  write.csv(res, './temp/PP_rec.csv', row.names = FALSE)
-  write.csv(recText, './temp/PP_recText.csv', row.names = FALSE)
-
-  # Generate markdown output
-  PP_MarkdownText(user = user, country = country, userField = userField, area = area, areaUnits = areaUnits,
-    PD = PD, HD = HD, lat = lat, lon = lon, rootUP = rootUP, cassPD = cassPD, cassUW = cassUW, maxInv = maxInv,
-    ploughing = ploughing, ridging = ridging, method_ploughing = method_ploughing, method_ridging = method_ridging)
-
-  #list(PPrecom = TRUE, plumberRes = res, recText = recText)
-	list(rec_type="PP", recommendation=recText, data=res)
+  list(rec_type = "PP", recommendation = recText, data = res,
+       costLMO = costLMO, ploughing = ploughing, ridging = ridging,
+       method_ploughing = method_ploughing, method_ridging = method_ridging)
 
 }

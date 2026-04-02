@@ -1,9 +1,8 @@
 """
 bundle-assets — Bundle data directories into tarballs ready for upload.
 
-Creates four archives in dist/ (project root) — all uploaded to Zenodo:
+Creates archives in dist/ (project root) — all uploaded to Zenodo:
 
-    dist/net-assets.tar.gz    → net/ (images)
     dist/data-input.tar.gz    → data/input/ (CSV tables)
     dist/soil-data.tar.gz     → data/soil/ (soil RDS)
     dist/yield-data.tar.gz    → data/yield/ (yield RDS + NetCDF)
@@ -26,21 +25,18 @@ from rich.rule import Rule
 from .common import DIST_DIR, PROJECT_ROOT, Config, console
 
 BUNDLES: dict[str, str] = {
-    "net":   "net",
     "input": "data/input",
     "soil":  "data/soil",
     "yield": "data/yield",
 }
 
 BUNDLE_OUTPUT: dict[str, str] = {
-    "net":   "net-assets.tar.gz",
     "input": "data-input.tar.gz",
     "soil":  "soil-data.tar.gz",
     "yield": "yield-data.tar.gz",
 }
 
 DESTINATIONS: dict[str, str] = {
-    "net":   "Zenodo",
     "input": "Zenodo",
     "soil":  "Zenodo",
     "yield": "Zenodo",
