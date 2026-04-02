@@ -115,7 +115,7 @@ if (requireNamespace("rJava", quietly = TRUE)) {
     } else if (Sys.info()[["sysname"]] == "Darwin") {
       message("  -> Run: brew install openjdk && sudo R CMD javareconf")
     } else {
-      message("  -> Run: sudo apt-get install openjdk-17-jre-headless")
+      message("  -> Run: sudo apt-get install openjdk-21-jre-headless")
       message("          sudo R CMD javareconf")
     }
   })

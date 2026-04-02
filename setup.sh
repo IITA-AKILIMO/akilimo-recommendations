@@ -54,14 +54,14 @@ if $INSTALL_SYSTEM; then
 
   if ! command -v apt-get &>/dev/null; then
     warn "apt-get not found. Install system packages manually:"
-    warn "  openjdk-17-jre-headless  libnetcdf-dev  libhdf5-dev"
+    warn "  openjdk-21-jre-headless  libnetcdf-dev  libhdf5-dev"
     warn "  libpango-1.0-0  libpangoft2-1.0-0  libgdk-pixbuf2.0-0"
     warn "  libfreetype6-dev  libpng-dev  libtiff5-dev  libjpeg-dev"
     warn "  libssl-dev  libcurl4-openssl-dev  libxml2-dev"
   else
     sudo apt-get update -qq
     sudo apt-get install -y \
-      openjdk-17-jre-headless \
+      openjdk-21-jre-headless \
       libnetcdf-dev \
       libhdf5-dev \
       libpango-1.0-0 \
