@@ -79,14 +79,13 @@ if (length(missing) > 0) {
 #   apt-get install -y libpango-1.0-0 libpangoft2-1.0-0 libgdk-pixbuf2.0-0
 # See docs/PDF-GENERATION-PLAN.md §2 for full installation instructions.
 # ---------------------------------------------------------------------------
-if (nchar(Sys.which("weasyprint")) == 0) {
-  warning(
-    "WeasyPrint not found on PATH. PDF generation will fail.\n",
-    "  Install with: pip install weasyprint\n",
-    "  Linux also requires: apt-get install -y libpango-1.0-0 libpangoft2-1.0-0"
-  )
+weasy <- Sys.which("weasyprint")
+if (nchar(weasy) == 0) {
+  warning("WeasyPrint not found on PATH. PDF generation will fail.\n",
+          "Install with: pip install weasyprint\n",
+          "Linux also requires: apt-get install -y libpango-1.0-0 libpangoft2-1.0-0")
 } else {
-  message("weasyprint: ", system2("weasyprint", "--version", stdout = TRUE, stderr = TRUE))
+  message("weasyprint: ", system2(weasy, "--version", stdout = TRUE, stderr = TRUE))
 }
 
 # ---------------------------------------------------------------------------
