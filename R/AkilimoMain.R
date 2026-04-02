@@ -298,6 +298,25 @@ run_akilimo <- function(json) {
     message(paste0(params$selected_key, ": ", params$country,
                    ", planting: ", params$PD, ", harvest: ", params$HD))
 
+    # Auto-refresh stale prices when an external API is configured.
+    # Failures are logged as WARN and never block the recommendation.
+    if (nzchar(Sys.getenv("PRICE_API_URL"))) {
+        if (prices_are_stale(params$country)) {
+            tryCatch(
+                refresh_prices(params$country),
+                error = function(e)
+                    log_write("WARN", "Auto price refresh failed:", conditionMessage(e))
+            )
+        }
+        if (isTRUE(params$saleSF) && starch_prices_are_stale(params$country)) {
+            tryCatch(
+                refresh_starch_prices(params$country),
+                error = function(e)
+                    log_write("WARN", "Auto starch price refresh failed:", conditionMessage(e))
+            )
+        }
+    }
+
     result <- dispatch_recommendations(params, body)
 
     PDFs <- tryCatch(

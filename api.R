@@ -3,21 +3,21 @@
 akpath <- Sys.getenv("AKILIMO_ROOT", unset = ".")
 setwd(akpath)
 
-pks <- c("plumber", "limSolve", "ncdf4", "httr", "webshot", "mailR", "knitr", "leaflet")
-
 srcdir <- file.path(akpath, "R")
 # Source in explicit dependency order.
 # Only files in R/ (top-level) are loaded.
 # R/preprocess/ and the project-root old/ directory are intentionally excluded.
-for (f in c("misc.R", "get_data.R", "fertilizers.R", "quefts.R",
-            "optimize_fert.R", "markdown.R", "html_helpers.R", "pdf_builders.R",
-            "sms_email.R",
+for (f in c("misc.R", "logging.R", "get_data.R", "prices_db.R", "fertilizers.R",
+            "quefts.R", "optimize_fert.R", "markdown.R", "html_helpers.R",
+            "pdf_builders.R", "sms_email.R",
             "process-FR.R", "process-IC.R", "process-PP.R", "process-SP.R",
             "AkilimoMain.R")) {
   source(file.path(srcdir, f))
 }
 
-source("R/logging.R")   # bring in logging functions
+# Open (or create and seed) the SQLite price database.
+open_prices_db()
+
 library(plumber)
 
 pr <- Plumber$new()

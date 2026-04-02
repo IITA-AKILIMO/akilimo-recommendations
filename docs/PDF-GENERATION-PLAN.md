@@ -1,4 +1,4 @@
-# PDF Generation Plan: Replacing Rmd/webshot with htmltools + WeasyPrint
+# PDF Generation: WeasyPrint Pipeline (Completed)
 
 ## 1. Executive Summary
 
