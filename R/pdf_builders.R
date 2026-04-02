@@ -81,6 +81,8 @@ build_fr_pdf <- function(rr, fertilizers, user, country,
   # 3. Expected production
   bags_total    <- round(as.numeric(rr$data$TargetY), digits = 1)
   bags_total100 <- round(bags_total * 10, digits = 0)
+  bags_total_fmt    <- formatC(bags_total,    format = "f", big.mark = ",", digits = 1)
+  bags_total100_fmt <- formatC(bags_total100, format = "f", big.mark = ",", digits = 0)
 
   # 4. Banner path (Swahili uses a different banner)
   banner_file <- if (lang == "sw") "Akilimo_Dashboard_FR_swa.png" else "Akilimo_Dashboard_FR.png"
@@ -97,7 +99,7 @@ build_fr_pdf <- function(rr, fertilizers, user, country,
     fert_rows_html <- vapply(seq_len(nrow(fr)), function(i) {
       ftype  <- fr$type[i]
       label  <- if (ftype %in% names(FERT_LABEL)) FERT_LABEL[[ftype]] else ftype
-      kgs    <- round(fr$rate[i], digits = 0)
+      kgs    <- formatC(round(fr$rate[i], digits = 0), format = "f", big.mark = ",", digits = 0)
       bags   <- fr$bags[i]
       bw     <- fr$bagWeight[i]
       cost_f <- formatC(as.numeric(fr$cost[i]), format = "f", big.mark = ",", digits = 0)
@@ -130,7 +132,7 @@ build_fr_pdf <- function(rr, fertilizers, user, country,
   )
 
   # 7. Right column: map + expected gain + cost-benefit
-  expected_gain_text <- sprintf(html_label("expected_gain_fmt", lang), bags_total, bags_total100)
+  expected_gain_text <- sprintf(html_label("expected_gain_fmt", lang), bags_total_fmt, bags_total100_fmt)
   right_col <- paste(
     html_location_map(lat = lat, lon = lon, lang = lang),
     html_section(html_label("expected_gain", lang), sprintf("<p>%s</p>", expected_gain_text)),
@@ -259,7 +261,7 @@ build_ic_pdf <- function(rr, user, country,
     fert_rows_html <- vapply(seq_len(nrow(fr)), function(i) {
       ftype  <- fr$type[i]
       label  <- if (ftype %in% names(FERT_LABEL)) FERT_LABEL[[ftype]] else ftype
-      kgs    <- round(fr$rate[i], digits = 0)
+      kgs    <- formatC(round(fr$rate[i], digits = 0), format = "f", big.mark = ",", digits = 0)
       bags   <- fr$bags[i]
       bw     <- fr$bagWeight[i]
       cost_f <- formatC(as.numeric(fr$cost[i]), format = "f", big.mark = ",", digits = 0)
@@ -278,10 +280,10 @@ build_ic_pdf <- function(rr, user, country,
   if (subtype == "IC") {
     dMP <- as.numeric(rr$data$dMP)
     if (!is.null(rr$maizePD) && rr$maizePD == "grain") {
-      extra_prod_val <- round(dMP / 7.64, digits = 0)
+      extra_prod_val <- formatC(round(dMP / 7.64, digits = 0), format = "f", big.mark = ",", digits = 0)
       extra_prod_str <- sprintf("%s kg extra maize grain", extra_prod_val)
     } else {
-      extra_prod_str <- sprintf("%s extra maize cobs", round(dMP, digits = 0))
+      extra_prod_str <- sprintf("%s extra maize cobs", formatC(round(dMP, digits = 0), format = "f", big.mark = ",", digits = 0))
     }
     density_str <- if (isTRUE(rr$data$rec_D)) html_label("high_density_rec", lang) else html_label("low_density_rec", lang)
     right_extra <- html_section(html_label("extra_production", lang),
