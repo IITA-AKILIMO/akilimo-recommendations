@@ -124,29 +124,30 @@ getICrecText <- function(x, maizePD) {
   } else {
     dTC <- formatC(signif(ds$dTC, digits = 3), format = "f", big.mark = ",", digits = 0)
     dNR <- formatC(signif(ds$dNR, digits = 3), format = "f", big.mark = ",", digits = 0)
-    dMP <- signif(ds$dMP, digits = 2)
+    dMP      <- signif(ds$dMP, digits = 2)
     currency <- "NGN"
-    fs$rate <- round(fs$rate)
+    fs$rate_fmt <- formatC(round(fs$rate), format = "f", big.mark = ",", digits = 0)
 
     if (maizePD == "grain") {
       #1 kg of grain ~ 7.64 cobs
-      dMP <- round(dMP / 7.64, digits = 0)
+      dMP_fmt <- formatC(round(dMP / 7.64, digits = 0), format = "f", big.mark = ",", digits = 0)
 
       #trans
       recF <- paste0("We recommend applying\n",
-                     paste0(fs$rate, " kg of ", fs$type, collapse = "\n"), " ",
+                     paste0(fs$rate_fmt, " kg of ", fs$type, collapse = "\n"), " ",
                      "\nfor the area of your field.\n",
                      "This will cost ", currency, " ", dTC, ". ",
-                     "We expect an extra production of ", dMP, " kg of maize for the area of your field, ",
+                     "We expect an extra production of ", dMP_fmt, " kg of maize for the area of your field, ",
                      "and a net value increase of ", currency, " ", dNR, ".\n")
 
     } else {
+      dMP_fmt <- formatC(round(dMP, digits = 0), format = "f", big.mark = ",", digits = 0)
       #trans
       recF <- paste0("We recommend applying\n",
-                     paste0(fs$rate, " kg of ", fs$type, collapse = "\n"), " ",
+                     paste0(fs$rate_fmt, " kg of ", fs$type, collapse = "\n"), " ",
                      "\nfor the area of your field.\n",
                      "This will cost ", currency, " ", dTC, ". ",
-                     "We expect an extra production of ", dMP, " cobs for the area of your field, ",
+                     "We expect an extra production of ", dMP_fmt, " cobs for the area of your field, ",
                      "and a net value increase of ", currency, " ", dNR, ".\n")
     }
   }
@@ -340,8 +341,9 @@ getCISrecText <- function(d, country, lang) {
       dNR      <- formatC(signif(ds$dNR, digits = 3), format = "f", big.mark = ",", digits = 0)
       currency <- get_currency(country)
       fs       <- d[["fertilizer_rates"]]
+      fs$rate_fmt <- formatC(round(fs$rate), format = "f", big.mark = ",", digits = 0)
       recF <- paste0(tr("cisFertYesPfx", lang), "\n",
-                     paste0(tr("cisRatePre", lang), round(fs$rate), tr("cisRatePost", lang), fs$type, collapse = "\n"), " ",
+                     paste0(tr("cisRatePre", lang), fs$rate_fmt, tr("cisRatePost", lang), fs$type, collapse = "\n"), " ",
                      "\n", tr("cisFertField", lang), "\n",
                      tr("cisCostPfx", lang, currency = currency, amount = dTC), " ",
                      tr("cisNet", lang, currency = currency, amount = dNR))

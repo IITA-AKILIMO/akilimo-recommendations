@@ -26,7 +26,9 @@ getFRrecText <- function(ds, country, lang) {
 		TC <- formatC(ds$data$TC, format = "f", big.mark = ",", digits = 0)
 
 		NR <- formatC(ds$data$NR, format = "f", big.mark = ",", digits = 0)
-		DY <- signif(ds$data$TargetY - ds$data$CurrentY, digits = 2)
+		DY <- formatC(signif(ds$data$TargetY - ds$data$CurrentY, digits = 2),
+		              format = "f", big.mark = ",", digits = 0)
+		frate$rate_fmt <- formatC(round(frate$rate), format = "f", big.mark = ",", digits = 0)
 
 		add_more <- function(x) {
             paste0(x, tr("area", lang), "\n",
@@ -36,10 +38,10 @@ getFRrecText <- function(ds, country, lang) {
 
 		recText <- if (lang != "sw") {
 			add_more(paste0(tr("werec", lang), "\n",
-				paste0(round(frate$rate), tr("kgof", lang), frate$type, collapse = "\n")))
+				paste0(frate$rate_fmt, tr("kgof", lang), frate$type, collapse = "\n")))
 		} else {
 			add_more(paste0(tr("werec", lang), "\n",
-				paste0(tr("kgof", lang), round(frate$rate), tr("of", lang), frate$type, collapse = "\n")))
+				paste0(tr("kgof", lang), frate$rate_fmt, tr("of", lang), frate$type, collapse = "\n")))
 		}
 		
       # NOTE: recommendation text is minimal. Future enhancements could include:

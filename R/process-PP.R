@@ -137,9 +137,10 @@ getPPrecText <- function(ds, country, lang) {
         if (ds[1,]$dTC == 0) {
             paste0(tr("changcost", lang), tr("rtprod", lang), "\n")
         } else {
+            dTC_fmt <- formatC(abs(ds[1,]$dTC), format = "f", big.mark = ",", digits = 0)
             paste0(tr("this", lang),
                    ifelse(ds[1,]$dTC < 0, tr("decr", lang), tr("incr", lang)),
-                   tr("costb", lang), abs(ds[1,]$dTC), tr("rtprod", lang), "\n")
+                   tr("costb", lang), dTC_fmt, tr("rtprod", lang), "\n")
         }
     } else {""}
 
