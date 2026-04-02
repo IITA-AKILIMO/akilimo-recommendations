@@ -54,16 +54,18 @@ if $INSTALL_SYSTEM; then
 
   if ! command -v apt-get &>/dev/null; then
     warn "apt-get not found. Install system packages manually:"
-    warn "  pandoc  openjdk-17-jre-headless  libnetcdf-dev  libhdf5-dev"
-    warn "  wkhtmltopdf  libssl-dev  libcurl4-openssl-dev  libxml2-dev"
+    warn "  openjdk-17-jre-headless  libnetcdf-dev  libhdf5-dev"
+    warn "  libpango-1.0-0  libpangoft2-1.0-0  libgdk-pixbuf2.0-0"
+    warn "  libssl-dev  libcurl4-openssl-dev  libxml2-dev"
   else
     sudo apt-get update -qq
     sudo apt-get install -y \
-      pandoc \
       openjdk-17-jre-headless \
       libnetcdf-dev \
       libhdf5-dev \
-      wkhtmltopdf \
+      libpango-1.0-0 \
+      libpangoft2-1.0-0 \
+      libgdk-pixbuf2.0-0 \
       libssl-dev \
       libcurl4-openssl-dev \
       libxml2-dev \
