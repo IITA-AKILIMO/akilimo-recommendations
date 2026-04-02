@@ -73,7 +73,9 @@ CREATE TABLE IF NOT EXISTS default_prices (
 ### Table: `starch_prices`
 
 Replaces `starchPrices.csv`. Starch factory cassava purchase prices, tiered by
-starch content.
+starch content. Unlike `default_prices`, rows are keyed by factory + tier
+(`key`), and the factory list itself can change (new factories, closures,
+contract renegotiations).
 
 ```sql
 CREATE TABLE IF NOT EXISTS starch_prices (
@@ -85,25 +87,48 @@ CREATE TABLE IF NOT EXISTS starch_prices (
     min_starch           REAL    NOT NULL,
     range_starch         TEXT    NOT NULL DEFAULT '',
     price                REAL    NOT NULL,
+    currency             TEXT    NOT NULL DEFAULT '',
     updated_at           TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
     source               TEXT    NOT NULL DEFAULT 'seed',
     PRIMARY KEY (key)
 );
 ```
 
+| Column | Purpose |
+|--------|---------|
+| `starch_factory` | Internal factory identifier — matches `nameSF` in API requests |
+| `starch_factory_label` | Human-readable factory name shown in the UI |
+| `class` | Tier number (1 = highest starch content, N = lowest) |
+| `country` | ISO country code |
+| `key` | Composite natural key: `{starch_factory}{class}` (e.g. `MatnaStarch1`) |
+| `min_starch` | Minimum starch percentage for this tier |
+| `range_starch` | Display range string (e.g. `22-24`) |
+| `price` | Factory purchase price in local currency per tonne of fresh roots |
+| `currency` | Local currency code |
+| `updated_at` | ISO-8601 UTC timestamp of last update |
+| `source` | `seed`, `api`, or `manual` |
+
+> **Why separate from `default_prices`?** The starch-price data model is a
+> factory × tier matrix, not a flat country × item list. New factories can
+> appear, old ones can close, and tier thresholds (`min_starch`) can shift
+> independently of prices. Keeping the tables separate makes each refresh
+> operation atomic and independently auditable.
+
 ### Table: `price_refresh_log`
 
-Audit trail for all API refresh operations.
+Audit trail for all API refresh operations — covers both `default_prices` and
+`starch_prices` refreshes.
 
 ```sql
 CREATE TABLE IF NOT EXISTS price_refresh_log (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    country     TEXT,
-    source      TEXT    NOT NULL,
-    status      TEXT    NOT NULL,   -- 'ok' | 'error' | 'skipped'
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    price_type    TEXT    NOT NULL,   -- 'default' | 'starch'
+    country       TEXT,               -- NULL when starch refresh covers all countries
+    source        TEXT    NOT NULL,   -- 'api' | 'manual'
+    status        TEXT    NOT NULL,   -- 'ok' | 'error' | 'skipped'
     rows_upserted INTEGER,
-    message     TEXT,
-    ran_at      TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+    message       TEXT,
+    ran_at        TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
 );
 ```
 
@@ -163,42 +188,107 @@ get_default_prices(country)
 
 #### `get_starch_prices()`
 
-Replaces `cached_read("starch_prices", ...)`.
+Replaces `cached_read("starch_prices", ...)`. Returns all factories/tiers;
+callers filter by `starchFactory == nameSF` as before.
 
 ```
 get_starch_prices()
-  └─ SELECT * FROM starch_prices
-  └─ returns data.frame with same column names as old starchPrices.csv
+  └─ SELECT starch_factory, starch_factory_label, class, country,
+            key, min_starch, range_starch, price
+     FROM starch_prices
+     ORDER BY country, starch_factory, class
+  └─ returns data.frame with columns matching old starchPrices.csv column names:
+       starchFactory, starchFactory_label, class, country, KEY,
+       minStarch, rangeStarch, price
+     (column aliases applied in SQL so callers need no changes)
 ```
 
 #### `refresh_prices(country = NULL, source_tag = "api")`
 
-Fetches fresh prices from `PRICE_API_URL` and upserts into the DB.
+Fetches fresh fertilizer / labour / cassava prices from the external service
+and upserts into `default_prices`.
 
 ```
 refresh_prices(country, source_tag)
-  ├─ check PRICE_API_URL is set — return early with log entry if not
-  ├─ build request URL: {PRICE_API_URL}/prices?country={country}
-  ├─ GET with httr, timeout 10s
-  ├─ validate response:
-  │     must be JSON array of {country, item, price, unit, currency}
-  │     each price must be numeric and > 0
-  │     country must be one of the 5 supported codes
-  ├─ upsert into default_prices (INSERT OR REPLACE)
-  │     set updated_at = now(), source = source_tag
-  ├─ invalidate in-memory cache for this country
-  ├─ write to price_refresh_log
-  └─ return list(status, rows_upserted, country)
+  ├─ check PRICE_API_URL is set — return early (log 'skipped') if not
+  ├─ if country is NULL, loop over all 5 supported countries
+  ├─ for each country:
+  │     GET {PRICE_API_URL}/prices?country={country}
+  │         Authorization: Bearer {PRICE_API_TOKEN}   (if set)
+  │         timeout: 10s
+  │     validate each row:
+  │         country ∈ {NG, TZ, RW, GH, BI}
+  │         item    non-empty string
+  │         price   numeric > 0
+  │         unit    ∈ {per_bag, per_kg, per_tonne, per_acre, per_ha}
+  │     invalid rows → skip + log WARN (valid rows still upserted)
+  │     INSERT OR REPLACE INTO default_prices
+  │         set updated_at = now(), source = source_tag
+  │     invalidate in-memory .data_cache entry for this country
+  │     write row to price_refresh_log (price_type = 'default')
+  └─ return list(status, rows_upserted, countries_refreshed)
 ```
+
+#### `refresh_starch_prices(country = NULL, source_tag = "api")`
+
+Fetches starch factory price tiers from the external service and upserts into
+`starch_prices`. Because a refresh may add new factories or retire old ones,
+the strategy is **replace-all for the given country** rather than row-level
+upsert: existing rows for that country are deleted within the same transaction
+before inserting the new set.
+
+```
+refresh_starch_prices(country, source_tag)
+  ├─ check PRICE_API_URL is set — return early (log 'skipped') if not
+  ├─ if country is NULL, loop over all 5 supported countries
+  ├─ for each country:
+  │     GET {PRICE_API_URL}/starch-prices?country={country}
+  │         Authorization: Bearer {PRICE_API_TOKEN}   (if set)
+  │         timeout: 10s
+  │     validate each row:
+  │         country  ∈ {NG, TZ, RW, GH, BI}
+  │         starch_factory   non-empty string
+  │         key      non-empty string, unique within the response
+  │         class    positive integer
+  │         min_starch  numeric ≥ 0
+  │         price    numeric > 0
+  │     if zero valid rows → abort transaction, log 'skipped' (preserve existing data)
+  │     BEGIN TRANSACTION
+  │         DELETE FROM starch_prices WHERE country = ?
+  │         INSERT rows with updated_at = now(), source = source_tag
+  │     COMMIT
+  │     invalidate .data_cache entry "starch_prices"
+  │     write row to price_refresh_log (price_type = 'starch')
+  └─ return list(status, rows_upserted, countries_refreshed)
+```
+
+> **Why delete-then-insert for starch prices?** Factory closures and tier
+> restructuring must be reflected accurately — a factory with 8 tiers that
+> drops to 6 tiers would leave stale rows if we only upserted. The
+> transaction guarantees callers never see a half-updated factory list.
 
 #### `prices_are_stale(country)`
 
-Used by the auto-refresh hook.
+Checks whether `default_prices` for a given country need refreshing.
 
 ```
 prices_are_stale(country)
   ├─ SELECT MIN(updated_at) FROM default_prices WHERE country = ?
   ├─ compare to Sys.time() - PRICE_MAX_AGE_DAYS * 86400
+  └─ return TRUE if oldest row is older than threshold, FALSE otherwise
+```
+
+#### `starch_prices_are_stale(country = NULL)`
+
+Checks whether starch factory prices need refreshing. Because starch contracts
+are renegotiated less frequently (typically annually), a separate staleness
+threshold is used: `STARCH_PRICE_MAX_AGE_DAYS` (default: 30).
+
+```
+starch_prices_are_stale(country)
+  ├─ if country is NULL: SELECT MIN(updated_at) FROM starch_prices
+  │  else:               SELECT MIN(updated_at) FROM starch_prices WHERE country = ?
+  ├─ compare to Sys.time() - STARCH_PRICE_MAX_AGE_DAYS * 86400
   └─ return TRUE if oldest row is older than threshold, FALSE otherwise
 ```
 
@@ -236,11 +326,14 @@ for soil lookups — just needs threading to the `input_keys` branch).
 
 ### 3.3 Changes to `R/AkilimoMain.R`
 
-Add a stale-price check at the start of `run_akilimo()`, after `parse_request()`:
+Add stale-price checks at the start of `run_akilimo()`, after `parse_request()`.
+Both checks run only when `PRICE_API_URL` is configured. Starch prices are only
+checked when the request includes a starch factory sale (`params$saleSF == TRUE`),
+since they are irrelevant otherwise.
 
 ```r
-# Auto-refresh prices if API is configured and data is stale
 if (nzchar(Sys.getenv("PRICE_API_URL"))) {
+    # Default prices (fertilizer / labour / cassava)
     if (prices_are_stale(params$country)) {
         tryCatch(
             refresh_prices(params$country),
@@ -248,15 +341,24 @@ if (nzchar(Sys.getenv("PRICE_API_URL"))) {
                 log_write("WARN", "Auto price refresh failed:", conditionMessage(e))
         )
     }
+    # Starch factory prices — only when selling to a starch factory
+    if (isTRUE(params$saleSF) && starch_prices_are_stale(params$country)) {
+        tryCatch(
+            refresh_starch_prices(params$country),
+            error = function(e)
+                log_write("WARN", "Auto starch price refresh failed:", conditionMessage(e))
+        )
+    }
 }
 ```
 
-This runs synchronously before dispatch. Failure is logged as WARN but never
-blocks the recommendation.
+Both refreshes run synchronously before dispatch. Failure is logged as WARN but
+never blocks the recommendation.
 
 ### 3.4 Changes to `api.R`
 
-Add an admin endpoint for manual refresh:
+Add an admin endpoint that handles both price types via a `type` field in the
+request body:
 
 ```r
 pr$handle(
@@ -264,18 +366,47 @@ pr$handle(
     path    = "/admin/refresh-prices",
     handler = function(req, res) {
         body    <- tryCatch(jsonlite::fromJSON(req$postBody), error = function(e) list())
-        country <- body[["country"]]   # NULL = refresh all countries
-        result  <- tryCatch(
-            refresh_prices(country, source_tag = "manual"),
-            error = function(e) list(status = "error", message = conditionMessage(e))
-        )
-        result
+        country <- body[["country"]]   # NULL = all countries
+        type    <- tolower(trimws(body[["type"]] %||% "all"))
+        #   type = "default" → fertilizer / labour / cassava prices only
+        #   type = "starch"  → starch factory prices only
+        #   type = "all"     → both (default)
+
+        results <- list()
+
+        if (type %in% c("default", "all")) {
+            results$default <- tryCatch(
+                refresh_prices(country, source_tag = "manual"),
+                error = function(e) list(status = "error", message = conditionMessage(e))
+            )
+        }
+        if (type %in% c("starch", "all")) {
+            results$starch <- tryCatch(
+                refresh_starch_prices(country, source_tag = "manual"),
+                error = function(e) list(status = "error", message = conditionMessage(e))
+            )
+        }
+
+        results
     }
 )
 ```
 
 A shared secret can be added via `ADMIN_TOKEN` env var if the endpoint needs
 to be protected (not in scope for v1).
+
+Example calls:
+```bash
+# Refresh both price types for Nigeria
+curl -X POST http://localhost:8000/admin/refresh-prices \
+  -H "Content-Type: application/json" \
+  -d '{"country": "NG", "type": "all"}'
+
+# Refresh only starch prices across all countries
+curl -X POST http://localhost:8000/admin/refresh-prices \
+  -H "Content-Type: application/json" \
+  -d '{"type": "starch"}'
+```
 
 ---
 
@@ -284,17 +415,21 @@ to be protected (not in scope for v1).
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PRICES_DB_PATH` | `data/input/prices.sqlite` | Path to the SQLite file |
-| `PRICE_API_URL` | *(unset)* | Base URL of the external price service. If unset, auto-refresh is disabled |
-| `PRICE_MAX_AGE_DAYS` | `7` | Days before prices are considered stale and a refresh is attempted |
-| `PRICE_API_TOKEN` | *(unset)* | Bearer token for the price API (sent as `Authorization: Bearer …`) |
+| `PRICE_API_URL` | *(unset)* | Base URL of the external price service. If unset, all auto-refresh is disabled |
+| `PRICE_API_TOKEN` | *(unset)* | Bearer token sent as `Authorization: Bearer …` (both endpoints) |
+| `PRICE_MAX_AGE_DAYS` | `7` | Days before fertilizer/labour/cassava prices are considered stale |
+| `STARCH_PRICE_MAX_AGE_DAYS` | `30` | Days before starch factory prices are considered stale |
 
-Add all four to `.env.example`.
+Add all five to `.env.example`.
 
 ---
 
 ## 5. API Contract (external price service)
 
-The external service must expose:
+Both endpoints share the same base URL (`PRICE_API_URL`) and token
+(`PRICE_API_TOKEN`).
+
+### 5.1 Fertilizer / Labour / Cassava prices
 
 ```
 GET {PRICE_API_URL}/prices?country={NG|TZ|RW|GH|BI}
@@ -305,27 +440,73 @@ Response — JSON array:
 
 ```json
 [
-  {
-    "country":  "NG",
-    "item":     "urea",
-    "price":    8500,
-    "unit":     "per_bag",
-    "currency": "NGN"
-  },
-  ...
+  { "country": "NG", "item": "urea",   "price": 8500,  "unit": "per_bag", "currency": "NGN" },
+  { "country": "NG", "item": "cassUP", "price": 14000, "unit": "per_tonne", "currency": "NGN" },
+  { "country": "NG", "item": "manual_ploughing", "price": 18000, "unit": "per_acre", "currency": "NGN" }
 ]
 ```
 
 Validation rules enforced by `refresh_prices()`:
 
 - `country` must be one of the 5 supported codes
-- `item` must be a non-empty string
+- `item` must be a non-empty string matching a known price key
 - `price` must be numeric and > 0
 - `unit` must be one of: `per_bag`, `per_kg`, `per_tonne`, `per_acre`, `per_ha`
 - Any row failing validation is skipped (logged at WARN); the rest are upserted
+- Zero valid rows → no DB write, log entry marked `status = 'skipped'`
 
-If the response contains zero valid rows, no DB write occurs and the log entry
-is marked `status = 'skipped'`.
+### 5.2 Starch factory prices
+
+```
+GET {PRICE_API_URL}/starch-prices?country={NG|TZ|RW|GH|BI}
+Authorization: Bearer {PRICE_API_TOKEN}
+```
+
+Response — JSON array of all tiers for all factories in the requested country.
+The full factory list for the country must be returned — partial responses are
+rejected to prevent accidental factory deletion.
+
+```json
+[
+  {
+    "starch_factory":       "MatnaStarch",
+    "starch_factory_label": "Matna Starch Ltd.",
+    "class":                1,
+    "country":              "NG",
+    "key":                  "MatnaStarch1",
+    "min_starch":           24,
+    "range_starch":         ">24",
+    "price":                17000,
+    "currency":             "NGN"
+  },
+  {
+    "starch_factory":       "MatnaStarch",
+    "starch_factory_label": "Matna Starch Ltd.",
+    "class":                2,
+    "country":              "NG",
+    "key":                  "MatnaStarch2",
+    "min_starch":           22,
+    "range_starch":         "22-23",
+    "price":                16000,
+    "currency":             "NGN"
+  }
+]
+```
+
+Validation rules enforced by `refresh_starch_prices()`:
+
+- `country` must be one of the 5 supported codes
+- `starch_factory` and `key` must be non-empty strings
+- `key` values must be unique within the response
+- `class` must be a positive integer
+- `min_starch` must be numeric ≥ 0
+- `price` must be numeric > 0
+- Any row failing validation → entire country refresh aborted (log `status = 'error'`), existing data preserved
+- Zero valid rows → abort, log `status = 'skipped'`
+
+> **Why abort on any invalid row?** The delete-then-insert strategy means a
+> partial write would leave the factory list incomplete. Aborting preserves
+> the previous complete dataset and forces the API provider to fix the response.
 
 ---
 
@@ -381,12 +562,45 @@ deleted** — kept as seed source and offline reference.
 
 ## 10. Testing
 
+All price DB tests live in `tests/test_prices_db.R`. Each test uses an
+in-memory or temp-file SQLite DB — never the production file.
+
+### Default prices
+
+| Test | What is checked |
+|------|----------------|
+| DB seeds from CSV on first run | `default_prices` row count matches CSV |
+| `get_default_prices("NG")` shape | Same columns as old CSV (`Country`, `Item`, `Price`) |
+| `get_default_prices("BI")` country alias | `BU` rows in CSV are returned as `BI` |
+| `refresh_prices()` upserts new rows | Row count increases; `source = 'api'` |
+| `refresh_prices()` updates existing price | Existing row price changes; `updated_at` advances |
+| `refresh_prices()` skips invalid rows | Invalid row absent; valid rows present |
+| `prices_are_stale()` returns FALSE for fresh data | `updated_at = now()` |
+| `prices_are_stale()` returns TRUE for old data | `updated_at` set 30 days ago |
+| Auto-refresh skipped when `PRICE_API_URL` unset | No DB write, no error |
+| Refresh log entry written on success | `price_refresh_log` has 1 row, `status = 'ok'` |
+| Refresh log entry written on API error | `price_refresh_log` has 1 row, `status = 'error'` |
+
+### Starch prices
+
+| Test | What is checked |
+|------|----------------|
+| DB seeds from starchPrices.csv | `starch_prices` row count matches CSV |
+| `get_starch_prices()` column names | Match old CSV: `starchFactory`, `KEY`, `minStarch`, etc. |
+| `refresh_starch_prices()` replaces country rows | Old rows gone; new rows present; `source = 'api'` |
+| `refresh_starch_prices()` adds new factory | Factory present after refresh |
+| `refresh_starch_prices()` removes retired factory | Factory absent after refresh |
+| `refresh_starch_prices()` aborts on invalid row | DB unchanged; log `status = 'error'` |
+| `refresh_starch_prices()` aborts on zero valid rows | DB unchanged; log `status = 'skipped'` |
+| `starch_prices_are_stale()` returns FALSE for fresh data | `updated_at = now()` |
+| `starch_prices_are_stale()` returns TRUE for old data | `updated_at` set 60 days ago |
+| Other country unaffected by single-country refresh | TZ rows intact after NG refresh |
+
+### Admin endpoint
+
 | Test | Location |
 |------|----------|
-| DB seeds correctly from CSV | `tests/test_prices_db.R` |
-| `get_default_prices()` returns same shape as old CSV loader | `tests/test_prices_db.R` |
-| `refresh_prices()` upserts correctly with mock response | `tests/test_prices_db.R` |
-| `refresh_prices()` skips invalid rows, upserts valid ones | `tests/test_prices_db.R` |
-| `prices_are_stale()` returns TRUE/FALSE correctly | `tests/test_prices_db.R` |
-| Auto-refresh skipped when `PRICE_API_URL` not set | `tests/test_prices_db.R` |
-| `/admin/refresh-prices` endpoint returns correct JSON | `tests/test_api.R` |
+| `POST /admin/refresh-prices {"type":"default"}` refreshes only default | `tests/test_api.R` |
+| `POST /admin/refresh-prices {"type":"starch"}` refreshes only starch | `tests/test_api.R` |
+| `POST /admin/refresh-prices {"type":"all"}` refreshes both | `tests/test_api.R` |
+| Unknown `type` value returns error | `tests/test_api.R` |
