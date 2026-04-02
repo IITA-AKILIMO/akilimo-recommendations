@@ -3,6 +3,10 @@
 akpath <- Sys.getenv("AKILIMO_ROOT", unset = ".")
 setwd(akpath)
 
+# Use Cairo for PNG rendering so ggplot2::ggsave() works on headless Linux
+# servers with no X11 display. No-op on macOS/Windows.
+if (.Platform$OS.type == "unix") options(bitmapType = "cairo")
+
 srcdir <- file.path(akpath, "R")
 # Source in explicit dependency order.
 # Only files in R/ (top-level) are loaded.
