@@ -34,20 +34,16 @@ cellFromLonLat <- function(lon, lat, res=0.05) {
 # ---------------------------------------------------------------------------
 # Input lookup tables (static CSVs — cached after first load)
 # ---------------------------------------------------------------------------
-get_input_data <- function(x) {
+get_input_data <- function(x, country = NULL) {
     if (x == "TRNS") {
         cached_read("TRNS", function() {
             read.csv(data_path("input/translations.csv"),
                      stringsAsFactors = FALSE, strip.white = FALSE)
         })
     } else if (x == "default_prices") {
-        cached_read("default_prices", function() {
-            out <- read.csv(data_path("input/Default_prices.csv"))
-            out$Country[out$Country == "BU"] <- "BI"
-            out
-        })
+        get_default_prices(country)
     } else if (x == "starch_prices") {
-        cached_read("starch_prices", function() read.csv(data_path("input/starchPrices.csv")))
+        get_starch_prices()
     } else if (x == "dry_matter") {
         cached_read("dry_matter", function() read.csv(data_path("input/fd2.csv")))
     } else {
@@ -196,7 +192,7 @@ get_data <- function(x, country = NULL, FCY = NULL, lon, lat) {
     yield_keys <- c("WLY_365", "WLY_15M_ncdf")
 
     if (x %in% input_keys) {
-        get_input_data(x)
+        get_input_data(x, country)
     } else if (x %in% soil_keys) {
         get_soil_data(x, country, FCY, lon, lat)
     } else if (x %in% yield_keys) {
