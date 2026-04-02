@@ -6,8 +6,8 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/akilimo/projects/new_akilimo
-ExecStart=/usr/bin/Rscript /home/akilimo/projects/new_akilimo/R/api2.R
+WorkingDirectory=/home/akilimo/projects/akilimo-recommendations
+ExecStart=/usr/bin/Rscript /home/akilimo/projects/akilimo-recommendations/api.R
 ExecReload=/bin/kill -HUP $MAINPID
 
 # Restart configuration
@@ -21,9 +21,33 @@ User=akilimo
 Group=akilimo
 UMask=0027
 
-# Environment
-Environment=PATH=/usr/bin:/usr/local/bin
+# PATH — must include wherever WeasyPrint is installed.
+#
+# If installed system-wide (recommended for services):
+#   sudo pip3 install weasyprint
+#   → binary lands in /usr/local/bin — already covered below.
+#
+# If installed per-user (pip install --user weasyprint as the akilimo user):
+#   → binary lands in /home/akilimo/.local/bin — add that to PATH:
+#   Environment=PATH=/home/akilimo/.local/bin:/usr/local/bin:/usr/bin:/bin
+#
+# If using a Python virtualenv at /opt/akilimo-venv:
+#   Environment=PATH=/opt/akilimo-venv/bin:/usr/local/bin:/usr/bin:/bin
+#
+# Verify the correct path with:
+#   sudo -u akilimo which weasyprint
+#
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
 Environment=R_LIBS_USER=/home/akilimo/R/library
+EnvironmentFile=/home/akilimo/projects/akilimo-recommendations/.env
+
+# Read/write access
+# temp/   — per-request working directory for CSV intermediates and PDF temp files
+# data/   — SQLite price database (prices.sqlite is written here)
+# logs/   — application log files
+ReadWritePaths=/home/akilimo/projects/akilimo-recommendations/temp \
+               /home/akilimo/projects/akilimo-recommendations/data \
+               /home/akilimo/projects/akilimo-recommendations/logs
 
 # Logging
 StandardOutput=journal
@@ -35,7 +59,6 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=/home/akilimo/projects/new_akilimo/logs /tmp
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
