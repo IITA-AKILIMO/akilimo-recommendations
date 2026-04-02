@@ -32,6 +32,7 @@ pkgs <- c(
 
   # Visualisation / tables
   "ggplot2",
+  "ragg",        # headless PNG device for ggplot2 (replaces X11/Cairo on servers)
   "kableExtra",
   "scales",
   "png",

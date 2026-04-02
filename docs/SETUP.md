@@ -36,6 +36,7 @@ sudo apt-get install -y \
   openjdk-17-jre-headless \
   libnetcdf-dev libhdf5-dev \
   libpango-1.0-0 libpangoft2-1.0-0 libgdk-pixbuf2.0-0 \
+  libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev \
   libssl-dev libcurl4-openssl-dev libxml2-dev
 ```
 
@@ -46,8 +47,11 @@ sudo apt-get install -y \
 | `openjdk-17-jre-headless` | mailR (SMTP email via Java) — only needed if `EMAIL_PROVIDER=smtp` |
 | `libnetcdf-dev`, `libhdf5-dev` | ncdf4 R package — reads yield raster data |
 | `libpango-1.0-0`, `libpangoft2-1.0-0`, `libgdk-pixbuf2.0-0` | WeasyPrint — PDF rendering (font layout, image support) |
+| `libfreetype6-dev`, `libpng-dev`, `libtiff5-dev`, `libjpeg-dev` | ragg — headless PNG rendering for ggplot2 charts (no X11 required) |
 | `libssl-dev`, `libcurl4-openssl-dev` | httr R package — HTTP requests |
 | `libxml2-dev` | xml2 R package (dependency of several packages) |
+
+> **Headless servers:** The API generates ggplot2 charts (PP and SP recommendation matrices) at runtime. The `ragg` R package is used as the rendering backend — it requires no X11 display and produces higher-quality output than the default PNG device. The system libraries above (`libfreetype6-dev` etc.) are its build-time dependencies. If `ragg` is unavailable, the server falls back to Cairo (`options(bitmapType="cairo")`), which also works headless as long as `libcairo2` is present.
 
 ### WeasyPrint (PDF renderer)
 

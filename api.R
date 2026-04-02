@@ -3,9 +3,14 @@
 akpath <- Sys.getenv("AKILIMO_ROOT", unset = ".")
 setwd(akpath)
 
-# Use Cairo for PNG rendering so ggplot2::ggsave() works on headless Linux
-# servers with no X11 display. No-op on macOS/Windows.
-if (.Platform$OS.type == "unix") options(bitmapType = "cairo")
+# Use ragg as the ggplot2 graphics device — faster than Cairo, better font
+# rendering, and no X11 dependency on headless Linux servers.
+if (requireNamespace("ragg", quietly = TRUE)) {
+  ggplot2::set_default_device(ragg::agg_png)
+} else if (.Platform$OS.type == "unix") {
+  # Fallback: Cairo works headless without an extra R package
+  options(bitmapType = "cairo")
+}
 
 srcdir <- file.path(akpath, "R")
 # Source in explicit dependency order.
