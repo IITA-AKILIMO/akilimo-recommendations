@@ -3,8 +3,6 @@
 akpath <- Sys.getenv("AKILIMO_ROOT", unset = ".")
 setwd(akpath)
 
-pks <- c("plumber", "limSolve", "ncdf4", "httr", "webshot", "mailR", "knitr", "leaflet")
-
 srcdir <- file.path(akpath, "R")
 # Source in explicit dependency order.
 # Only files in R/ (top-level) are loaded.

@@ -20,7 +20,7 @@ pkgs <- c(
   "httr",
   "mailR",
 
-  # Report generation (WeasyPrint replaces webshot/phantomjs — see docs/PDF-GENERATION-PLAN.md)
+  # Report generation (WeasyPrint — HTML/CSS → PDF via Python CLI)
   "base64enc",
 
   # Mapping
