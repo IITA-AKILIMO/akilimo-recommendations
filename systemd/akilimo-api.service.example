@@ -1,55 +1,30 @@
 [Unit]
 Description=AKILIMO R Recommendation Engine
-Documentation=https://github.com/IITA-AKILIMO/akilimo-recommendations
-After=network-online.target
-Wants=network-online.target
+After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/akilimo/projects/new_akilimo
-ExecStart=/usr/bin/Rscript /home/akilimo/projects/new_akilimo/R/api2.R
-ExecReload=/bin/kill -HUP $MAINPID
-
-# Restart configuration
-Restart=on-failure
-RestartSec=5s
-StartLimitInterval=300s
-StartLimitBurst=5
-
-# User and security
 User=akilimo
 Group=akilimo
-UMask=0027
+WorkingDirectory=/home/akilimo/projects/new_akilimo
 
-# Environment
-Environment=PATH=/usr/bin:/usr/local/bin
-Environment=R_LIBS_USER=/home/akilimo/R/library
+# Enhanced PATH to include pipx binaries and venvs
+Environment="PATH=/home/akilimo/.local/bin:/home/akilimo/.local/pipx/venvs:/usr/local/bin:/usr/bin:/bin"
 
-# Logging
+ExecStart=/home/akilimo/projects/new_akilimo/start-akilimo.sh
+
+Restart=on-failure
+RestartSec=5s
+
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=akilimo-api
+LogRateLimitIntervalSec=30s
+LogRateLimitBurst=1000
 
-# Security hardening
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=read-only
-ReadWritePaths=/home/akilimo/projects/new_akilimo/logs /tmp
-ProtectKernelTunables=true
-ProtectKernelModules=true
-ProtectControlGroups=true
-
-# Resource limits
-LimitNOFILE=65536
-MemoryMax=2G
-CPUQuota=200%
-
-# Process management
-TimeoutStartSec=60s
-TimeoutStopSec=30s
-KillMode=mixed
-KillSignal=SIGTERM
+# Optional file logging (commented out)
+#StandardOutput=append:/home/akilimo/projects/new_akilimo/logs/akilimo-api.log
+#StandardError=append:/home/akilimo/projects/new_akilimo/logs/akilimo-api-error.log
 
 [Install]
 WantedBy=multi-user.target
