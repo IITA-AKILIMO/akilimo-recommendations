@@ -6,16 +6,16 @@ setwd(akpath)
 # Headless PNG rendering — no X11 display required.
 # Priority: ragg (ggplot2 >= 3.5.0) → ragg legacy → Cairo fallback.
 if (.Platform$OS.type == "unix") {
-  if (requireNamespace("ragg", quietly = TRUE) &&
-      existsMethod <- exists("set_default_device", envir = asNamespace("ggplot2"), inherits = FALSE)) {
-    # ggplot2 >= 3.5.0: set ragg as the default device for ggsave()
+  has_ragg           <- requireNamespace("ragg", quietly = TRUE)
+  has_set_default    <- exists("set_default_device",
+                               envir    = asNamespace("ggplot2"),
+                               inherits = FALSE)
+  if (has_ragg && has_set_default) {
+    # ggplot2 >= 3.5.0: set ragg as the default device for all ggsave() calls
     ggplot2::set_default_device(ragg::agg_png)
-  } else if (requireNamespace("ragg", quietly = TRUE)) {
-    # older ggplot2 with ragg: pass device explicitly via ggsave — handled in
-    # pdf_builders.R; set Cairo so base png() also works headless
-    options(bitmapType = "cairo")
   } else {
-    # no ragg — Cairo is sufficient for headless rendering
+    # older ggplot2 or no ragg: Cairo keeps png() + ggsave() working headless;
+    # ggsave() calls in pdf_builders.R also pass device=ragg::agg_png explicitly
     options(bitmapType = "cairo")
   }
 }
