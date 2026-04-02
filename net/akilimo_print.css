@@ -1,0 +1,252 @@
+/* akilimo_print.css — WeasyPrint-compatible stylesheet for PDF reports
+ *
+ * WeasyPrint compatibility notes:
+ *   - CSS Grid (display: grid) supported in WeasyPrint >= 60
+ *   - Avoid: position:fixed, filter, backdrop-filter, clip-path
+ *   - Use @page for margins and page breaks, not position:fixed headers
+ *   - All images must be base64-embedded or absolute paths
+ */
+
+/* ── Page setup ─────────────────────────────────────────────────────── */
+
+@page {
+  size: A4 landscape;
+  margin: 12mm 15mm 12mm 15mm;
+}
+
+@page :first {
+  margin-top: 0;   /* banner image sits flush against top edge on page 1 */
+}
+
+/* ── Base styles ────────────────────────────────────────────────────── */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Gill Sans MT', 'Gill Sans', Calibri, Arial, sans-serif;
+  font-size: 12px;
+  color: #222222;
+  background-color: #ffffff;
+}
+
+/* ── Headings ───────────────────────────────────────────────────────── */
+
+h1, h2, h3, h4 {
+  font-weight: normal;
+  color: #333333;
+  margin-top: 10px;
+  margin-bottom: 4px;
+}
+
+h2 {
+  font-size: 15px;
+  border-bottom: 1px solid #cccccc;
+  padding-bottom: 4px;
+}
+
+h3 {
+  font-size: 13px;
+}
+
+/* ── Banner image ───────────────────────────────────────────────────── */
+
+.banner {
+  width: 100%;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.banner img {
+  width: 100%;
+  display: block;
+}
+
+/* ── Two-column layout ──────────────────────────────────────────────── */
+
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+/* FR layout: left ~40%, right ~60% (map column wider) */
+.two-col-wide-right {
+  display: grid;
+  grid-template-columns: 2fr 3fr;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.three-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+/* ── Sections ───────────────────────────────────────────────────────── */
+
+.section {
+  margin-bottom: 10px;
+  padding: 6px 0;
+}
+
+.section-title {
+  font-size: 13px;
+  font-weight: bold;
+  color: #333333;
+  border-bottom: 1px solid #cccccc;
+  padding-bottom: 3px;
+  margin-bottom: 6px;
+}
+
+/* ── Info rows (label: value pairs) ────────────────────────────────── */
+
+.info-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.info-table td {
+  padding: 2px 4px;
+  vertical-align: top;
+  border: none;
+}
+
+.info-table td.label {
+  font-weight: bold;
+  white-space: nowrap;
+  width: 40%;
+  color: #555555;
+}
+
+.info-table td.value {
+  color: #222222;
+}
+
+/* ── Data tables ────────────────────────────────────────────────────── */
+
+table.data-table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 6px 0;
+}
+
+table.data-table th {
+  font-weight: bold;
+  border-bottom: 2px solid #aaaaaa;
+  padding: 4px 6px;
+  text-align: left;
+  background-color: #ffffff;
+  font-size: 11px;
+}
+
+table.data-table td {
+  padding: 4px 6px;
+  border-bottom: 1px solid #eeeeee;
+  font-size: 11px;
+}
+
+table.data-table tr:nth-child(even) td {
+  background-color: #f8f8f8;
+}
+
+/* ── Cost-benefit rows ──────────────────────────────────────────────── */
+
+.cost-benefit {
+  margin: 6px 0;
+}
+
+.cb-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  align-items: center;
+  padding: 3px 0;
+  border-bottom: 1px solid #eeeeee;
+  gap: 8px;
+}
+
+.cb-row:last-child {
+  border-bottom: none;
+}
+
+.cb-label {
+  font-weight: bold;
+  font-size: 11px;
+  color: #333333;
+}
+
+.cb-amount {
+  font-size: 11px;
+  text-align: right;
+}
+
+.cb-image img {
+  height: 28px;
+  vertical-align: middle;
+}
+
+/* ── Fertilizer recommendation rows ────────────────────────────────── */
+
+.fert-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 2fr 1fr;
+  align-items: center;
+  padding: 4px 0;
+  border-bottom: 1px solid #eeeeee;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.fert-row .bags img,
+.fert-entry .bags img {
+  height: 24px;
+  vertical-align: middle;
+}
+
+/* ── Map and chart images ───────────────────────────────────────────── */
+
+.map-image img,
+.chart-image img {
+  width: 100%;
+  max-height: 200px;
+  height: auto;
+  display: block;
+  object-fit: cover;
+}
+
+/* ── Horizontal rules ───────────────────────────────────────────────── */
+
+hr {
+  border: none;
+  border-top: 1px solid #cccccc;
+  margin: 10px 0;
+}
+
+/* ── Recommendation text ────────────────────────────────────────────── */
+
+.recommendation-text {
+  font-size: 11px;
+  font-weight: bold;
+  line-height: 1.5;
+  color: #222222;
+}
+
+hr + .section {
+  margin-top: 4px;
+}
+
+/* ── Page break helpers ─────────────────────────────────────────────── */
+
+.page-break-before {
+  break-before: page;
+}
+
+.avoid-break {
+  break-inside: avoid;
+}
