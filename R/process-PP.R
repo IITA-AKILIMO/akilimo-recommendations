@@ -167,19 +167,10 @@ process_PP <- function(PP, country, lang, areaHa, costLMO, ploughing, ridging,
 				ridging = ridging, method_ploughing = method_ploughing,
 				method_ridging = method_ridging, FCY = FCY, rootUP = rootUP, riskAtt = riskAtt )
 
-  # Generate recommendation text
   recText <- getPPrecText(ds = res, country = country, lang = lang)
 
-  # Write output files
-  write.csv(res, tp('PP_rec.csv'), row.names = FALSE)
-  write.csv(recText, tp('PP_recText.csv'), row.names = FALSE)
-
-  # Generate markdown output
-  PP_MarkdownText(user = user, country = country, userField = userField, area = area, areaUnits = areaUnits,
-    PD = PD, HD = HD, lat = lat, lon = lon, rootUP = rootUP, cassPD = cassPD, cassUW = cassUW, maxInv = maxInv,
-    ploughing = ploughing, ridging = ridging, method_ploughing = method_ploughing, method_ridging = method_ridging)
-
-  #list(PPrecom = TRUE, plumberRes = res, recText = recText)
-	list(rec_type="PP", recommendation=recText, data=res)
+  list(rec_type = "PP", recommendation = recText, data = res,
+       costLMO = costLMO, ploughing = ploughing, ridging = ridging,
+       method_ploughing = method_ploughing, method_ridging = method_ridging)
 
 }

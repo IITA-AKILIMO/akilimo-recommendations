@@ -261,16 +261,5 @@ process_FR <- function(lat, lon, HD, maxInv, fertilizers, rootUP, areaHa, countr
 
 	recText <- getFRrecText(ds=response, country=country, lang=lang)
 
-	write.csv(recText, tp('FR_recText.csv'), row.names = FALSE)
-	if (!is.null(response$data)) {
-		FR_MarkdownText(
-			rr = response, fertilizers = fertilizers, user = user,
-			country = country, userField = userField, area = area, areaUnits = areaUnits, PD = PD, HD = HD,
-			lat = lat, lon = lon, rootUP = rootUP, cassPD = cassPD, cassUW = cassUW, maxInv = maxInv
-		)
-		fertilizerAdviseTable(FR = TRUE, IC = FALSE, country = country, areaUnits = areaUnits)
-	}
-
-
-	c(rec_type="FR", recommendation=recText, response)
+	c(rec_type="FR", recommendation=recText, response, list(fertilizers=fertilizers))
 }

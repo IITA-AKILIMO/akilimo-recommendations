@@ -185,31 +185,16 @@ process_IC_NG <- function(
 	
 	
 	CMP <- min(5, max(1, as.numeric(CMP)))
-	
+
   # Generate IC recommendations
-  res <- getICrecommendations(areaHa = areaHa, CMP = CMP, cobUP = cobUP, 
-							fertilizers = fertilizers, riskAtt = riskAtt)
+  res <- getICrecommendations(areaHa = areaHa, CMP = CMP, cobUP = cobUP,
+                              fertilizers = fertilizers, riskAtt = riskAtt)
 
-  if (NROW(res$fertilizer_rates) > 0) {
-    recText <- getICrecText(res, maizePD)
+  recText <- getICrecText(res, maizePD)
 
-    write.csv(res, tp('IC_rec.csv'), row.names = FALSE)
-    write.csv(recText, tp('IC_recText.csv'), row.names = FALSE)
-
-    IC_MarkdownText(rr = res, fertilizers = fertilizers, user = user, country = country, 
-			userField = userField, area = area, areaUnits = areaUnits, PD = PD, HD = HD, 
-			lat = lat, lon = lon, maizeUW = maizeUW, maizePD = maizePD, cassUW = cassUW,
-			saleSF = saleSF, nameSF = nameSF, rootUP = rootUP, cassPD = cassPD, maxInv = maxInv,
-			CMP = CMP, maizeUP = maizeUP, riskAtt = riskAtt)
-
-	fertilizerAdviseTable(FR = FALSE, IC = TRUE, country = country, areaUnits = areaUnits)
-    ICrecom <- TRUE
-  } else {
-    recText <- res$data$reason_F
-    ICrecom <- FALSE
-  }
-
-	c(list(rec_type="IC", recommendation=recText) , res)
+  c(list(rec_type = "IC", subtype = "IC", recommendation = recText,
+         fertilizers = fertilizers, maizeUP = maizeUP, maizeUW = maizeUW,
+         maizePD = maizePD, CMP = CMP), res)
 
 }
 
@@ -224,27 +209,10 @@ process_IC_TZ <- function(IC, country, lang, areaHa, FCY, tuberUP, rootUP, ferti
 
   recText <- getCISrecText(res, country, lang)
 
-  if (NROW(res$fertilizer_rates) > 0) {
-    write.csv(recText, tp('CIS_recText.csv'), row.names = FALSE)
-
-    CIS_MarkdownText(rr = res, fertilizers = fertilizers,
-      user = user, country = country, userField = userField, area = area,
-      areaUnits = areaUnits, PD = PD, HD = HD, lat = lat,lon = lon,
-      sweetPotatoUP = sweetPotatoUP, sweetPotatoPD = sweetPotatoPD,
-      sweetPotatoUW = sweetPotatoUW, rootUP = rootUP, cassUW = cassUW,
-      cassPD = cassPD, maxInv = maxInv, tuberUP = tuberUP)
-
-	  fertilizerAdviseTable(FR = FALSE, IC = TRUE, country = "TZ", areaUnits = areaUnits)
-
-	  ICrecom <- TRUE
-  } else {
-    ICrecom <- FALSE
-  }
-
-  #return(list(ICrecom = ICrecom, plumberRes = res, recText = recText))
-  #list(recom = ICrecom, data=c(res, message=recText, rec_type="IC"))
-
-	c(list(rec_type="IC", recommendation=recText) , res)
+  c(list(rec_type = "IC", subtype = "CIS", recommendation = recText,
+         fertilizers = fertilizers, sweetPotatoUP = sweetPotatoUP,
+         sweetPotatoPD = sweetPotatoPD, sweetPotatoUW = sweetPotatoUW,
+         tuberUP = tuberUP), res)
   
 }
 
