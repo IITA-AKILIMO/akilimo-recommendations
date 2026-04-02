@@ -27,7 +27,7 @@ getSPrecText <- function(ds, country, lang, PD, HD) {
 
     } else {
 
-      if (ds[1,]$PD != ds[ds$CP == TRUE,]$PD) {
+      if (ds[1,]$PD != ds[which(ds$CP)[1],]$PD) {
         recP <- paste0(tr("recPln", lang,
                           date      = format(ds[1,]$PD, "%d %B %Y"),
                           weeks     = abs(ds[1,]$rPWnr),
@@ -37,7 +37,7 @@ getSPrecText <- function(ds, country, lang, PD, HD) {
       }
 
 
-      if (ds[1,]$HD != ds[ds$CP == TRUE,]$HD) {
+      if (ds[1,]$HD != ds[which(ds$CP)[1],]$HD) {
         recH <- paste0(tr("recHvs", lang,
                           date      = format(ds[1,]$HD, "%d %B %Y"),
                           weeks     = abs(ds[1,]$rHWnr),
@@ -46,7 +46,7 @@ getSPrecText <- function(ds, country, lang, PD, HD) {
         recH <- tr("recHopt", lang, date = format(ds[1,]$HD, "%d %B %Y"))
       }
 
-      DP <- signif(ds[1,]$RP - ds[ds$CP == TRUE,]$RP, digits = 2)
+      DP <- signif(ds[1,]$RP - ds[which(ds$CP)[1],]$RP, digits = 2)
       DP_fmt <- formatC(abs(DP), format = "f", big.mark = ",", digits = 0)
       currency <- get_currency(country)
       dGR <- formatC(signif(ds[1,]$dGR, digits = 3), format = "f", big.mark = ",", digits = 0)

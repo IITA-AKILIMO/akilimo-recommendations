@@ -275,7 +275,7 @@ dispatch_recommendations <- function(p, body) {
 
 build_response <- function(result, aki_version) {
     if (is.null(result)) return(bad_request("No valid recommendation found"))
-    result$recommendation <- jsonlite::unbox(gsub("[ ]+", " ", result$recommendation))
+    result$recommendation <- jsonlite::unbox(gsub("[ ]+", " ", result$recommendation %||% ""))
     result$rec_type        <- jsonlite::unbox(result$rec_type)
     c(list(status = jsonlite::unbox("success"), version = jsonlite::unbox(aki_version)), result)
 }
