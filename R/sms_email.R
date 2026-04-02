@@ -59,7 +59,6 @@ generate_pdfs <- function(user, FR, IC, PP, SP, country, result = NULL, params =
   message(paste("Generating PDFs: FR=", FR, "IC=", IC, "PP=", PP, "SP=", SP, "country=", country))
 
   PDFs <- character(0)
-  phone <- safe_filename_part(user$PhoneNr)
 
   # .try_pdf runs expr and returns its value on success, or NULL on error.
   # fname must be assigned BEFORE calling .try_pdf so it lives in generate_pdfs's
@@ -77,7 +76,7 @@ generate_pdfs <- function(user, FR, IC, PP, SP, country, result = NULL, params =
 
   # FR — WeasyPrint path
   if (FR && !IC && !is.null(result) && !is.null(result$data)) {
-    fname <- tp(paste0("fertilizer_advice_", phone, ".pdf"))
+    fname <- tp("fertilizer_advice.pdf")
     path <- .try_pdf("FR", {
       build_fr_pdf(
         rr = result,
@@ -107,7 +106,7 @@ generate_pdfs <- function(user, FR, IC, PP, SP, country, result = NULL, params =
 
   # IC — WeasyPrint path
   if (IC && !is.null(result) && !is.null(result$data)) {
-    fname <- tp(paste0("intercrop_advice_", phone, ".pdf"))
+    fname <- tp("intercrop_advice.pdf")
     path <- .try_pdf("IC", {
       build_ic_pdf(
         rr = result,
@@ -136,7 +135,7 @@ generate_pdfs <- function(user, FR, IC, PP, SP, country, result = NULL, params =
 
   # PP — WeasyPrint path
   if (PP && !is.null(result) && !is.null(result$data)) {
-    fname <- tp(paste0("PP_advice_", phone, ".pdf"))
+    fname <- tp("PP_advice.pdf")
     path <- .try_pdf("PP", {
       build_pp_pdf(
         rr = result,
@@ -165,7 +164,7 @@ generate_pdfs <- function(user, FR, IC, PP, SP, country, result = NULL, params =
 
   # SP — WeasyPrint path
   if (SP && !is.null(result)) {
-    fname <- tp(paste0("SP_advice_", phone, ".pdf"))
+    fname <- tp("SP_advice.pdf")
     path <- .try_pdf("SP", {
       build_sp_pdf(
         rr = result,
