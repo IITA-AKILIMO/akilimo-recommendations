@@ -583,25 +583,44 @@ The stray global `if (file.exists("spgg.png")) file.remove("spgg.png")` blocks i
 
 ## 10. Language Support
 
-`lang` is passed as a parameter to every builder and helper function. All user-facing strings are resolved via `tr(key, lang)`, matching how the processor functions already localise the JSON response text.
+`lang` is passed as a parameter to every builder and helper function.
 
-Static section headings (currently hardcoded English in Rmd files) must be added to `data/input/translations.csv`:
+### Two-system design (implemented)
 
-| Key | English | Swahili |
-|---|---|---|
-| `pdf_what_told` | "What you told us" | *(confirm with translator)* |
-| `pdf_fert_prices` | "Fertilizer prices" | |
-| `pdf_your_location` | "Your location" | |
-| `pdf_exp_gain` | "Expected gain in total production" | |
-| `pdf_cost_benefit` | "Cost benefit analysis" | |
-| `pdf_lmo_cost` | "Cost of land management operations" | |
-| `pdf_your_practice` | "Your current practice" | |
-| `pdf_cost_info` | "Cost information" | |
-| `pdf_rec_date` | "Recommendation generated on" | |
+PDF user-facing strings are handled by **two separate systems** with different scopes:
 
-`tr()` falls back to English for missing Swahili entries. Confirm Swahili values with the translation team before Phase 3.
+| System | Location | Used for | Accessor |
+|---|---|---|---|
+| `translations.csv` | `data/input/translations.csv` | Recommendation body text (shared across SMS, email, HTML) | `tr(key, lang)` |
+| `.PDF_LABELS` | `R/html_helpers.R` | PDF section headings and UI labels (PDF-only) | `html_label(key, lang)` |
 
-This replaces the current approach of maintaining two separate Rmd files per recommendation type.
+### Why not a single system?
+
+`translations.csv` + `tr()` is used by the SMS and email paths as well as HTML reports. Several PDF label strings contain raw HTML (e.g. `<strong>` tags in `expected_gain_fmt`). Putting those in `translations.csv` would cause HTML markup to appear in SMS messages if the key were ever called from a non-HTML context.
+
+Additionally, `translations.csv` holds agronomic recommendation content (what the farmer should do). PDF section headings like `"What you told us"` are UI chrome — mixing them with recommendation content makes the CSV harder to hand to a translator who should only touch agronomic text.
+
+### Adding a new language
+
+To add a new language (e.g. French `fr`):
+
+1. Add a `fr` column to `data/input/translations.csv` for recommendation text.
+2. Add `fr` entries to each key in `.PDF_LABELS` in `R/html_helpers.R`.
+3. Pass `lang = "fr"` through the call stack — no other changes needed.
+
+### Upgrade path
+
+If PDF labels need to be editable without a code deployment (e.g. by a translator), migrate `.PDF_LABELS` to `data/input/pdf_labels.csv` and load it at startup:
+
+```r
+.PDF_LABELS <- local({
+  path <- file.path(akpath, "data", "input", "pdf_labels.csv")
+  df   <- read.csv(path, stringsAsFactors = FALSE, check.names = FALSE)
+  setNames(Map(function(en, sw) c(en = en, sw = sw), df$en, df$sw), df$key)
+})
+```
+
+This keeps the `html_label()` API unchanged while making the backing store a CSV. Only do this if there is a concrete operational need — the in-code list is simpler and all these strings are stable UI chrome.
 
 ---
 

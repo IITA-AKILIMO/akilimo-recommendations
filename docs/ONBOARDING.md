@@ -61,8 +61,10 @@ akilimo-recommendations/
 │   ├── get_data.R          # Data access layer (soil, yield, CSVs)
 │   ├── fertilizers.R       # Fertilizer type/price/NPK parsing
 │   ├── misc.R              # tr(), get_currency(), getRFY(), getRDY()
-│   ├── markdown.R          # HTML report rendering (knitr/Rmd)
-│   ├── sms_email.R         # Email (mailR) and SMS dispatch
+│   ├── markdown.R          # Shared helpers: FERT_COLOUR/LABEL, calc_fertilizer_recom()
+│   ├── html_helpers.R      # HTML fragment builders for WeasyPrint PDFs
+│   ├── pdf_builders.R      # build_fr/ic/pp/sp_pdf() — one per recommendation type
+│   ├── sms_email.R         # Email (smtp/mailtrap/mailgun) and SMS dispatch
 │   ├── process-FR.R        # Fertilizer Recommendation processor
 │   ├── process-IC.R        # Intercropping processor
 │   ├── process-PP.R        # Post-Planting processor
@@ -121,12 +123,27 @@ Each processor follows the same pattern:
 3. QUEFTS(QID, rec)                   → yield at candidate NPK rates
 4. run_Optim_*(...)                   → find NPK rate that maximises NR
 5. tr(key, lang, ...)                 → build recommendation text
-6. render_report(...)                 → generate HTML report (markdown.R)
+6. return list(rec_type, recommendation, data, fertilizers, ...)
 ```
 
-### Stage 6 — Response assembly
+Processors no longer write CSV files to the temp dir. All data needed for PDF generation is returned in the result list.
 
-The processor returns a named list; `run_akilimo()` wraps it with `status = "success"`, `version`, and `rec_type`, then Plumber serialises it to JSON.
+### Stage 6 — PDF generation (`R/sms_email.R`, `R/pdf_builders.R`)
+
+`generate_pdfs()` calls the appropriate `build_*_pdf()` for each active flag. Each builder:
+
+1. Assembles HTML using fragment helpers from `html_helpers.R`
+2. Renders a map PNG via `leaflet` + `mapview::mapshot()`
+3. Renders any charts via `ggplot2::ggsave()`
+4. Calls `render_pdf(html, out_path)` which invokes WeasyPrint via `system2()`
+
+All images are base64-embedded in the HTML so WeasyPrint requires no network access. Per-request isolation: every HTML file, map PNG, chart PNG, and output PDF is written to a dedicated temp subdirectory named `temp/{YYYYMMDD_HHMMSS}_{COUNTRY}_{TYPE}_{rand4}/`. Temp dirs older than 1 hour are cleaned up on each new request.
+
+Individual PDF failures are caught and logged; the recommendation JSON is always returned regardless of PDF or email outcome.
+
+### Stage 7 — Response assembly
+
+The processor result is wrapped by `build_response()` with `status = "success"`, `version`, and `rec_type`, then Plumber serialises it to JSON.
 
 ---
 
@@ -139,11 +156,49 @@ Central orchestrator. Key functions:
 | Function | Purpose |
 |----------|---------|
 | `validate_request(body)` | Input validation; returns error string or `NULL` |
-| `parse_request(body)` | Extracts all fields with defaults; returns named list `ds` |
-| `run_akilimo(postBody)` | Top-level entry called by Plumber; validates, parses, dispatches |
+| `parse_request(body)` | Extracts all fields with defaults; returns named list `params` |
+| `setup_temp_dir(country, rec_type)` | Creates `temp/{date}_{country}_{type}_{rand4}/`; cleans up dirs older than 1 h |
+| `dispatch_recommendations(params, body)` | Routes to the correct `process_*` function |
+| `run_akilimo(postBody)` | Top-level entry called by Plumber; validates → parses → temp dir → dispatch → PDFs → response |
 | `from_json(key, body, default_value)` | Safe field extractor with typed defaults |
 
-The `ds` list produced by `parse_request()` is passed unchanged to all processors — they all read from the same field names.
+The `params` list from `parse_request()` is passed unchanged to all processors and to `generate_pdfs()`. The temp dir is created after parsing so the directory name can include the country and recommendation type.
+
+### `R/html_helpers.R`
+
+HTML fragment builders shared across all PDF types.
+
+| Symbol | Purpose |
+|--------|---------|
+| `.PDF_LABELS` | Named list of `c(en=..., sw=...)` pairs for all PDF UI strings |
+| `html_label(key, lang)` | Looks up a label with English fallback |
+| `img_base64(path, alt, class)` | Embeds a PNG as a base64 data-URI `<img>` tag |
+| `img_bag(fert_type, bags)` | Returns the correct colour/count bag image for a fertilizer |
+| `img_cash(ratio)` | Returns a cash-stack image (1–10 scale) |
+| `html_open(title, banner_path, css_path)` | Full `<!DOCTYPE html>…<body>` with inlined CSS |
+| `html_section(heading, content)` | `<div class="section">` wrapper |
+| `html_two_col(left, right)` | CSS Grid two-column wrapper |
+| `html_three_col(col1, col2, col3)` | CSS Grid three-column wrapper |
+| `html_personal_info(...)` | "What you told us" section |
+| `html_location_map(lat, lon, ...)` | Renders leaflet map → PNG → base64 `<img>` |
+| `html_fertilizer_table(...)` | Fertilizer prices + cassava price + max investment |
+| `html_cost_benefit(...)` | Three-row cost/revenue/net section with cash images |
+| `html_recommendation(recText, lang)` | Bold full-width recommendation paragraph |
+| `html_table(df, col_names)` | Generic data frame → HTML `<table>` |
+
+### `R/pdf_builders.R`
+
+One builder per recommendation type plus the shared renderer.
+
+| Function | Purpose |
+|----------|---------|
+| `render_pdf(html, path)` | Writes HTML to temp dir; calls `weasyprint` via `system2()` |
+| `build_fr_pdf(rr, fertilizers, ...)` | FR: two-column layout with map, fertilizer rows, cost-benefit |
+| `build_ic_pdf(rr, ...)` | IC (NG maize) and CIS (TZ sweet potato): similar to FR with crop-specific sections |
+| `build_pp_pdf(rr, ...)` | PP: ggplot practice matrix + LMO cost table |
+| `build_sp_pdf(rr, ...)` | SP: ggplot heatmap + planting/harvest window summary |
+
+The CSS stylesheet is at `net/akilimo_print.css` (A4 landscape, CSS Grid, `@page` rules, WeasyPrint-compatible).
 
 ### `R/get_data.R`
 
@@ -325,17 +380,41 @@ To register the new fixture:
 
 ### Environment variables (`.env` at project root)
 
-| Variable | Purpose |
-|----------|---------|
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | Email dispatch credentials |
-| `SMS_API_KEY`, `SMS_SENDER` | SMS gateway credentials |
-| `AKILIMO_PATH` | Override `akpath` (useful on non-standard hosts) |
+Copy `.env.example` to `.env` and fill in the values you need. Full variable reference is in [SETUP.md](SETUP.md#environment-configuration). Key variables for development:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `AKILIMO_ROOT` | `.` | Project root path |
+| `API_HOST` | `0.0.0.0` | Plumber bind address |
+| `API_PORT` | `8000` | Plumber port |
+| `EMAIL_PROVIDER` | `smtp` | `smtp` \| `mailtrap` \| `mailgun` |
 
 The R API reads `.env` on startup via `dotenv::load_dot_env()` in `api.R`. Never commit `.env`.
 
+### Hot-reload dev server
+
+Instead of manually restarting `Rscript api.R` on every file change, use the provided watcher scripts:
+
+```bash
+# Linux / macOS
+./dev.sh
+
+# Windows
+dev.bat
+```
+
+Both scripts use [watchexec](https://github.com/watchexec/watchexec) (preferred) or `entr` (Linux/macOS fallback) to restart the server whenever an `.R`, `.csv`, or `.css` file changes under `R/`, `net/`, or `data/input/`.
+
+Install watchexec:
+```bash
+winget install watchexec.watchexec   # Windows
+brew install watchexec               # macOS
+cargo install watchexec-cli          # any platform with Rust
+```
+
 ### Path configuration
 
-`api.R` sets `akpath` based on `Sys.info()[["nodename"]]`. On unknown hosts it defaults to `"."` (the working directory). All file paths in `get_data.R` are constructed as `file.path(akpath, "data", ...)`. When running locally with `Rscript api.R` from the repo root, this works without any configuration.
+`api.R` sets `akpath` from the `AKILIMO_ROOT` env var (defaults to `"."`). All file paths in `get_data.R` are constructed as `file.path(akpath, "data", ...)`. When running locally with `Rscript api.R` from the repo root, this works without any configuration.
 
 ---
 
