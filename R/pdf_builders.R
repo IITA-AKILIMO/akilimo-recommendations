@@ -425,7 +425,8 @@ build_pp_pdf <- function(rr, user, country,
         panel.border    = ggplot2::element_blank(),
         axis.ticks      = ggplot2::element_blank()
       )
-    ggplot2::ggsave(chart_path, pp_plot, width = 9, height = 5, units = "in", dpi = 150)
+    dev <- if (requireNamespace("ragg", quietly = TRUE)) ragg::agg_png else "png"
+    ggplot2::ggsave(chart_path, pp_plot, width = 9, height = 5, units = "in", dpi = 150, device = dev)
   }, error = function(e) {
     warning("PP chart generation failed: ", e$message)
     chart_path <<- NULL
@@ -563,7 +564,8 @@ build_sp_pdf <- function(rr, user, country,
           axis.title = ggplot2::element_text(size = 14, colour = "black", face = "bold"),
           axis.text.x = ggplot2::element_text(size = 11, colour = "black", angle = 45, hjust = 1),
           axis.text.y = ggplot2::element_text(size = 11, colour = "black"))
-      ggplot2::ggsave(chart_path, sp_plot, width = 10, height = 6, units = "in", dpi = 150)
+      dev <- if (requireNamespace("ragg", quietly = TRUE)) ragg::agg_png else "png"
+      ggplot2::ggsave(chart_path, sp_plot, width = 10, height = 6, units = "in", dpi = 150, device = dev)
     }, error = function(e) {
       warning("SP chart generation failed: ", e$message)
       chart_path <<- NULL

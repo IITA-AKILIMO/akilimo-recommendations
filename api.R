@@ -4,13 +4,18 @@ akpath <- Sys.getenv("AKILIMO_ROOT", unset = ".")
 setwd(akpath)
 
 # Headless PNG rendering — no X11 display required.
-# ragg is preferred (faster, better fonts); Cairo is the fallback.
-# Both avoid the "unable to open connection to X11 display" error on servers.
+# Priority: ragg (ggplot2 >= 3.5.0) → ragg legacy → Cairo fallback.
 if (.Platform$OS.type == "unix") {
-  if (requireNamespace("ragg", quietly = TRUE)) {
-    options(bitmapType = "cairo")          # keeps png() working
-    options(device    = ragg::agg_png)     # ggplot2::ggsave() picks this up
+  if (requireNamespace("ragg", quietly = TRUE) &&
+      existsMethod <- exists("set_default_device", envir = asNamespace("ggplot2"), inherits = FALSE)) {
+    # ggplot2 >= 3.5.0: set ragg as the default device for ggsave()
+    ggplot2::set_default_device(ragg::agg_png)
+  } else if (requireNamespace("ragg", quietly = TRUE)) {
+    # older ggplot2 with ragg: pass device explicitly via ggsave — handled in
+    # pdf_builders.R; set Cairo so base png() also works headless
+    options(bitmapType = "cairo")
   } else {
+    # no ragg — Cairo is sufficient for headless rendering
     options(bitmapType = "cairo")
   }
 }
