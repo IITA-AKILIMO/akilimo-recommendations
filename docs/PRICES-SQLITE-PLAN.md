@@ -355,57 +355,46 @@ if (nzchar(Sys.getenv("PRICE_API_URL"))) {
 Both refreshes run synchronously before dispatch. Failure is logged as WARN but
 never blocks the recommendation.
 
-### 3.4 Changes to `api.R`
+### 3.4 Manual refresh script: `refresh_prices.R`
 
-Add an admin endpoint that handles both price types via a `type` field in the
-request body:
+Price refreshes are triggered by running a standalone script from the command
+line — no API endpoint is exposed. This keeps the Plumber server stateless and
+avoids adding an unauthenticated write path to the running process.
 
-```r
-pr$handle(
-    method  = "POST",
-    path    = "/admin/refresh-prices",
-    handler = function(req, res) {
-        body    <- tryCatch(jsonlite::fromJSON(req$postBody), error = function(e) list())
-        country <- body[["country"]]   # NULL = all countries
-        type    <- tolower(trimws(body[["type"]] %||% "all"))
-        #   type = "default" → fertilizer / labour / cassava prices only
-        #   type = "starch"  → starch factory prices only
-        #   type = "all"     → both (default)
+```
+Rscript refresh_prices.R [options]
 
-        results <- list()
-
-        if (type %in% c("default", "all")) {
-            results$default <- tryCatch(
-                refresh_prices(country, source_tag = "manual"),
-                error = function(e) list(status = "error", message = conditionMessage(e))
-            )
-        }
-        if (type %in% c("starch", "all")) {
-            results$starch <- tryCatch(
-                refresh_starch_prices(country, source_tag = "manual"),
-                error = function(e) list(status = "error", message = conditionMessage(e))
-            )
-        }
-
-        results
-    }
-)
+Options:
+  --country  NG|TZ|RW|GH|BI   Refresh one country only (default: all)
+  --type     default|starch|all  Which table to refresh (default: all)
+  --dry-run                    Validate API response without writing to DB
 ```
 
-A shared secret can be added via `ADMIN_TOKEN` env var if the endpoint needs
-to be protected (not in scope for v1).
+The script:
+1. Loads `.env` (via `dotenv`) and sources `R/logging.R`, `R/prices_db.R`
+2. Opens the DB connection
+3. Calls `refresh_prices()` and/or `refresh_starch_prices()` based on flags
+4. Prints a summary table (country, type, rows upserted, status)
+5. Exits with code 0 on full success, 1 if any refresh failed
 
-Example calls:
+Typical usage (cron or manual ops):
 ```bash
-# Refresh both price types for Nigeria
-curl -X POST http://localhost:8000/admin/refresh-prices \
-  -H "Content-Type: application/json" \
-  -d '{"country": "NG", "type": "all"}'
+# Refresh everything
+Rscript refresh_prices.R
 
-# Refresh only starch prices across all countries
-curl -X POST http://localhost:8000/admin/refresh-prices \
-  -H "Content-Type: application/json" \
-  -d '{"type": "starch"}'
+# Refresh fertilizer prices for Nigeria only
+Rscript refresh_prices.R --country NG --type default
+
+# Refresh all starch factory prices
+Rscript refresh_prices.R --type starch
+
+# Validate the API response without touching the DB
+Rscript refresh_prices.R --dry-run
+```
+
+Scheduling on the server (cron example — runs at 02:00 on Mondays):
+```cron
+0 2 * * 1  cd /opt/akilimo && Rscript refresh_prices.R >> logs/price-refresh.log 2>&1
 ```
 
 ---
@@ -539,12 +528,13 @@ Validation rules enforced by `refresh_starch_prices()`:
 | File | Change |
 |------|--------|
 | `R/prices_db.R` | **New** — all DB logic |
+| `refresh_prices.R` | **New** — standalone CLI refresh script |
 | `R/get_data.R` | Replace two `cached_read` blocks; thread `country` to input branch |
 | `R/AkilimoMain.R` | Add stale-price auto-refresh after `parse_request()` |
-| `api.R` | Source `prices_db.R`; add `/admin/refresh-prices` endpoint |
+| `api.R` | Source `prices_db.R` |
 | `install_packages.R` | Add `RSQLite`, `DBI` |
-| `.env.example` | Add four new env vars |
-| `docs/SETUP.md` | Document SQLite file, new env vars, admin endpoint |
+| `.env.example` | Add five new env vars |
+| `docs/SETUP.md` | Document SQLite file, new env vars, refresh script, cron setup |
 
 `data/input/Default_prices.csv` and `data/input/starchPrices.csv` are **not
 deleted** — kept as seed source and offline reference.
@@ -596,11 +586,16 @@ in-memory or temp-file SQLite DB — never the production file.
 | `starch_prices_are_stale()` returns TRUE for old data | `updated_at` set 60 days ago |
 | Other country unaffected by single-country refresh | TZ rows intact after NG refresh |
 
-### Admin endpoint
+### Refresh script
 
-| Test | Location |
-|------|----------|
-| `POST /admin/refresh-prices {"type":"default"}` refreshes only default | `tests/test_api.R` |
-| `POST /admin/refresh-prices {"type":"starch"}` refreshes only starch | `tests/test_api.R` |
-| `POST /admin/refresh-prices {"type":"all"}` refreshes both | `tests/test_api.R` |
-| Unknown `type` value returns error | `tests/test_api.R` |
+| Test | What is checked |
+|------|----------------|
+| `--type default` calls only `refresh_prices()` | `starch_prices` unchanged |
+| `--type starch` calls only `refresh_starch_prices()` | `default_prices` unchanged |
+| `--type all` calls both | Both tables updated |
+| `--country NG` scopes refresh to NG only | Other countries unchanged |
+| `--dry-run` makes no DB writes | Row counts identical before and after |
+| Exit code 0 on success | Script exits cleanly |
+| Exit code 1 when any refresh errors | Script exits with failure |
+
+These are integration tests run against a temp DB: `tests/test_refresh_script.R`.
