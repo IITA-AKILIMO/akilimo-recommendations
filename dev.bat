@@ -47,11 +47,12 @@ echo.
 watchexec ^
   --watch R ^
   --watch api.R ^
+  --watch .env ^
   --watch net ^
   --watch data\input\translations.csv ^
   --exts R,csv,css ^
   --shell=none ^
   --restart ^
-  --debounce 800 ^
   --clear ^
+  --debounce 1000 ^
   -- Rscript api.R
