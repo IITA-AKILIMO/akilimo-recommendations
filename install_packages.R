@@ -40,6 +40,10 @@ pkgs <- c(
   "scales",
   "png",
 
+  # Price database
+  "DBI",
+  "RSQLite",
+
   # Config
   "dotenv",
   "here",
