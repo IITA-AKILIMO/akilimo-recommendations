@@ -112,59 +112,65 @@ getICrecommendations <- function(areaHa, CMP, cobUP, fertilizers, riskAtt = c(0,
 
 
 #' @param ds is output of getICrecommendations
-#' @param maizePD mmaize product
-getICrecText <- function(x, maizePD) {
+#' @param maizePD maize product type ("grain" or "fresh_cob")
+#' @param lang language code passed through from the request
+#' @param country country code used for currency lookup
+getICrecText <- function(x, maizePD, lang, country) {
 
-	ds <- x[["data"]]
-	fs <- x[["fertilizer_rates"]]
-  if (!ds$rec_F) {
-    #trans
-    recF <- paste0("Fertilizer use is not recommended because ", ds$reason_F)
+    ds       <- x[["data"]]
+    fs       <- x[["fertilizer_rates"]]
+    currency <- get_currency(country)
 
-  } else {
-    dTC <- formatC(signif(ds$dTC, digits = 3), format = "f", big.mark = ",", digits = 0)
-    dNR <- formatC(signif(ds$dNR, digits = 3), format = "f", big.mark = ",", digits = 0)
-    dMP      <- signif(ds$dMP, digits = 2)
-    currency <- "NGN"
-    fs$rate_fmt <- formatC(round(fs$rate), format = "f", big.mark = ",", digits = 0)
-
-    if (maizePD == "grain") {
-      #1 kg of grain ~ 7.64 cobs
-      dMP_fmt <- formatC(round(dMP / 7.64, digits = 0), format = "f", big.mark = ",", digits = 0)
-
-      #trans
-      recF <- paste0("We recommend applying\n",
-                     paste0(fs$rate_fmt, " kg of ", fs$type, collapse = "\n"), " ",
-                     "\nfor the area of your field.\n",
-                     "This will cost ", currency, " ", dTC, ". ",
-                     "We expect an extra production of ", dMP_fmt, " kg of maize for the area of your field, ",
-                     "and a net value increase of ", currency, " ", dNR, ".\n")
-
+    if (!ds$rec_F) {
+        recF <- switch(ds$reason_F,
+            "appropriate fertilizer is not available" =
+                tr("icFertNoAvail", lang),
+            "fertilizer use is not sufficiently profitable" =
+                tr("icFertNotProfit", lang),
+            # CMP == 1 override (note: source has typo "saw" → kept for exact match)
+            "Your soil is very poor. You need to improve soil fertility before considering investing in fertilizer. You should apply compost or manure, or fallow for at least 2 years. Plant maize at low density (20,000 plants per hectare) and saw the seeds at 50 cm within rows." =
+                tr("icCMP1", lang),
+            # CMP == 5 override
+            "Your soil is very fertile. It is likely that your maize yield will not improve much after fertilizer application. Plant maize at high density (40,000 plants per hectare) and sow the seeds at 25 cm within rows." =
+                tr("icCMP5", lang),
+            ds$reason_F  # fallback: raw string (should not occur in practice)
+        )
     } else {
-      dMP_fmt <- formatC(round(dMP, digits = 0), format = "f", big.mark = ",", digits = 0)
-      #trans
-      recF <- paste0("We recommend applying\n",
-                     paste0(fs$rate_fmt, " kg of ", fs$type, collapse = "\n"), " ",
-                     "\nfor the area of your field.\n",
-                     "This will cost ", currency, " ", dTC, ". ",
-                     "We expect an extra production of ", dMP_fmt, " cobs for the area of your field, ",
-                     "and a net value increase of ", currency, " ", dNR, ".\n")
+        dTC <- formatC(signif(ds$dTC, digits = 3), format = "f", big.mark = ",", digits = 0)
+        dNR <- formatC(signif(ds$dNR, digits = 3), format = "f", big.mark = ",", digits = 0)
+        dMP <- signif(ds$dMP, digits = 2)
+        fs$rate_fmt <- formatC(round(fs$rate), format = "f", big.mark = ",", digits = 0)
+
+        if (maizePD == "grain") {
+            # 1 kg of grain ~ 7.64 cobs
+            dMP_fmt <- formatC(round(dMP / 7.64, digits = 0), format = "f", big.mark = ",", digits = 0)
+            recF <- paste0(
+                tr("werec", lang), "\n",
+                paste0(fs$rate_fmt, tr("kgof", lang), fs$type, collapse = "\n"), "\n",
+                tr("area", lang), "\n",
+                tr("willc", lang, currency = currency, amount = dTC), " ",
+                tr("icFertGrain", lang, amount = dMP_fmt, currency = currency, value = dNR), "\n"
+            )
+        } else {
+            dMP_fmt <- formatC(round(dMP, digits = 0), format = "f", big.mark = ",", digits = 0)
+            recF <- paste0(
+                tr("werec", lang), "\n",
+                paste0(fs$rate_fmt, tr("kgof", lang), fs$type, collapse = "\n"), "\n",
+                tr("area", lang), "\n",
+                tr("willc", lang, currency = currency, amount = dTC), " ",
+                tr("icFertCobs", lang, amount = dMP_fmt, currency = currency, value = dNR), "\n"
+            )
+        }
     }
-  }
 
-  if (!is.null(ds$reason_D)) {
+    if (!is.null(ds$reason_D)) {
+        recD <- ifelse(ds$rec_D, tr("icDensHigh", lang),
+                       paste0(tr("icDensLow", lang), " because ", ds$reason_D, "."))
+    } else {
+        recD <- ifelse(ds$rec_D, tr("icDensHigh", lang), tr("icDensLow", lang))
+    }
 
-    #trans
-    recD <- ifelse(ds$rec_D, "Plant your maize intercrop at high density: 1 m between rows and 25 cm within row (40,000 plants per hectare).",
-                   paste0("Plant your maize intercrop at low density: 1 m between rows and 50 cm within row (20,000 plants per hectare) because ", ds$reason_D, "."))
-  } else {
-
-    #trans
-    recD <- ifelse(ds$rec_D, "Plant your maize intercrop at high density: 1 m between rows and 25 cm within row (40,000 plants per hectare).",
-                   paste0("Plant your maize intercrop at low density: 1 m between rows and 50 cm within row (20,000 plants per hectare)."))
-  }
-
-  paste0(recF, recD)
+    paste0(recF, recD)
 
   # NOTE: recommendation text is minimal. Known gaps:
   # 1. No variety guidance (maize should mature in ≤95 days; cassava variety not mentioned).
@@ -191,7 +197,7 @@ process_IC_NG <- function(
   res <- getICrecommendations(areaHa = areaHa, CMP = CMP, cobUP = cobUP,
                               fertilizers = fertilizers, riskAtt = riskAtt)
 
-  recText <- getICrecText(res, maizePD)
+  recText <- getICrecText(res, maizePD, lang = lang, country = country)
 
   c(list(rec_type = "IC", subtype = "IC", recommendation = recText,
          fertilizers = fertilizers, maizeUP = maizeUP, maizeUW = maizeUW,

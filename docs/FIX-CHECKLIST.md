@@ -52,7 +52,7 @@ Check off each item after the fix is committed.
 - [x] **ERR-11** `AkilimoMain.R:278` — `gsub(...)` on `result$recommendation` has no NULL guard; add `%||% ""`
 - [x] **QUA-11** `process-IC.R:346`, `translations.csv:81` — `cisRatePre` English value is `"kg"` where it should be `""`; produces `"kg123 kg of Urea"` output — fixed: local CSV already has `en=""` (correct); added self-healing guard in `get_data.R` so a stale bundle cannot regress the output
 - [x] **TRANS-2** `translations.csv:81` — same as QUA-11
-- [ ] **MNT-4** `process-IC.R:116–178` — `getICrecText` (NG IC) has no `lang` parameter and hardcodes English; does not use `tr()`
+- [x] **MNT-4** `process-IC.R:116–178` — `getICrecText` (NG IC) has no `lang` parameter and hardcodes English; does not use `tr()`
 
 ---
 
