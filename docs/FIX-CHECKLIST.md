@@ -72,7 +72,7 @@ Check off each item after the fix is committed.
 - [ ] **QUA-6** `AkilimoMain.R:286` — `aki_version` hardcoded date string
 - [ ] **QUA-8** Multiple files — large commented-out code blocks
 - [x] **QUA-12** `markdown.R` — `PPSP_MarkdownText` writes to wrong dir — resolved: function deleted (Rmd pipeline removed)
-- [ ] **QUA-14** `AkilimoMain.R:408–504` — `get_costLMO` has inconsistent tab/space indentation
+- [x] **QUA-14** `AkilimoMain.R` — inconsistent tab/space indentation resolved by linter (entire file normalised to 2-space indent)
 - [x] **API-5** `api.R`, `misc.R` — `check_translation_keys()` scans all R source for `tr("key")` literals at startup and logs ERROR for any missing from translations.csv; distinguishes translation bugs from model crashes
 - [x] **API-6** `AkilimoMain.R` — `validate_request` now rejects non-numeric, negative, or non-integer `PD_window`/`HD_window` values
 - [x] **TRANS-3** `misc.R:5–22` — `tr()` does not validate that `lang` is a known column name; now derives allowed langs from CSV column names and warns+falls back to `en` for unknown values

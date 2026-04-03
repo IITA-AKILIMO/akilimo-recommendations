@@ -153,9 +153,7 @@ Should be in `data/input/` as a CSV.
 
 `process-SP.R`, `process-PP.R`, `process-FR.R`. Should be removed; git history preserves them.
 
-**QUA-14 — `get_costLMO` mixes tab and space indentation (AkilimoMain.R ~lines 357–444)**
-
-Not a runtime issue; makes diffs harder to read.
+- **QUA-14** ✅ Resolved by linter — entire `AkilimoMain.R` normalised to consistent 2-space indentation.
 
 ### LOW
 
@@ -216,7 +214,7 @@ All translation issues resolved. See section 2.
 |-----------------|----------|----------|
 | Logic           | —        | All resolved or deferred (LOG-12, LOG-18 in deferred table) |
 | Error Handling  | MEDIUM   | ERR-7 |
-| Code Quality    | MEDIUM   | QUA-3, QUA-4, QUA-5, QUA-6, QUA-8, QUA-14 |
+| Code Quality    | MEDIUM   | QUA-3, QUA-4, QUA-5, QUA-6, QUA-8 |
 | Code Quality    | LOW      | — (all resolved) |
 | Performance     | HIGH     | PERF-3 |
 | Performance     | MEDIUM   | PERF-4 (deferred) |
