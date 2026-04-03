@@ -56,6 +56,10 @@ get_input_data <- function(x, country = NULL) {
         get_starch_prices()
     } else if (x == "dry_matter") {
         cached_read("dry_matter", function() read.csv(data_path("input/fd2.csv")))
+    } else if (x == "fertilizer_npk") {
+        cached_read("fertilizer_npk", function() {
+            read.csv(data_path("input/fertilizer_npk.csv"), stringsAsFactors = FALSE)
+        })
     } else {
         stop(paste("no such input data:", x))
     }
