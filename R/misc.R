@@ -83,13 +83,12 @@ getRDY <- function(HD, RFY, country) {
 }
 
 
-#' Scan all .R files in srcdir for tr("key") literal calls and verify every key
-#' exists in the TRNS translation table. Called once at server startup so that a
-#' misspelled or deleted key is caught immediately rather than on the first live
-#' request that reaches the affected code path.
-#'
-#' Logs INFO when all keys are present; logs ERROR for each missing key.
-#' Never throws — startup must succeed even if data files are not yet available.
+# Scan all .R files in srcdir for translation key literals and verify every key
+# exists in the TRNS table. Called once at server startup so that a misspelled
+# or deleted key is caught immediately rather than on the first live request.
+# Comment lines (starting with #) are excluded to avoid matching example strings
+# in docstrings. Logs INFO when all keys are present; logs ERROR for any missing.
+# Never throws — startup must succeed even if data files are not yet available.
 check_translation_keys <- function(srcdir) {
     tbl <- tryCatch(get_data("TRNS"), error = function(e) NULL)
     if (is.null(tbl)) {
@@ -102,13 +101,14 @@ check_translation_keys <- function(srcdir) {
     keys_used <- character(0)
     for (f in files) {
         txt <- readLines(f, warn = FALSE)
+        # Exclude comment lines so example strings in docstrings are not scanned.
+        txt_code <- txt[!grepl("^\\s*#", txt)]
         # \b word boundary prevents matching tr(" inside str(", attr(", etc.
         # perl = TRUE for reliable \b and \( interpretation.
-        hits <- regmatches(txt, gregexpr('\\btr\\("([a-zA-Z0-9_]+)"', txt, perl = TRUE))
+        hits <- regmatches(txt_code, gregexpr('\\btr\\("([a-zA-Z0-9_]+)"', txt_code, perl = TRUE))
         for (block in hits) {
             if (length(block) == 0) next
             # Strip tr(" prefix first, THEN remove the trailing " and anything after.
-            # (Reversed order was the original bug: stripping " first left only "tr(".)
             keys_used <- c(keys_used, sub('".*$', "", sub('^tr\\("', "", block)))
         }
     }
