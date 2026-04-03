@@ -172,9 +172,6 @@ getICrecText <- function(x, maizePD, lang, country) {
   # 2. Fertilizer effect on cassava yield is not reflected in cost-benefit figures.
   # 3. No explanation when fertilizer or high density is not recommended.
   # 4. No sanity check on unrealistic input prices.
-  # 5. KNOWN BUG: maize output is always reported in number of cobs, even when the
-  #    user selected grain as the product type. Fix requires updating getICrecommendations()
-  #    to return grain-equivalent output when maizePD == "grain".
 
 
 }
