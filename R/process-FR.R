@@ -104,22 +104,23 @@ NRabove18Cost <- function(ds, riskAtt) {
 
   # Minimal required net revenue increase from fertilizer needed (taking into account risk attitude of user)
   dNRmin <- switch(as.character(riskAtt), "0" = 1.8, "1" = 1, 0.2)
-  # Remove any non-numeric characters before conversion
-  #dNRmin <- gsub("[^0-9.-]", "", dNRmin)
-  #dNRmin <- as.numeric(dNRmin)
+
   if (ds$NR < ds$TC * dNRmin) {
-    fertRecom <- subset(ds, select = c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
+    # Define once to avoid duplicating the column list across the two subset() calls.
+    base_cols <- c("lat", "lon", "plDate", "N", "P", "K", "WLY", "CurrentY", "TargetY", "TC", "NR")
+
+    fertRecom <- ds[, base_cols]
     fertRecom$N <- fertRecom$P <- fertRecom$K <- 0
     fertRecom$TC <- 0
     fertRecom$NR <- 0
     fertRecom$TargetY <- fertRecom$CurrentY
 
     # dropped selction harvestData as it is not available in the dataFrame
-    onlyFert <- subset(ds, select = -c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
+    onlyFert <- ds[, setdiff(names(ds), base_cols), drop = FALSE]
     onlyFert[] <- 0
 
     ds <- cbind(fertRecom, onlyFert)
-	row.names(ds) <- NULL
+    row.names(ds) <- NULL
   }
 
   ds
