@@ -50,8 +50,8 @@ Check off each item after the fix is committed.
 - [ ] **LOG-18** `optimize_fert.R:29–30,35,63` — `country = "NG"` still hardcoded in `run_Optim_NG2`; FR recommendations for non-NG countries use wrong dry-matter conversion in the optimiser; document as technical debt or fix
 - [x] **ERR-10** `process-SP.R:30,40,49` — `ds[ds$CP == TRUE,]` can return multiple rows if `yld` has duplicate `(plw, haw)`; index with `which(ds$CP)[1]` throughout `getSPrecText`
 - [x] **ERR-11** `AkilimoMain.R:268` — `gsub(...)` on `result$recommendation` has no NULL guard; add `%||% ""`
-- [ ] **QUA-11** `process-IC.R:376`, `translations.csv:81` — `cisRatePre` English value is `"kg"` where it should be `""`; produces `"kg123 kg of Urea"` output
-- [ ] **TRANS-2** `translations.csv:81` — same as QUA-11
+- [x] **QUA-11** `process-IC.R:376`, `translations.csv:81` — `cisRatePre` English value is `"kg"` where it should be `""`; produces `"kg123 kg of Urea"` output — fixed: local CSV already has `en=""` (correct); added self-healing guard in `get_data.R` so a stale bundle cannot regress the output
+- [x] **TRANS-2** `translations.csv:81` — same as QUA-11
 - [ ] **MNT-4** `process-IC.R:116–178` — `getICrecText` (NG IC) has no `lang` parameter and hardcodes English; does not use `tr()`
 
 ---
