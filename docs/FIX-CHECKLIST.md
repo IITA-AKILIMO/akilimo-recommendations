@@ -68,7 +68,7 @@ Check off each item after the fix is committed.
 - [x] **ERR-8** `misc.R` — `dd_ply` removed
 - [ ] **QUA-3** Multiple files — magic numbers (13.5, 1.5, 2.5, 7.64, seq(235,455,7), 34:65) with no named constants
 - [x] **QUA-4** `fertilizers.R` — NPK content table moved to `data/input/fertilizer_npk.csv`; loaded via `get_data("fertilizer_npk")` with `cached_read`; CSV must be included in next data bundle upload to OSF/Zenodo
-- [ ] **QUA-5** Multiple files — `dNRmin` profitability threshold duplicated in IC (×2), FR, PP
+- [x] **QUA-5** `misc.R` — `min_nr_multiplier(riskAtt)` added; all four duplicates in IC (×2), FR, PP replaced
 - [ ] **QUA-6** `AkilimoMain.R:286` — `aki_version` hardcoded date string
 - [ ] **QUA-8** Multiple files — large commented-out code blocks
 - [x] **QUA-12** `markdown.R` — `PPSP_MarkdownText` writes to wrong dir — resolved: function deleted (Rmd pipeline removed)
