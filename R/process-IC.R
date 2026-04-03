@@ -102,7 +102,7 @@ getICrecommendations <- function(areaHa, CMP, cobUP, fertilizers, riskAtt = c(0,
 	}
 	
   if (CMP == 1) {
-    rec$reason_F <- "Your soil is very poor. You need to improve soil fertility before considering investing in fertilizer. You should apply compost or manure, or fallow for at least 2 years. Plant maize at low density (20,000 plants per hectare) and saw the seeds at 50 cm within rows."
+    rec$reason_F <- "Your soil is very poor. You need to improve soil fertility before considering investing in fertilizer. You should apply compost or manure, or fallow for at least 2 years. Plant maize at low density (20,000 plants per hectare) and sow the seeds at 50 cm within rows."
   } else if (CMP == 5) {
     rec$reason_F <- "Your soil is very fertile. It is likely that your maize yield will not improve much after fertilizer application. Plant maize at high density (40,000 plants per hectare) and sow the seeds at 25 cm within rows."
   }
@@ -127,8 +127,8 @@ getICrecText <- function(x, maizePD, lang, country) {
                 tr("icFertNoAvail", lang),
             "fertilizer use is not sufficiently profitable" =
                 tr("icFertNotProfit", lang),
-            # CMP == 1 override (note: source has typo "saw" → kept for exact match)
-            "Your soil is very poor. You need to improve soil fertility before considering investing in fertilizer. You should apply compost or manure, or fallow for at least 2 years. Plant maize at low density (20,000 plants per hectare) and saw the seeds at 50 cm within rows." =
+            # CMP == 1 override
+            "Your soil is very poor. You need to improve soil fertility before considering investing in fertilizer. You should apply compost or manure, or fallow for at least 2 years. Plant maize at low density (20,000 plants per hectare) and sow the seeds at 50 cm within rows." =
                 tr("icCMP1", lang),
             # CMP == 5 override
             "Your soil is very fertile. It is likely that your maize yield will not improve much after fertilizer application. Plant maize at high density (40,000 plants per hectare) and sow the seeds at 25 cm within rows." =
