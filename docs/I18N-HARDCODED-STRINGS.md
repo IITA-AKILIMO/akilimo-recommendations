@@ -1,5 +1,7 @@
 ?# I18N — Hardcoded String Removal Plan
 
+> **Status: complete.** All Groups A–C implemented and committed. Group D
+> (API error messages) intentionally left as-is per the decision recorded below.
 
 Audit of remaining hardcoded English strings across the codebase, grouped by
 location and effort. All findings are in PDF/email output — recommendation
@@ -127,14 +129,14 @@ future, add a separate `message_key` field alongside `message`.
 
 ## Implementation order
 
-1. **A1** — Wire-up only; no new keys. Lowest risk. (~5 line changes)
-2. **A2 IC** — Add 7 IC keys to `.PDF_LABELS`; update `build_ic_pdf`. (~20 lines)
-3. **A2 PP** — Add 6 PP keys; update `build_pp_pdf`. (~15 lines)
-4. **A2 SP** — Add/share 2 SP keys; update `build_sp_pdf`. (~5 lines)
-5. **B** — Add 2 coordinate keys; refactor sprintf in `html_location_map`. (~5 lines)
-6. **C** — Add `lang` param to `sendEmailReport`; add 2 email keys. (~10 lines)
+All steps completed and committed.
 
-Each step is independent and can be committed separately.
+1. **A1** — Wire-up only; no new keys. (~5 line changes) ✓
+2. **A2 IC** — 7 IC keys added to `.PDF_LABELS`; `build_ic_pdf` updated. (~20 lines) ✓
+3. **A2 PP** — 6 PP keys added; `build_pp_pdf` updated. (~15 lines) ✓
+4. **A2 SP** — 1 SP key added (shared `chart_recommended` from PP); `build_sp_pdf` updated. (~5 lines) ✓
+5. **B** — 2 coordinate keys added; sprintf in `html_location_map` refactored. (~5 lines) ✓
+6. **C** — `lang` param added to `sendEmailReport`; 2 email keys added; `lang` threaded from `run_akilimo`. (~10 lines) ✓
 
 ---
 
@@ -197,11 +199,13 @@ email_body            = c(en = "Please find attached your AKILIMO recommendation
 
 ## Task list
 
-| Task # | Step | Subject | Files |
-|--------|------|---------|-------|
-| #8 | A1 | Wire up existing `.PDF_LABELS` keys in `pdf_builders.R` | `pdf_builders.R` |
-| #9 | A2-IC | Add IC maize/CIS label keys and update `build_ic_pdf` | `html_helpers.R`, `pdf_builders.R` |
-| #10 | A2-PP | Add PP chart/table label keys and update `build_pp_pdf` | `html_helpers.R`, `pdf_builders.R` |
-| #11 | A2-SP | Add SP chart label keys and update `build_sp_pdf` | `html_helpers.R`, `pdf_builders.R` |
-| #12 | B | Add coordinate card label keys and update `html_location_map` | `html_helpers.R` |
-| #13 | C | Add `lang` param to `sendEmailReport` and translate subject/body | `html_helpers.R`, `sms_email.R`, `AkilimoMain.R` |
+All tasks completed.
+
+| Task # | Step | Subject | Files | Status |
+|--------|------|---------|-------|--------|
+| #8 | A1 | Wire up existing `.PDF_LABELS` keys in `pdf_builders.R` | `pdf_builders.R` | ✓ done |
+| #9 | A2-IC | Add IC maize/CIS label keys and update `build_ic_pdf` | `html_helpers.R`, `pdf_builders.R` | ✓ done |
+| #10 | A2-PP | Add PP chart/table label keys and update `build_pp_pdf` | `html_helpers.R`, `pdf_builders.R` | ✓ done |
+| #11 | A2-SP | Add SP chart label keys and update `build_sp_pdf` | `html_helpers.R`, `pdf_builders.R` | ✓ done |
+| #12 | B | Add coordinate card label keys and update `html_location_map` | `html_helpers.R` | ✓ done |
+| #13 | C | Add `lang` param to `sendEmailReport` and translate subject/body | `html_helpers.R`, `sms_email.R`, `AkilimoMain.R` | ✓ done |
