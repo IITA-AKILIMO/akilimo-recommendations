@@ -94,14 +94,26 @@ get_fertilizers2 <- function(js, country) {
 		fd <- fd[!na, ]
 	}
 
-	# backward compatibility to keep results verbatim the same
-	i <- fd$type=="urea"
+	# ── Type-name normalisation ───────────────────────────────────────────────
+	# Input names come from the JSON request fields (e.g. "ureaavailable") after
+	# the prefix is stripped, which always yields lowercase "urea". Downstream
+	# PDF and SMS output expects title-case "Urea", and by convention Urea is
+	# displayed first in fertilizer tables.
+	i <- fd$type == "urea"
 	if (any(i)) {
-		fd$type[i] <- "Urea" 
-		fd <- rbind(fd[i,], fd[!i,])
+		fd$type[i] <- "Urea"
+		fd <- rbind(fd[i, ], fd[!i, ])
 	}
+
+	# NPK type names arrive as a compact 8–9 character string, e.g. "NPK201010"
+	# (meaning N=20%, P=10%, K=10%). They are reformatted to "NPK20_10_10" for
+	# readability in PDF labels and for backward compatibility with existing
+	# response consumers. Transformation: chars 1–5 + "_" + chars 6–7 + "_" + chars 8–9.
+	# NOTE: types with a single-digit final component (e.g. "NPK23105") produce
+	# "NPK23_10_5"; this is a known upstream naming inconsistency (see commented-out
+	# fix above) and is preserved here to avoid breaking existing integrations.
 	i <- grep("^NPK", fd$type)
-	fd$type[i] <- paste0(substr(fd$type[i], 1, 5), "_", substr(fd$type[i], 6, 7),  "_", substr(fd$type[i], 8, 9))
+	fd$type[i] <- paste0(substr(fd$type[i], 1, 5), "_", substr(fd$type[i], 6, 7), "_", substr(fd$type[i], 8, 9))
 
 	#RH there could be some sanity checking on the prices, to assure they are not outside a reasonable range
 
