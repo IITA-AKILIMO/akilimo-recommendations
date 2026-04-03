@@ -241,9 +241,9 @@ build_ic_pdf <- function(rr, user, country,
     maizePD <- rr$maizePD
     maize_fmt <- formatC(maizeUP, format = "f", big.mark = ",", digits = 0)
     unit_str <- if (maizePD == "fresh_cob") {
-      "per fresh cob"
+      html_label("per_fresh_cob", lang)
     } else {
-      sprintf("per %s kg of grain", maizeUW)
+      sprintf(html_label("per_kg_grain", lang), maizeUW)
     }
     extra_price_html <- html_section(
       html_label("maize_price", lang),
@@ -295,18 +295,18 @@ build_ic_pdf <- function(rr, user, country,
     dMP <- as.numeric(rr$data$dMP)
     if (!is.null(rr$maizePD) && rr$maizePD == "grain") {
       extra_prod_val <- formatC(round(dMP / 7.64, digits = 0), format = "f", big.mark = ",", digits = 0)
-      extra_prod_str <- sprintf("%s kg extra maize grain", extra_prod_val)
+      extra_prod_str <- sprintf(html_label("extra_maize_grain_fmt", lang), extra_prod_val)
     } else {
-      extra_prod_str <- sprintf("%s extra maize cobs", formatC(round(dMP, digits = 0), format = "f", big.mark = ",", digits = 0))
+      extra_prod_str <- sprintf(html_label("extra_maize_cobs_fmt", lang), formatC(round(dMP, digits = 0), format = "f", big.mark = ",", digits = 0))
     }
     density_str <- if (isTRUE(rr$data$rec_D)) html_label("high_density_rec", lang) else html_label("low_density_rec", lang)
     right_extra <- html_section(html_label("extra_production", lang),
                                 sprintf("<p>%s</p><p>%s</p>", extra_prod_str, htmlEscape(density_str)))
   } else {
     rec_ic_str <- if (isTRUE(rr$data$rec_IC)) {
-      if (isTRUE(rr$data$rec_F)) "Intercropping with sweet potato is recommended." else "Intercropping is recommended but fertilizer is not profitable."
+      if (isTRUE(rr$data$rec_F)) html_label("cis_rec_ic", lang) else html_label("cis_rec_ic_no_fert", lang)
     } else {
-      "Cassava monocrop is more profitable for this location."
+      html_label("cis_no_ic", lang)
     }
     right_extra <- html_section(html_label("extra_production", lang),
                                 sprintf("<p>%s</p>", htmlEscape(rec_ic_str)))
