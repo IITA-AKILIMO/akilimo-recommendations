@@ -43,6 +43,14 @@ validate_request <- function(body) {
         }
     }
 
+    for (win_field in c("PD_window", "HD_window")) {
+        val <- body[[win_field]]
+        if (!is.null(val) && !is.na(val)) {
+            if (!is.numeric(val) || val < 0 || floor(val) != val)
+                return(paste(win_field, "must be a non-negative integer"))
+        }
+    }
+
     NULL  # no error
 }
 
