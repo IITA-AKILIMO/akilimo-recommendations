@@ -405,7 +405,7 @@ build_pp_pdf <- function(rr, user, country,
       ggplot2::geom_tile(data = ds_rec, colour = "purple", linewidth = 2, fill = NA) +
       # Current practice label
       ggplot2::geom_text(data = ds_cp, fontface = "bold",
-                         ggplot2::aes(label = "Your current practice"), size = 4) +
+                         ggplot2::aes(label = html_label("current_practice", lang)), size = 4) +
       # Net value line (coloured by sign of dNR)
       ggplot2::geom_text(ggplot2::aes(
         label = paste0("Net value: ",
@@ -426,8 +426,8 @@ build_pp_pdf <- function(rr, user, country,
       # Recommended practice label
       ggplot2::geom_text(data = ds_rec, colour = "purple", fontface = "bold",
                          ggplot2::aes(label = "Recommended practice\n\n\n"), size = 4) +
-      ggplot2::xlab("Ploughing") +
-      ggplot2::ylab("Ridging") +
+      ggplot2::xlab(html_label("ploughing_label", lang)) +
+      ggplot2::ylab(html_label("ridging_label", lang)) +
       ggplot2::theme_bw() +
       ggplot2::theme(
         axis.title      = ggplot2::element_blank(),
@@ -571,8 +571,8 @@ build_sp_pdf <- function(rr, user, country,
         ggplot2::scale_y_discrete(
           breaks = seq(min(ds$rHWnr), max(ds$rHWnr), by = 2),
           labels = format(sort(unique(ds$HD)), "%d-%b")) +
-        ggplot2::xlab("Planting date") +
-        ggplot2::ylab("Harvest date") +
+        ggplot2::xlab(html_label("planting_date", lang)) +
+        ggplot2::ylab(html_label("harvest_date", lang)) +
         ggplot2::theme_bw() +
         ggplot2::theme(
           axis.title = ggplot2::element_text(size = 14, colour = "black", face = "bold"),
