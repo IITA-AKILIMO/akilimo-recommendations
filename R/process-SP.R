@@ -146,10 +146,11 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
    
 	WLY <- merge(WLY, data.frame(daysOnField = seq(235, 455, 7), haw = 34:65), by = "daysOnField")
 
-	## these could all be precomputed
+	# DEFERRED (LOG-12): QUEFTS() uses scalar max()/min() internally and cannot be
+	# vectorised without a major rewrite of quefts.R. Each row requires a separate call.
+	# For a 2-month planting × 2-month harvest window this is ~256 iterations per request.
 	for (k in 1:nrow(WLY)) {
-#		Qinw <- data.frame(SoilData, WLY=WLY$water_limited_yield[k])
-		Qinw <- data.frame(SoilData, WLY=WLY$WLY[k]) #, water_limited_yield=WLY$WLY[k])
+		Qinw <- data.frame(SoilData, WLY=WLY$WLY[k])
 		WLY$Current_Yield[k] <- QUEFTS(Qinw, c(0,0,0), HI=.55) # in kg/ha dry
 	}
 
