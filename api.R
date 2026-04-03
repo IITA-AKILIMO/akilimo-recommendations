@@ -50,6 +50,14 @@ local({
   }
 })
 
+# Verify all tr("key") literals used in source are present in translations.csv.
+# A missing key causes a fatal stop() on the first request that hits that code
+# path — indistinguishable from a model crash in the HTTP 500 response. Catching
+# it here produces a clear ERROR in the server log before any traffic arrives.
+local({
+  check_translation_keys(srcdir)
+})
+
 library(plumber)
 
 pr <- Plumber$new()

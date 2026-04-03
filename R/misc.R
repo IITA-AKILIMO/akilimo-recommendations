@@ -73,6 +73,47 @@ getRDY <- function(HD, RFY, country) {
 }
 
 
+#' Scan all .R files in srcdir for tr("key") literal calls and verify every key
+#' exists in the TRNS translation table. Called once at server startup so that a
+#' misspelled or deleted key is caught immediately rather than on the first live
+#' request that reaches the affected code path.
+#'
+#' Logs INFO when all keys are present; logs ERROR for each missing key.
+#' Never throws — startup must succeed even if data files are not yet available.
+check_translation_keys <- function(srcdir) {
+    tbl <- tryCatch(get_data("TRNS"), error = function(e) NULL)
+    if (is.null(tbl)) {
+        log_write("WARN", "check_translation_keys: TRNS table unavailable — skipping key check")
+        return(invisible(NULL))
+    }
+    known <- tbl$key
+
+    files <- list.files(srcdir, pattern = "\\.R$", full.names = TRUE, recursive = FALSE)
+    keys_used <- character(0)
+    for (f in files) {
+        txt <- readLines(f, warn = FALSE)
+        hits <- regmatches(txt, gregexpr('tr\\("([a-zA-Z0-9_]+)"', txt))
+        for (block in hits) {
+            if (length(block) == 0) next
+            # Strip the tr(" prefix and everything from the closing quote onward
+            keys_used <- c(keys_used, sub('^tr\\("', "", sub('".*$', "", block)))
+        }
+    }
+    keys_used <- unique(keys_used)
+
+    missing <- setdiff(keys_used, known)
+    if (length(missing) > 0) {
+        log_write("ERROR", sprintf(
+            "check_translation_keys: %d key(s) used in source but absent from translations.csv: %s",
+            length(missing), paste(sort(missing), collapse = ", ")))
+    } else {
+        log_write("INFO", sprintf(
+            "check_translation_keys: all %d translation key(s) verified OK", length(keys_used)))
+    }
+    invisible(NULL)
+}
+
+
 # DEFERRED (technical debt): getWMrecommendations is not wired into any request
 # path yet. Kept for a planned future weed-management feature. Do not remove or
 # call until the feature is scoped and implemented.
