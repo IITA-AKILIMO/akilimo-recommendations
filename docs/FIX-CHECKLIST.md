@@ -74,9 +74,9 @@ Check off each item after the fix is committed.
 - [x] **QUA-12** `markdown.R` — `PPSP_MarkdownText` writes to wrong dir — resolved: function deleted (Rmd pipeline removed)
 - [ ] **QUA-14** `AkilimoMain.R:408–504` — `get_costLMO` has inconsistent tab/space indentation
 - [ ] **API-6** `AkilimoMain.R:7–47` — `validate_request` does not check that `PD_window`/`HD_window` are non-negative integers
-- [ ] **TRANS-3** `misc.R:5–19` — `tr()` does not validate that `lang` is a known column name
-- [ ] **TRANS-4** `translations.csv:2` — `rectext` key contains raw R code fragments, not human-readable text
-- [ ] **TRANS-5** `translations.csv` — `rw` (Kinyarwanda) column is entirely blank; either populate or remove
+- [x] **TRANS-3** `misc.R:5–22` — `tr()` does not validate that `lang` is a known column name; now derives allowed langs from CSV column names and warns+falls back to `en` for unknown values
+- [x] **TRANS-4** `translations.csv:2` — `rectext` key contained raw R code fragments; row removed (key was never called from active code)
+- [x] **TRANS-5** `translations.csv` — `rw` (Kinyarwanda) column was entirely `NA`; column removed (only `en` and `sw` are accepted by the API)
 - [ ] **MNT-3** `AkilimoMain.R:286` — no semantic versioning or changelog
 - [ ] **MNT-5** `fertilizers.R:103–110` — silent type-name reformatting undocumented
 - [ ] **MNT-6** `misc.R:55–63` — `getRDY` is defined but never called from any active code path

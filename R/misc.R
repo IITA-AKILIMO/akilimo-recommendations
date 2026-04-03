@@ -4,6 +4,11 @@
 # Stops with an error if the key is missing entirely.
 tr <- function(key, lang, ...) {
     tbl <- get_data("TRNS")
+    known_langs <- setdiff(names(tbl), "key")   # e.g. c("en", "sw")
+    if (!lang %in% known_langs) {
+        warning(sprintf("tr(): unknown lang '%s' — falling back to 'en'", lang))
+        lang <- "en"
+    }
     row <- tbl[tbl$key == key, ]
     if (nrow(row) == 0) stop(sprintf("Missing translation key '%s'", key))
     val <- if (!is.null(row[[lang]])) row[[lang]] else character(0)
