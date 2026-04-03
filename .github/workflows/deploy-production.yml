@@ -3,6 +3,12 @@ name: SSH service deployment
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - 'R/**'
+      - 'api.R'
+      - 'tests/**'
+      - 'scripts/**'
+      - 'data/**'
 #  pull_request:
 #    branches: [ "main" ]
 
