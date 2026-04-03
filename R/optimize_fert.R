@@ -26,7 +26,16 @@ run_Optim_NG2 <- function(rootUP, QID, fertilizer, invest, WLYData, lat, lon, ar
 
 ## both CY and TY should be changed to user land size in ton/ha and fresh wt
 
-	CY_user <- ((getRFY(HD = HD, RDY = DCY, country = "NG")) / 1000) * areaHa ## TZ model is extrememly high
+	# DEFERRED (LOG-18 / technical debt): country is hardcoded to "NG" for the
+	# dry→fresh yield conversion in three places below (lines ~29, ~30, ~35, ~63).
+	# getRFY() is now country-aware (LOG-1 fix), but the TZ dry-matter data
+	# produced unreliably high values when tested, so the NG conversion factor is
+	# intentionally used for all countries until country-specific validation is done.
+	# Affected: FR recommendations for TZ, RW, GH, BI use a slightly wrong net-revenue
+	# estimate inside the optimiser objective, which may produce a suboptimal NPK rate.
+	# To fix: validate country-specific dry-matter data and pass `country` to getRFY()
+	# and to the DC lookup below.
+	CY_user <- ((getRFY(HD = HD, RDY = DCY, country = "NG")) / 1000) * areaHa
 	WLY_user <- ((getRFY(HD = HD, RDY = WLY, country = "NG")) / 1000) * areaHa
 
 ### avoid calling getRFY in each step of the optimization
@@ -60,7 +69,7 @@ run_Optim_NG2 <- function(rootUP, QID, fertilizer, invest, WLYData, lat, lon, ar
 		TY <- QUEFTS(QID, rec)    
 
 		## both CY and TY should be changed to user land size in ton/ha and fresh wt
-		TY_user <- ((getRFY(HD = HD, RDY = TY, country = "NG")) / 1000) * areaHa
+		TY_user <- ((getRFY(HD = HD, RDY = TY, country = "NG")) / 1000) * areaHa  # DEFERRED LOG-18: see comment above
 
 		## reporting the recommended fertilizers
 		Recomfr <- fertilizer[fertilizer$FR > 0,]
