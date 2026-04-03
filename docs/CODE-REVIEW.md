@@ -94,10 +94,13 @@ All CRITICAL and most HIGH issues are fixed. Newly resolved since original revie
 
 | ID | Issue |
 |----|-------|
+| LOG-12 | `getSPrecommendations` QUEFTS row loop — scalar max/min in quefts.R blocks vectorisation; requires major rewrite |
+| LOG-18 | `run_Optim_NG2` hardcoded `country = "NG"` — TZ dry-matter data not yet validated; comment added |
 | PERF-4 | `setup_temp_dir` global temp deletion — concurrent request corruption risk |
 | API-4 | `dispatch_recommendations` uses `else if` — only first active flag processed |
 | MNT-2 | Functions with 11–20+ positional parameters (`process-FR.R`) |
 | MNT-3 | No semantic versioning / changelog |
+| MNT-6 | `getRDY` defined but uncalled — kept as inverse of `getRFY`; bug fixed (LOG-16) |
 | DEBT-1 | `getWMrecommendations` reserved dead code |
 
 ---
@@ -110,42 +113,7 @@ No open security issues.
 
 ## 4. Logic and Correctness
 
-### HIGH
-
-**LOG-16 — `getRDY` guard assumes integer day-of-year but receives `Date` objects (misc.R)**
-
-`getRDY` checks `if (HD > 366) HD <- HD - 366` — valid for integer day-of-year. Called from `getSPrecommendations` with `ds$HD` which is a `Date`. The subtraction `HD - 366` returns a shifted `Date`, not a day-of-year. Only triggered under the `saleSF` starch-factory branch. Fix: use `as.numeric(strftime(HD, "%j"))` as `getRFY` does.
-
-Note: `getRDY` appears to have no callers in the active codebase (see MNT-6). Verify before fixing.
-
-**LOG-18 — `optimize_fert.R` hardcodes `country = "NG"` in three places**
-
-`run_Optim_NG2` passes `country = "NG"` at lines 29, 30, 35, and 63. Although `getRFY` is now country-aware, the optimiser objective uses the wrong dry→fresh conversion for TZ/RW/GH/BI, producing suboptimal fertilizer recommendations for those countries. The comment "TZ model is extremely high" is the historic justification; it is not documented as intentional debt.
-
-**Short-term fix:** Add a comment block clearly stating the known limitation.
-**Long-term fix:** Pass validated country-specific dry-matter data into the optimiser.
-
-### MEDIUM
-
-**LOG-6 — Redundant country check inside TZ-only branch (AkilimoMain.R ~line 185)**
-
-Harmless structural redundancy. A `p$country == "TZ"` check appears inside an `else if (p$country == "TZ")` block.
-
-**LOG-9 — Double-null check in `from_json` inner `if` (AkilimoMain.R ~line 296)**
-
-`if (!is.null(value))` is always `TRUE` when the outer `if (!is.null(body[[field_name]]))` is true. Readability issue only.
-
-**LOG-10 — `NRabove18Cost` hardcodes column subset (process-FR.R ~lines 111, 118)**
-
-`subset(ds, select = c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))` will silently drop new columns or break if column names change.
-
-**LOG-11 — Maize output always in cobs even when `maizePD == "grain"` (process-IC.R ~lines 131–151)**
-
-Known bug (KNOWN BUG comment in source). `dMP` is converted cob→kg but the text uses "cobs" for the grain branch.
-
-**LOG-12 — `getSPrecommendations` QUEFTS loop is O(n) (process-SP.R ~lines 150–159)**
-
-Per-row `for` loop calling `QUEFTS()` and `getRFY()` for every planting/harvest combination (~256 iterations for a 2-month window). No vectorisation.
+All logic issues resolved or formally deferred. See section 2 deferred table for LOG-12 and LOG-18.
 
 ---
 
@@ -259,8 +227,7 @@ All translation issues resolved. See section 2.
 
 | Category        | Severity | Open IDs |
 |-----------------|----------|----------|
-| Logic           | HIGH     | LOG-16, LOG-18 |
-| Logic           | MEDIUM   | LOG-6, LOG-9, LOG-10, LOG-11, LOG-12 |
+| Logic           | —        | All resolved or deferred (LOG-12, LOG-18 in deferred table) |
 | Error Handling  | MEDIUM   | ERR-7 |
 | Code Quality    | MEDIUM   | QUA-3, QUA-4, QUA-5, QUA-6, QUA-8, QUA-14 |
 | Code Quality    | LOW      | QUA-9, QUA-17 |
@@ -268,6 +235,6 @@ All translation issues resolved. See section 2.
 | Performance     | MEDIUM   | PERF-4 (deferred) |
 | API Design      | HIGH     | API-5 |
 | API Design      | MEDIUM   | API-4 (deferred), API-6 |
-| Maintainability | MEDIUM   | MNT-3 (deferred), MNT-5, MNT-6 |
+| Maintainability | MEDIUM   | MNT-3 (deferred), MNT-5 |
 
 **No blocking issues remain.** All CRITICAL and HIGH security/logic/error issues are resolved.

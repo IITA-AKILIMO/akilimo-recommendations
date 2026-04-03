@@ -47,7 +47,7 @@ Check off each item after the fix is committed.
 ### Open — should fix
 - [x] **LOG-17 / PERF-5** `get_data.R:166–198` — `get_yield_data("WLY_365")` reads large RDS files fresh on every request; apply `cached_read`
 - [x] **PERF-6** `get_data.R:73–79` — `get_soil_data("soil_NPK-4")` reads RDS fresh on every SP request with no `cached_read` wrapper
-- [ ] **LOG-18** `optimize_fert.R:29–30,35,63` — `country = "NG"` still hardcoded in `run_Optim_NG2`; FR recommendations for non-NG countries use wrong dry-matter conversion in the optimiser; document as technical debt or fix
+- [x] **LOG-18** `optimize_fert.R` — DEFERRED comment block added explaining all three hardcoded `country = "NG"` sites; TZ dry-matter data not yet validated; inline back-reference on third call site
 - [x] **ERR-10** `process-SP.R:30,40,49` — `ds[ds$CP == TRUE,]` can return multiple rows if `yld` has duplicate `(plw, haw)`; index with `which(ds$CP)[1]` throughout `getSPrecText`
 - [x] **ERR-11** `AkilimoMain.R:278` — `gsub(...)` on `result$recommendation` has no NULL guard; add `%||% ""`
 - [x] **QUA-11** `process-IC.R:346`, `translations.csv:81` — `cisRatePre` English value is `"kg"` where it should be `""`; produces `"kg123 kg of Urea"` output — fixed: local CSV already has `en=""` (correct); added self-healing guard in `get_data.R` so a stale bundle cannot regress the output
@@ -58,12 +58,12 @@ Check off each item after the fix is committed.
 
 ## Recommended (MEDIUM)
 
-- [ ] **LOG-6** `AkilimoMain.R:185` — redundant `p$country == "TZ"` check inside TZ-only branch; could be a plain `else`
-- [ ] **LOG-9** `AkilimoMain.R:355–363` — double-null check in `from_json` inner `if` is redundant
-- [ ] **LOG-10** `process-FR.R:111,118` — `NRabove18Cost` hardcodes column name list in `subset()`
-- [ ] **LOG-11** `process-IC.R:131–151` — known bug: maize output shown in cobs even when `maizePD == "grain"`
-- [ ] **LOG-12** `process-SP.R:150–154` — `getSPrecommendations` runs QUEFTS in an O(n) row loop
-- [ ] **LOG-16** `misc.R:55–63` — `getRDY` guard `if (HD > 366)` assumes integer day-of-year; called with `Date` objects from `process-SP.R`
+- [x] **LOG-6** `AkilimoMain.R` — redundant `p$country == "TZ"` check replaced with plain `else`; comment explains only TZ reaches that branch
+- [x] **LOG-9** `AkilimoMain.R` — inner redundant `if (!is.null(value))` removed from `from_json`
+- [x] **LOG-10** `process-FR.R` — column list extracted to `base_cols` variable in `NRabove18Cost`; `subset()` calls replaced with `[`-indexing
+- [x] **LOG-11** `process-IC.R` — stale KNOWN BUG comment removed; grain/cob text was already fixed in MNT-4
+- [x] **LOG-12** `process-SP.R` — DEFERRED comment added: QUEFTS uses scalar max/min internally; vectorisation requires major rewrite of quefts.R
+- [x] **LOG-16** `misc.R` — `getRDY` now converts HD via `strftime("%j")` matching `getRFY`; DEFERRED comment added (no active callers — see MNT-6)
 - [x] **ERR-6** `AkilimoMain.R:80–81` — malformed PD/HD date strings; fixed by API-3
 - [x] **ERR-8** `misc.R` — `dd_ply` removed
 - [ ] **QUA-3** Multiple files — magic numbers (13.5, 1.5, 2.5, 7.64, seq(235,455,7), 34:65) with no named constants
@@ -78,7 +78,7 @@ Check off each item after the fix is committed.
 - [x] **TRANS-4** `translations.csv:2` — `rectext` key contained raw R code fragments; row removed (key was never called from active code)
 - [x] **TRANS-5** `translations.csv` — `rw` (Kinyarwanda) column was entirely `NA`; column removed (only `en` and `sw` are accepted by the API)
 - [ ] **MNT-5** `fertilizers.R:103–110` — silent type-name reformatting undocumented
-- [ ] **MNT-6** `misc.R:55–63` — `getRDY` is defined but never called from any active code path
+- [x] **MNT-6** `misc.R` — `getRDY` marked DEFERRED with explanation; LOG-16 bug fixed simultaneously
 
 ---
 
