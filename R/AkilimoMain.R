@@ -182,7 +182,8 @@ dispatch_recommendations <- function(p, body) {
                 "— supported countries are NG and TZ"
             )))
 
-        } else if (p$country == "TZ") {
+        } else {
+            # Only TZ reaches here; NG and RW/GH/BI are handled above.
 
             sweetPotatoPD <- from_json("sweetPotatoPD", body, default_value = "tubers")
             sweetPotatoUW <- from_json("sweetPotatoUW", body, default_value = NA)
