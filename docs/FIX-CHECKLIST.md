@@ -73,7 +73,8 @@ Check off each item after the fix is committed.
 - [ ] **QUA-8** Multiple files — large commented-out code blocks
 - [x] **QUA-12** `markdown.R` — `PPSP_MarkdownText` writes to wrong dir — resolved: function deleted (Rmd pipeline removed)
 - [ ] **QUA-14** `AkilimoMain.R:408–504` — `get_costLMO` has inconsistent tab/space indentation
-- [ ] **API-6** `AkilimoMain.R:7–47` — `validate_request` does not check that `PD_window`/`HD_window` are non-negative integers
+- [x] **API-5** `api.R`, `misc.R` — `check_translation_keys()` scans all R source for `tr("key")` literals at startup and logs ERROR for any missing from translations.csv; distinguishes translation bugs from model crashes
+- [x] **API-6** `AkilimoMain.R` — `validate_request` now rejects non-numeric, negative, or non-integer `PD_window`/`HD_window` values
 - [x] **TRANS-3** `misc.R:5–22` — `tr()` does not validate that `lang` is a known column name; now derives allowed langs from CSV column names and warns+falls back to `en` for unknown values
 - [x] **TRANS-4** `translations.csv:2` — `rectext` key contained raw R code fragments; row removed (key was never called from active code)
 - [x] **TRANS-5** `translations.csv` — `rw` (Kinyarwanda) column was entirely `NA`; column removed (only `en` and `sw` are accepted by the API)

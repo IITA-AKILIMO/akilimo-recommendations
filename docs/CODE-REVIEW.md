@@ -185,19 +185,11 @@ Two sequential `for` loops call `QUEFTS()` and `getRFY()` per row. A 2-month pla
 
 ## 8. API Design
 
-### HIGH
+All actionable API issues resolved. API-4 remains deferred — see section 2.
 
-**API-5 — Translation key errors and model crashes return identical HTTP 500 shape**
-
-A misspelled `tr()` key is indistinguishable from a model computation crash in the HTTP 500 response. A startup check that validates all `tr(key)` call sites against `translations.csv` would catch this class of error before production deployment.
-
-### MEDIUM
-
-**API-4 — `dispatch_recommendations` only processes first active flag** — Deferred. See section 2.
-
-**API-6 — `validate_request` does not check `PD_window`/`HD_window` (AkilimoMain.R)**
-
-Both values feed into `seq((-4 * PD_window), (4 * PD_window), by = 2)`. A negative or non-integer value silently produces an unexpectedly large or reversed scheduling grid.
+- **API-5** ✅ `check_translation_keys(srcdir)` added to `misc.R`; called from `api.R` at startup. Scans all `.R` files for `tr("key")` literals and logs ERROR for any key absent from `translations.csv`.
+- **API-6** ✅ `validate_request` now validates `PD_window` and `HD_window` as non-negative integers before dispatch.
+- **API-4** — Deferred. See section 2.
 
 ---
 
@@ -233,8 +225,7 @@ All translation issues resolved. See section 2.
 | Code Quality    | LOW      | QUA-9, QUA-17 |
 | Performance     | HIGH     | PERF-3 |
 | Performance     | MEDIUM   | PERF-4 (deferred) |
-| API Design      | HIGH     | API-5 |
-| API Design      | MEDIUM   | API-4 (deferred), API-6 |
+| API Design      | —        | All resolved or deferred (API-4 in deferred table) |
 | Maintainability | MEDIUM   | MNT-3 (deferred), MNT-5 |
 
 **No blocking issues remain.** All CRITICAL and HIGH security/logic/error issues are resolved.
