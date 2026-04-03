@@ -239,7 +239,7 @@ process_SP <- function(
 	if ((PD_window == 0) && (HD_window == 0)) {
 		recText <- tr("spinfo", lang)
 	} else if ((HD - PD) <= 30) {
-		recText <- "Planting date should be at least 1 month after planting date."
+		recText <- tr("sphdpd", lang)
 	} else {
 
 		res <- getSPrecommendations(

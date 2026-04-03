@@ -163,12 +163,7 @@ getICrecText <- function(x, maizePD, lang, country) {
         }
     }
 
-    if (!is.null(ds$reason_D)) {
-        recD <- ifelse(ds$rec_D, tr("icDensHigh", lang),
-                       paste0(tr("icDensLow", lang), " because ", ds$reason_D, "."))
-    } else {
-        recD <- ifelse(ds$rec_D, tr("icDensHigh", lang), tr("icDensLow", lang))
-    }
+    recD <- ifelse(ds$rec_D, tr("icDensHigh", lang), tr("icDensLow", lang))
 
     paste0(recF, recD)
 
