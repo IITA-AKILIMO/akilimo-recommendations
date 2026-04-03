@@ -354,10 +354,7 @@ run_akilimo <- function(json) {
 
 from_json <- function(field_name, body, default_value = "NA") {
   if (!is.null(body[[field_name]])) {
-    value <- body[[field_name]]
-    if (!is.null(value)) {
-      return(value)
-    }
+    return(body[[field_name]])
   }
   return(default_value)
 }
