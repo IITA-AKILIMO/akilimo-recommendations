@@ -204,7 +204,7 @@ generate_pdfs <- function(user, FR, IC, PP, SP, country, result = NULL, params =
 #' Send generated PDFs by email.
 #' Provider is selected by the EMAIL_PROVIDER env var (smtp | mailtrap | mailgun).
 #' Only called when user$send_email is TRUE.
-sendEmailReport <- function(user, PDFs) {
+sendEmailReport <- function(user, PDFs, lang = "en") {
   if (is.null(PDFs) || length(PDFs) == 0) {
     log_write("DEBUG", "sendEmailReport: called with no PDFs — skipping.")
     return(invisible(NULL))
@@ -212,8 +212,8 @@ sendEmailReport <- function(user, PDFs) {
 
   to       <- as.character(user$Email)
   from     <- Sys.getenv("EMAIL_FROM", unset = "")
-  subject  <- "AKILIMO recommendation"
-  body_txt <- "Please find attached your AKILIMO recommendation.\n\nBest regards,\nThe AKILIMO team"
+  subject  <- html_label("email_subject", lang)
+  body_txt <- html_label("email_body",    lang)
   provider <- tolower(trimws(Sys.getenv("EMAIL_PROVIDER", unset = "smtp")))
 
   log_write("INFO", sprintf("Email: sending via '%s' to %s (%d attachment(s): %s)",

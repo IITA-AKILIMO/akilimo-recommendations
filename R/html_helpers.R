@@ -117,6 +117,16 @@
   # ── SP — chart labels ────────────────────────────────────────────────────
   chart_current       = c(en = "Current",                  sw = "Sasa"),
 
+  # ── Location card ────────────────────────────────────────────────────────
+  coord_lat           = c(en = "Lat",                      sw = "Lat"),
+  coord_lon           = c(en = "Lon",                      sw = "Lon"),
+
+  # ── Email ─────────────────────────────────────────────────────────────────
+  email_subject       = c(en = "AKILIMO recommendation",
+                           sw = "Mapendekezo ya AKILIMO"),
+  email_body          = c(en = "Please find attached your AKILIMO recommendation.\n\nBest regards,\nThe AKILIMO team",
+                           sw = "Tafadhali tazama mapendekezo yako ya AKILIMO yaliyoambatanishwa.\n\nKwa heshima,\nTimu ya AKILIMO"),
+
   # ── SP — Scheduled Planting ─────────────────────────────────────────────
   sp_title            = c(en = "Scheduled Planting Advice",
                            sw = "Ushauri wa Kupanga Tarehe ya Kupanda"),
@@ -374,10 +384,11 @@ html_location_map <- function(lat, lon, height_px = 300, lang = "en") {
   # ── 3. Offline fallback — coordinate card ───────────────────────────────────
   inner <- sprintf(
     '<div class="location-coords">
-       <div class="coord-row"><span class="coord-label">Lat</span><span class="coord-value">%.6f</span></div>
-       <div class="coord-row"><span class="coord-label">Lon</span><span class="coord-value">%.6f</span></div>
+       <div class="coord-row"><span class="coord-label">%s</span><span class="coord-value">%.6f</span></div>
+       <div class="coord-row"><span class="coord-label">%s</span><span class="coord-value">%.6f</span></div>
      </div>',
-    lat, lon
+    html_label("coord_lat", lang), lat,
+    html_label("coord_lon", lang), lon
   )
   html_section(html_label("your_location", lang), inner)
 }

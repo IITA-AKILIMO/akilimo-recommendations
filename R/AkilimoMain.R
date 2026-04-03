@@ -339,7 +339,7 @@ run_akilimo <- function(json) {
     if (isTRUE(params$user$send_email)) {
         if (length(PDFs) > 0) {
             tryCatch(
-                sendEmailReport(params$user, PDFs),
+                sendEmailReport(params$user, PDFs, lang = params$lang),
                 error = function(e) warning("sendEmailReport failed: ", conditionMessage(e))
             )
         } else {
