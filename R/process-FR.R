@@ -103,7 +103,7 @@ rerun_25kgha <- function(rootUP, rdd, fertilizer, QID, onlyFert25, country, WLY 
 NRabove18Cost <- function(ds, riskAtt) {
 
   # Minimal required net revenue increase from fertilizer needed (taking into account risk attitude of user)
-  dNRmin <- switch(as.character(riskAtt), "0" = 1.8, "1" = 1, 0.2)
+  dNRmin <- min_nr_multiplier(riskAtt)
 
   if (ds$NR < ds$TC * dNRmin) {
     # Define once to avoid duplicating the column list across the two subset() calls.

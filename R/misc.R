@@ -24,6 +24,16 @@ tr <- function(key, lang, ...) {
 }
 
 
+# Returns the minimum net-revenue-to-cost multiplier for a given risk attitude.
+# A fertilizer application is recommended only when NR >= TC * min_nr_multiplier(riskAtt).
+#   riskAtt 0 — risk averse:    threshold = 1.8× cost (highest bar)
+#   riskAtt 1 — moderate:       threshold = 1.0× cost
+#   other    — risk tolerant:   threshold = 0.2× cost (lowest bar)
+min_nr_multiplier <- function(riskAtt) {
+    switch(as.character(riskAtt), "0" = 1.8, "1" = 1.0, 0.2)
+}
+
+
 get_currency <- function(country) {
 	m <- matrix(c("NG", "NGN", "RW", "RWF", "GH", "GHS", "BI", "BIF", "TZ", "TZS"), ncol=2, byrow=TRUE)
 	i <- match(country, m[,1])

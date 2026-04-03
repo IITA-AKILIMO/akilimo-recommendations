@@ -85,8 +85,7 @@ getPPrecommendations <- function(areaHa, costLMO,
   ds$dNR <- ds$NR - ds$NR[cp_idx]
 
   #minimal required net revenue increase from fertilizer needed (taking into account risk attitude of user)
-  # ds$dNRmin <- ds$TC * ifelse(riskAtt == 0, 2.8, ifelse(riskAtt == 1, 2, 1.2))
-  ds$dNRmin <- ds$TC * ifelse(riskAtt == 0, 1.8, ifelse(riskAtt == 1, 1, 0.2))
+  ds$dNRmin <- ds$TC * min_nr_multiplier(riskAtt)
   # needs refinement. Use the cheapest solution of all are above threshold
   ds <- ds[ds$CP | (ds$NR > ds$dNRmin),]
   ds

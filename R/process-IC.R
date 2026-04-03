@@ -52,7 +52,7 @@ getICrecommendations <- function(areaHa, CMP, cobUP, fertilizers, riskAtt = c(0,
   dNR <- dGR - dTC
 
   #minimal required net revenue increase from fertilizer needed (taking into account risk attitude of user)
-  dNRmin <- dTC * ifelse(riskAtt == 0, 1.8, ifelse(riskAtt == 1, 1, 0.2))
+  dNRmin <- dTC * min_nr_multiplier(riskAtt)
 
   #check profitability of fertilizer use
   if (dNR > dNRmin) {
@@ -279,7 +279,7 @@ getCISrecommendations <- function(areaHa = 1, FCY = 11,
 
   if (dTC > 0) {
     #minimal required net revenue increase from fertilizer needed (taking into account risk attitude of user)
-    dNRmin <- dTC * ifelse(riskAtt == 0, 1.8, ifelse(riskAtt == 1, 1, 0.2))
+    dNRmin <- dTC * min_nr_multiplier(riskAtt)
 
     #check profitability of fertilizer use
     if (dNR > dNRmin) {
