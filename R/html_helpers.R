@@ -114,6 +114,9 @@
   lmo_col_method      = c(en = "Method",                   sw = "Njia"),
   lmo_col_cost        = c(en = "Cost/ha",                  sw = "Gharama/hekta"),
 
+  # ── SP — chart labels ────────────────────────────────────────────────────
+  chart_current       = c(en = "Current",                  sw = "Sasa"),
+
   # ── SP — Scheduled Planting ─────────────────────────────────────────────
   sp_title            = c(en = "Scheduled Planting Advice",
                            sw = "Ushauri wa Kupanga Tarehe ya Kupanda"),

@@ -563,8 +563,8 @@ build_sp_pdf <- function(rr, user, country,
                                       labels = scales::comma, name = nameCurrency) +
         ggplot2::geom_tile(data = ds[ds$CP, ],  colour = "black",  linewidth = 2, show.legend = FALSE) +
         ggplot2::geom_tile(data = ds[1, ],       colour = "purple", linewidth = 2, show.legend = FALSE) +
-        ggplot2::geom_text(data = ds[ds$CP, ],   ggplot2::aes(label = "Current"),     size = 4) +
-        ggplot2::geom_text(data = ds[1, ], colour = "purple", ggplot2::aes(label = "Recommended"), size = 4) +
+        ggplot2::geom_text(data = ds[ds$CP, ],   ggplot2::aes(label = html_label("chart_current",      lang)), size = 4) +
+        ggplot2::geom_text(data = ds[1, ], colour = "purple", ggplot2::aes(label = html_label("chart_recommended", lang)), size = 4) +
         ggplot2::scale_x_discrete(
           breaks = seq(min(ds$rPWnr), max(ds$rPWnr), by = 2),
           labels = format(sort(unique(ds$PD)), "%d-%b")) +
