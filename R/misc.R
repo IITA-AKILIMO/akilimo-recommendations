@@ -50,19 +50,24 @@ getRFY <- function(HD, RDY, country) {
 }
 
 
-#SHORT DEF:   Function to convert root FM yield into root dry matter yield (RDY): user define CY in FM in ton/ha, QUEFTS require Cy in DM kg/ha
+# DEFERRED (technical debt): getRDY has no callers in the active codebase.
+# Kept as the inverse of getRFY for a future use case. Do not call until verified.
+#
+# LOG-16 fix applied: HD is converted to integer day-of-year via strftime(), matching
+# the approach used in getRFY(). The original guard `if (HD > 366) HD <- HD - 366`
+# was incorrect when HD is a Date object — the subtraction returned a shifted Date,
+# not a valid day-of-year integer.
+#
+#SHORT DEF:   Function to convert root FM yield into root dry matter yield (RDY)
 #RETURNS:     RDY: root dry yield in the same units as root FM yield input
 #INPUT:       HD: harvest date (Date format)
 #             RFY: root fresh matter yield (user's units)
 #             country = c("NG", "TZ")
-## current yield is given by the user as FM ton/ha, we need to change it to DM in Kg/ha for QUEFTS
 
 getRDY <- function(HD, RFY, country) {
-  if (HD > 366) {
-    HD <- HD - 366
-  }
+  d <- as.numeric(strftime(HD, format = "%j"))
   fd <- get_data("dry_matter")
-  DC <- merge(data.frame(dayNr = HD), fd[fd$country == country,], sort = FALSE)$DMCont
+  DC <- merge(data.frame(dayNr = d), fd[fd$country == country,], sort = FALSE)$DMCont
   RDY <- (RFY * DC) / 100
   return(RDY)
 }
