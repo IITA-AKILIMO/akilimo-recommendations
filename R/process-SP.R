@@ -214,8 +214,11 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
     ds$GR <- ds$RP * ds$rootUP
     ds$CP <- (ds$rPWnr == 0) & (ds$rHWnr == 0)
 	if (!any(ds$CP)) {
-	    # the combination was not available in the yield data...
-		message("this situation needs to be avoided")
+	    # Current-practice (rPWnr=0, rHWnr=0) is absent from the merged yield data —
+	    # the requested PD/HD combination falls outside the modelled scheduling window.
+	    warning(sprintf(
+	        "getSPrecommendations: no yield data for current practice at lon=%.4f lat=%.4f PD=%s HD=%s — returning NULL",
+	        lon, lat, PD, HD))
 		return(NULL)
 	} else {
 		ds$dGR <- ds$GR - ds[ds$CP, "GR"]
