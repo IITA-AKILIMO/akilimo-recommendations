@@ -408,7 +408,7 @@ build_pp_pdf <- function(rr, user, country,
                          ggplot2::aes(label = html_label("current_practice", lang)), size = 4) +
       # Net value line (coloured by sign of dNR)
       ggplot2::geom_text(ggplot2::aes(
-        label = paste0("Net value: ",
+        label = paste0(html_label("chart_net_value", lang),
                        ifelse(dNR > 0, "+ ", ifelse(dNR < 0, "- ", " ")),
                        formatC(signif(abs(dNR), digits = 3), format = "f", big.mark = ",", digits = 0),
                        " ", currency, "\n"),
@@ -416,7 +416,7 @@ build_pp_pdf <- function(rr, user, country,
         fontface = "bold", size = 4) +
       # Cost line (coloured by inverse sign of dTC)
       ggplot2::geom_text(ggplot2::aes(
-        label = paste0("\n Cost: ",
+        label = paste0(html_label("chart_cost", lang),
                        ifelse(dTC > 0, "+ ", ifelse(dTC < 0, "- ", " ")),
                        formatC(signif(abs(dTC), digits = 3), format = "f", big.mark = ",", digits = 0),
                        " ", currency),
@@ -425,7 +425,7 @@ build_pp_pdf <- function(rr, user, country,
       ggplot2::scale_colour_manual(values = c("-1" = "red", "0" = "grey50", "1" = "green3")) +
       # Recommended practice label
       ggplot2::geom_text(data = ds_rec, colour = "purple", fontface = "bold",
-                         ggplot2::aes(label = "Recommended practice\n\n\n"), size = 4) +
+                         ggplot2::aes(label = paste0(html_label("chart_recommended", lang), "\n\n\n")), size = 4) +
       ggplot2::xlab(html_label("ploughing_label", lang)) +
       ggplot2::ylab(html_label("ridging_label", lang)) +
       ggplot2::theme_bw() +
@@ -476,7 +476,7 @@ build_pp_pdf <- function(rr, user, country,
 
   # ── LMO cost table ───────────────────────────────────────────────────────────
   lmo_cols <- c("operation", "method", "costHa")
-  lmo_names <- c("Operation", "Method", "Cost/ha")
+  lmo_names <- c(html_label("lmo_col_operation", lang), html_label("lmo_col_method", lang), html_label("lmo_col_cost", lang))
   lmo_html  <- html_section(
     html_label("lmo_table_heading", lang),
     html_table(costLMO[, intersect(lmo_cols, colnames(costLMO))], lmo_names[seq_len(length(intersect(lmo_cols, colnames(costLMO))))])

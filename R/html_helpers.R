@@ -106,6 +106,14 @@
   ridging_label       = c(en = "Ridging",
                            sw = "Kutengeneza matuta"),
 
+  # ── PP — chart labels and LMO table ────────────────────────────────────
+  chart_net_value     = c(en = "Net value: ",              sw = "Thamani halisi: "),
+  chart_cost          = c(en = "\n Cost: ",                sw = "\n Gharama: "),
+  chart_recommended   = c(en = "Recommended practice",     sw = "Mbinu inayopendekezwa"),
+  lmo_col_operation   = c(en = "Operation",                sw = "Shughuli"),
+  lmo_col_method      = c(en = "Method",                   sw = "Njia"),
+  lmo_col_cost        = c(en = "Cost/ha",                  sw = "Gharama/hekta"),
+
   # ── SP — Scheduled Planting ─────────────────────────────────────────────
   sp_title            = c(en = "Scheduled Planting Advice",
                            sw = "Ushauri wa Kupanga Tarehe ya Kupanda"),
