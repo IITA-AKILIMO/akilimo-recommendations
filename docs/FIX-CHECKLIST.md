@@ -78,7 +78,7 @@ Check off each item after the fix is committed.
 - [x] **TRANS-3** `misc.R:5–22` — `tr()` does not validate that `lang` is a known column name; now derives allowed langs from CSV column names and warns+falls back to `en` for unknown values
 - [x] **TRANS-4** `translations.csv:2` — `rectext` key contained raw R code fragments; row removed (key was never called from active code)
 - [x] **TRANS-5** `translations.csv` — `rw` (Kinyarwanda) column was entirely `NA`; column removed (only `en` and `sw` are accepted by the API)
-- [ ] **MNT-5** `fertilizers.R:103–110` — silent type-name reformatting undocumented
+- [x] **MNT-5** `fertilizers.R` — both type-name transformations (urea→Urea, NPKXXYYzz→NPKxx_YY_zz) documented with input/output format, rationale, and known single-digit edge case
 - [x] **MNT-6** `misc.R` — `getRDY` marked DEFERRED with explanation; LOG-16 bug fixed simultaneously
 
 ---

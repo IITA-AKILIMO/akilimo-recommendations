@@ -194,9 +194,7 @@ All translation issues resolved. See section 2.
 
 **MNT-3 — No semantic versioning** — Deferred. See section 2.
 
-**MNT-5 — `fertilizers.R` type-name reformatting is undocumented (~line 106)**
-
-`NPK201010` → `NPK20_10_10` transformation is silent; expected input/output format not documented.
+- **MNT-5** ✅ Both transformations documented: urea→Urea (title-case + first-row convention) and NPKXXYYzz→NPKxx_YY_zz (underscore-separated N/P/K, backward-compatible); known single-digit edge case noted.
 
 **MNT-6 — `getRDY` defined but never called from active code (misc.R)**
 
@@ -215,6 +213,6 @@ All translation issues resolved. See section 2.
 | Performance     | HIGH     | PERF-3 |
 | Performance     | MEDIUM   | PERF-4 (deferred) |
 | API Design      | —        | All resolved or deferred (API-4 in deferred table) |
-| Maintainability | MEDIUM   | MNT-3 (deferred), MNT-5 |
+| Maintainability | MEDIUM   | MNT-3 (deferred) |
 
 **No blocking issues remain.** All CRITICAL and HIGH security/logic/error issues are resolved.
