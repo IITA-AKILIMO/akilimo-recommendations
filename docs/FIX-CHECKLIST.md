@@ -45,8 +45,8 @@ Check off each item after the fix is committed.
 - [x] **MNT-1** `api.R:9` — `R/` directory sourced blindly in alphabetical order
 
 ### Open — should fix
-- [ ] **LOG-17 / PERF-5** `get_data.R:159–180` — `get_yield_data("WLY_365")` reads large RDS files fresh on every request; apply `cached_read`
-- [ ] **PERF-6** `get_data.R:68` — `get_soil_data("soil_NPK-4")` reads RDS fresh on every SP request with no `cached_read` wrapper
+- [x] **LOG-17 / PERF-5** `get_data.R:159–180` — `get_yield_data("WLY_365")` reads large RDS files fresh on every request; apply `cached_read`
+- [x] **PERF-6** `get_data.R:68` — `get_soil_data("soil_NPK-4")` reads RDS fresh on every SP request with no `cached_read` wrapper
 - [ ] **LOG-18** `optimize_fert.R:29–30,35,63` — `country = "NG"` still hardcoded in `run_Optim_NG2`; FR recommendations for non-NG countries use wrong dry-matter conversion in the optimiser; document as technical debt or fix
 - [x] **ERR-10** `process-SP.R:30,40,49` — `ds[ds$CP == TRUE,]` can return multiple rows if `yld` has duplicate `(plw, haw)`; index with `which(ds$CP)[1]` throughout `getSPrecText`
 - [x] **ERR-11** `AkilimoMain.R:268` — `gsub(...)` on `result$recommendation` has no NULL guard; add `%||% ""`

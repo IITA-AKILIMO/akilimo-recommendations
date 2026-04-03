@@ -71,8 +71,9 @@ get_soil_data <- function(x, country, FCY, lon, lat) {
         stop(paste("Invalid country for soil lookup:", country))
 
     if (x == "soil_NPK-4") {
-        out <- readRDS(data_path("soil/SoilData_4Country.RDS"))
-        out <- long2lon(out)
+        out <- cached_read("soil_NPK4", function() {
+            long2lon(readRDS(data_path("soil/SoilData_4Country.RDS")))
+        })
         lat <- round5min(lat)
         lon <- round5min(lon)
         out[out$lon == lon & out$lat == lat, ]
@@ -163,23 +164,28 @@ get_yield_data <- function(x, country, lon, lat) {
     }
 
     if (x == "WLY_365") {
-        if (country == "NG") {
-            w <- readRDS(data_path("yield/Nigeria_WLY_LINTUL_2020.RDS"))
-        } else if (country == "TZ") {
-            w <- readRDS(data_path("yield/Tanzania_WLY_LINTUL_2020.RDS"))
-        } else if (country == "RW") {
-            w <- readRDS(data_path("yield/Rwanda_WLY_LINTUL.RDS"))
-            colnames(w) <- fix_cn(colnames(w))
-        } else if (country == "GH") {
-            w <- readRDS(data_path("yield/Ghana_WLY_LINTUL.RDS"))
-            colnames(w) <- fix_cn(colnames(w))
-        } else if (country == "BI") {
-            w <- readRDS(data_path("yield/Burundi_WLY_LINTUL.RDS"))
-            colnames(w) <- fix_cn(colnames(w))
-        } else {
-            stop(paste("WLY_365", "not available for", country))
-        }
-        w <- long2lon(w)
+        w <- cached_read(paste0("WLY_365_", country), function() {
+            w <- if (country == "NG") {
+                readRDS(data_path("yield/Nigeria_WLY_LINTUL_2020.RDS"))
+            } else if (country == "TZ") {
+                readRDS(data_path("yield/Tanzania_WLY_LINTUL_2020.RDS"))
+            } else if (country == "RW") {
+                ww <- readRDS(data_path("yield/Rwanda_WLY_LINTUL.RDS"))
+                colnames(ww) <- fix_cn(colnames(ww))
+                ww
+            } else if (country == "GH") {
+                ww <- readRDS(data_path("yield/Ghana_WLY_LINTUL.RDS"))
+                colnames(ww) <- fix_cn(colnames(ww))
+                ww
+            } else if (country == "BI") {
+                ww <- readRDS(data_path("yield/Burundi_WLY_LINTUL.RDS"))
+                colnames(ww) <- fix_cn(colnames(ww))
+                ww
+            } else {
+                stop(paste("WLY_365", "not available for", country))
+            }
+            long2lon(w)
+        })
         lat <- round5min(lat)
         lon <- round5min(lon)
         w[round(w$lon,3)==lon & round(w$lat,3)==lat, ]
