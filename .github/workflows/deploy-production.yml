@@ -8,7 +8,6 @@ on:
       - 'api.R'
       - 'tests/**'
       - 'scripts/**'
-      - 'data/**'
 #  pull_request:
 #    branches: [ "main" ]
 
