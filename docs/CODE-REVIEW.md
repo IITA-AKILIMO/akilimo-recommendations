@@ -137,9 +137,7 @@ Notable instances:
 - `process-SP.R`: `(13.5 - 1.5) / 2.5`, `1.5 * 2.5` (yield scaling), `seq(235, 455, 7)`, `34:65` (harvest age window)
 - `optimize_fert.R`, `quefts.R`: `7.64` (cob→kg conversion factor)
 
-**QUA-4 — Fertilizer NPK content table hardcoded in R source (fertilizers.R ~lines 42–47)**
-
-Should be in `data/input/` as a CSV.
+- **QUA-4** ✅ NPK content table moved to `data/input/fertilizer_npk.csv`; loaded via `get_data("fertilizer_npk")` with `cached_read`. CSV must be included in the next OSF/Zenodo bundle upload.
 
 **QUA-5 — `dNRmin` profitability threshold duplicated in four places**
 
@@ -214,7 +212,7 @@ All translation issues resolved. See section 2.
 |-----------------|----------|----------|
 | Logic           | —        | All resolved or deferred (LOG-12, LOG-18 in deferred table) |
 | Error Handling  | MEDIUM   | ERR-7 |
-| Code Quality    | MEDIUM   | QUA-3, QUA-4, QUA-5, QUA-6, QUA-8 |
+| Code Quality    | MEDIUM   | QUA-3, QUA-5, QUA-6, QUA-8 |
 | Code Quality    | LOW      | — (all resolved) |
 | Performance     | HIGH     | PERF-3 |
 | Performance     | MEDIUM   | PERF-4 (deferred) |
