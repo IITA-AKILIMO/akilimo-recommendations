@@ -85,10 +85,10 @@ Check off each item after the fix is committed.
 
 ## Nice to Have (LOW)
 
-- [ ] **QUA-9** `get_data.R:205` — `get_data` signature should default-`NULL` unused arguments
+- [x] **QUA-9** `get_data.R` — `lon` and `lat` now default to `NULL` in `get_data()` signature
 - [x] **QUA-15** `markdown.R` — debug `message()` in `IC_MarkdownText` hot path — resolved: function deleted (Rmd pipeline removed)
 - [x] **QUA-16** `process-SP.R:242` — hardcoded English string with copy-paste factual error ("after planting date" should be "after planting date" → harvest); replace with `tr("sphdpd", lang)`
-- [ ] **QUA-17** `process-SP.R:217` — debug `message()` call in `getSPrecommendations` hot path; replace with `warning()` or remove
+- [x] **QUA-17** `process-SP.R` — debug `message()` replaced with structured `warning()` including lon/lat/PD/HD diagnostics
 
 ---
 

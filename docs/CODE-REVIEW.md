@@ -159,13 +159,8 @@ Not a runtime issue; makes diffs harder to read.
 
 ### LOW
 
-**QUA-9 — `get_data` requires all arguments even when not needed (get_data.R)**
-
-`get_data(x, country, FCY, lon, lat)` — callers that don't need `FCY`/`lon`/`lat` must still pass placeholders. Should default to `NULL`.
-
-**QUA-17 — Debug `message()` in `getSPrecommendations` hot path (process-SP.R ~line 216)**
-
-`message("this situation needs to be avoided")` fires on every request where the current-practice combination is absent from merged yield data. Replace with a structured `warning()` with diagnostic coordinates, or remove.
+- **QUA-9** ✅ `lon` and `lat` now default to `NULL` in `get_data()`.
+- **QUA-17** ✅ Debug `message()` replaced with `warning()` including lon/lat/PD/HD in the message.
 
 ---
 
@@ -222,7 +217,7 @@ All translation issues resolved. See section 2.
 | Logic           | —        | All resolved or deferred (LOG-12, LOG-18 in deferred table) |
 | Error Handling  | MEDIUM   | ERR-7 |
 | Code Quality    | MEDIUM   | QUA-3, QUA-4, QUA-5, QUA-6, QUA-8, QUA-14 |
-| Code Quality    | LOW      | QUA-9, QUA-17 |
+| Code Quality    | LOW      | — (all resolved) |
 | Performance     | HIGH     | PERF-3 |
 | Performance     | MEDIUM   | PERF-4 (deferred) |
 | API Design      | —        | All resolved or deferred (API-4 in deferred table) |
