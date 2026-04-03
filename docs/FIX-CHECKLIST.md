@@ -77,7 +77,6 @@ Check off each item after the fix is committed.
 - [x] **TRANS-3** `misc.R:5–22` — `tr()` does not validate that `lang` is a known column name; now derives allowed langs from CSV column names and warns+falls back to `en` for unknown values
 - [x] **TRANS-4** `translations.csv:2` — `rectext` key contained raw R code fragments; row removed (key was never called from active code)
 - [x] **TRANS-5** `translations.csv` — `rw` (Kinyarwanda) column was entirely `NA`; column removed (only `en` and `sw` are accepted by the API)
-- [ ] **MNT-3** `AkilimoMain.R:286` — no semantic versioning or changelog
 - [ ] **MNT-5** `fertilizers.R:103–110` — silent type-name reformatting undocumented
 - [ ] **MNT-6** `misc.R:55–63` — `getRDY` is defined but never called from any active code path
 
@@ -94,6 +93,7 @@ Check off each item after the fix is committed.
 
 ## Deferred Technical Debt (do not fix until scoped)
 
+- [ ] **MNT-3** `AkilimoMain.R:286` — no semantic versioning or changelog; requires process decision before implementation
 - [ ] **DEBT-1** `misc.R:75–98` — `getWMrecommendations` reserved for a future weed-management feature
 - [ ] **PERF-4** `AkilimoMain.R:50–63` — `setup_temp_dir` deletes all temp files globally; concurrent requests corrupt each other's temp files; requires per-request subdirectories
 - [ ] **API-4** `AkilimoMain.R:138–273` — `dispatch_recommendations` uses `else if`; only the first `TRUE` flag is processed
