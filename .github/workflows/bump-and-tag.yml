@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - 'main'
+    paths:
+      - 'R/**'
+      - 'api.R'
+      - 'tests/**'
+      - 'scripts/**'
+      - 'data/**'
   workflow_dispatch:
 
 jobs:
