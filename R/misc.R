@@ -102,11 +102,14 @@ check_translation_keys <- function(srcdir) {
     keys_used <- character(0)
     for (f in files) {
         txt <- readLines(f, warn = FALSE)
-        hits <- regmatches(txt, gregexpr('tr\\("([a-zA-Z0-9_]+)"', txt))
+        # \b word boundary prevents matching tr(" inside str(", attr(", etc.
+        # perl = TRUE for reliable \b and \( interpretation.
+        hits <- regmatches(txt, gregexpr('\\btr\\("([a-zA-Z0-9_]+)"', txt, perl = TRUE))
         for (block in hits) {
             if (length(block) == 0) next
-            # Strip the tr(" prefix and everything from the closing quote onward
-            keys_used <- c(keys_used, sub('^tr\\("', "", sub('".*$', "", block)))
+            # Strip tr(" prefix first, THEN remove the trailing " and anything after.
+            # (Reversed order was the original bug: stripping " first left only "tr(".)
+            keys_used <- c(keys_used, sub('".*$', "", sub('^tr\\("', "", block)))
         }
     }
     keys_used <- unique(keys_used)
