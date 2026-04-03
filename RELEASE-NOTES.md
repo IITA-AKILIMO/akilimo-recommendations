@@ -2,6 +2,62 @@
 
 ---
 
+## Update: April 2026 (v1.8.2 – v1.8.4)
+
+This update delivered a wave of correctness and quality fixes across the recommendation engine, with no changes to the recommendation logic itself.
+
+---
+
+### What farmers and field officers will notice
+
+#### PDF reports and emails are fully translated
+
+All section headings, chart labels, table headers, coordinate card text, and email subject/body in PDF reports are now translated into Swahili when `lang=sw` is set on the request. Previously, several PDF labels and the email notification were always in English regardless of the requested language.
+
+#### Intercropping recommendation text now translated
+
+The recommendation text produced for intercropping (IC) requests was always generated in English. It now respects the `lang` field and uses Swahili where available.
+
+#### "sow the seeds" typo corrected
+
+The intercropping recommendation for CMP1 incorrectly read "saw the seeds" — this has been corrected to "sow the seeds".
+
+---
+
+### What changes for system administrators
+
+#### Translation key validator added at startup
+
+The server now scans all source files at startup and logs an error for any translation key used in code that is missing from `translations.csv`. This catches misspelled or deleted keys immediately on startup rather than on the first live request that hits the affected code path. Look for lines like:
+
+```
+[INFO] check_translation_keys: all 47 translation key(s) verified OK
+```
+
+or
+
+```
+[ERROR] check_translation_keys: 1 key(s) used in source but absent from translations.csv: somekey
+```
+
+#### Window parameters validated at startup
+
+`PD_window` and `HD_window` (planting/harvest date search windows) are now validated as non-negative integers. Previously a non-numeric or negative value would pass validation and cause a downstream error.
+
+#### Performance: two large RDS files are now cached
+
+`WLY_365` (yield raster data) and `soil_NPK-4` (soil NPK properties) are now loaded once and held in memory on first use, rather than read from disk on every SP and FR request. This reduces per-request disk I/O noticeably for high-traffic deployments.
+
+#### Fertilizer NPK content table externalised
+
+The fertilizer nutrient content table (N%, P%, K% per product) has been moved from hardcoded R source into `data/input/fertilizer_npk.csv`. This file must be present in the data bundle — run `poetry run setup-data` after updating to ensure it is in place.
+
+#### Profitability threshold extracted to shared function
+
+The minimum net-revenue multiplier used in FR, IC, and PP recommendations is now a single shared function (`min_nr_multiplier(riskAtt)`). This has no visible effect on recommendations but eliminates four copies of the same threshold logic, making future calibration changes a one-line edit.
+
+---
+
 ## Release: April 2026
 
 This release focused on making PDF reports reliable, fixing recommendation errors that could produce wrong or missing advice, and making the server easier to set up and maintain in production.
