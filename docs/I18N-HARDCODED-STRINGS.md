@@ -1,4 +1,5 @@
-# I18N — Hardcoded String Removal Plan
+?# I18N — Hardcoded String Removal Plan
+
 
 Audit of remaining hardcoded English strings across the codebase, grouped by
 location and effort. All findings are in PDF/email output — recommendation
@@ -191,3 +192,16 @@ email_body            = c(en = "Please find attached your AKILIMO recommendation
 | A2 SP | `html_helpers.R`, `pdf_builders.R` |
 | B | `html_helpers.R` |
 | C | `html_helpers.R`, `sms_email.R`, `AkilimoMain.R` |
+
+---
+
+## Task list
+
+| Task # | Step | Subject | Files |
+|--------|------|---------|-------|
+| #8 | A1 | Wire up existing `.PDF_LABELS` keys in `pdf_builders.R` | `pdf_builders.R` |
+| #9 | A2-IC | Add IC maize/CIS label keys and update `build_ic_pdf` | `html_helpers.R`, `pdf_builders.R` |
+| #10 | A2-PP | Add PP chart/table label keys and update `build_pp_pdf` | `html_helpers.R`, `pdf_builders.R` |
+| #11 | A2-SP | Add SP chart label keys and update `build_sp_pdf` | `html_helpers.R`, `pdf_builders.R` |
+| #12 | B | Add coordinate card label keys and update `html_location_map` | `html_helpers.R` |
+| #13 | C | Add `lang` param to `sendEmailReport` and translate subject/body | `html_helpers.R`, `sms_email.R`, `AkilimoMain.R` |
