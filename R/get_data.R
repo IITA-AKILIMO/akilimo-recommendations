@@ -207,7 +207,7 @@ get_yield_data <- function(x, country, lon, lat) {
 # Public dispatcher — routes to the appropriate typed loader
 # ---------------------------------------------------------------------------
 get_data <- function(x, country = NULL, FCY = NULL, lon = NULL, lat = NULL) {
-    input_keys <- c("TRNS", "default_prices", "starch_prices", "dry_matter")
+    input_keys <- c("TRNS", "default_prices", "starch_prices", "dry_matter", "fertilizer_npk")
     soil_keys  <- c("soil_NPK", "soil_NPK-4", "predicted_soil_properties")
     yield_keys <- c("WLY_365", "WLY_15M_ncdf")
 
