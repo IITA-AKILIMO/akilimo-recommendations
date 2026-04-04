@@ -1,28 +1,30 @@
 #!/usr/bin/env Rscript
-# refresh_prices.R — Manual price refresh from the external price API
+# refresh_prices.R — Manual data refresh from the external APIs
 #
-# Fetches current fertilizer/labour/cassava prices and starch factory prices
-# from the configured PRICE_API_URL and writes them into prices.sqlite.
+# Fetches current fertilizer/labour/cassava prices, starch factory prices,
+# and translation strings from their configured API URLs and writes them
+# into akilimo_compute.sqlite.
 #
 # Usage:
 #   Rscript refresh_prices.R [options]
 #
 # Options:
-#   --country  NG|TZ|RW|GH|BI   Refresh one country (default: all)
-#   --type     default|starch|all  Which table to refresh (default: all)
-#   --dry-run                    Validate API response without writing to DB
+#   --country  NG|TZ|RW|GH|BI          Refresh one country only (default: all; ignored for translations)
+#   --type     default|starch|translations|all  Which table to refresh (default: all)
+#   --dry-run                           Validate API response without writing to DB
 #
 # Examples:
 #   Rscript refresh_prices.R
 #   Rscript refresh_prices.R --country NG --type default
 #   Rscript refresh_prices.R --type starch
+#   Rscript refresh_prices.R --type translations
 #   Rscript refresh_prices.R --dry-run
 #
 # Cron (every Monday at 02:00):
 #   0 2 * * 1  cd /opt/akilimo && Rscript refresh_prices.R >> logs/price-refresh.log 2>&1
 
 VALID_COUNTRIES <- c("NG", "TZ", "RW", "GH", "BI")
-VALID_TYPES     <- c("default", "starch", "all")
+VALID_TYPES     <- c("default", "starch", "translations", "all")
 
 # ── Parse arguments ───────────────────────────────────────────────────────────
 
@@ -45,6 +47,9 @@ parse_args <- function(argv) {
       if (!val %in% VALID_TYPES)
         stop("--type must be one of: ", paste(VALID_TYPES, collapse = ", "))
       out$type <- val
+    } else if (arg == "--help" || arg == "-h") {
+      cat("Usage: Rscript refresh_prices.R [--country NG|TZ|RW|GH|BI] [--type default|starch|translations|all] [--dry-run]\n")
+      quit(status = 0L)
     } else {
       stop("Unknown argument: ", arg, "\nRun with no arguments for usage.")
     }
@@ -67,35 +72,36 @@ args <- tryCatch(
 akpath <- Sys.getenv("AKILIMO_ROOT", unset = ".")
 setwd(akpath)
 
-# Load .env so PRICE_API_URL etc. are available when running outside the server
+# Load .env so AKILIMO_API_URL etc. are available when running outside the server
 if (requireNamespace("dotenv", quietly = TRUE)) {
   env_file <- file.path(akpath, ".env")
   if (file.exists(env_file)) dotenv::load_dot_env(env_file)
 }
 
 source(file.path(akpath, "R", "logging.R"))
-source(file.path(akpath, "R", "prices_db.R"))
+source(file.path(akpath, "R", "akilimo_db.R"))
 
 # ── Pre-flight checks ─────────────────────────────────────────────────────────
 
-api_url <- Sys.getenv("PRICE_API_URL", unset = "")
+api_url <- Sys.getenv("AKILIMO_API_URL", unset = "")
+
 if (!nzchar(api_url)) {
-  cat("ERROR: PRICE_API_URL is not set.\n")
+  cat("ERROR: AKILIMO_API_URL is not set.\n")
   cat("Set it in .env or as an environment variable before running this script.\n")
   quit(status = 1L)
 }
 
-cat(sprintf("Price refresh  %s\n", format(Sys.time(), "%Y-%m-%d %H:%M:%S %Z")))
+cat(sprintf("Data refresh   %s\n", format(Sys.time(), "%Y-%m-%d %H:%M:%S %Z")))
 cat(sprintf("API URL        %s\n", api_url))
 cat(sprintf("Type           %s\n", args$type))
-cat(sprintf("Country        %s\n", if (is.null(args$country)) "all" else args$country))
+cat(sprintf("Country        %s\n", if (is.null(args$country)) "all (n/a for translations)" else args$country))
 if (args$dry_run) cat("Mode           DRY RUN — no DB writes\n")
 cat(strrep("-", 60), "\n")
 
 # ── Open DB ───────────────────────────────────────────────────────────────────
 
 conn <- tryCatch(
-  open_prices_db(),
+  open_akilimo_db(),
   error = function(e) {
     cat("ERROR: could not open prices DB:", conditionMessage(e), "\n")
     quit(status = 1L)
@@ -139,6 +145,10 @@ if (args$type %in% c("starch", "all")) {
     run_refresh(sprintf("starch/%s",  ctry), refresh_starch_prices,
                 country = ctry, source_tag = "manual")
   }
+}
+
+if (args$type %in% c("translations", "all")) {
+  run_refresh("translations", refresh_translations, source_tag = "manual")
 }
 
 # ── Summary ───────────────────────────────────────────────────────────────────

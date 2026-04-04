@@ -92,7 +92,7 @@ Previously, the user's phone number appeared in temporary file names used during
 
 #### Prices now stored in a database
 
-Fertilizer, labour, cassava, and starch factory prices were previously loaded from CSV files each time a request came in. They are now stored in a small SQLite database (`data/input/prices.sqlite`), which is created automatically when the server starts.
+Fertilizer, labour, cassava, and starch factory prices were previously loaded from CSV files each time a request came in. They are now stored in a small SQLite database (`data/input/akilimo_compute.sqlite`), which is created automatically when the server starts.
 
 Benefits:
 - Prices can be refreshed without restarting the server.
@@ -184,8 +184,8 @@ The following variables can be added to `.env` to enable new features. All are o
 |----------|-------------|
 | `MAPBOX_TOKEN` | Embeds a real map image in PDF reports (requires a Mapbox account) |
 | `MAP_API_URL` | Alternative map image provider URL |
-| `PRICES_DB_PATH` | Custom path for the SQLite price database (default: `data/input/prices.sqlite`) |
-| `PRICE_API_URL` | URL of an external price service for automatic price refresh |
-| `PRICE_API_TOKEN` | Authentication token for the price service |
+| `AKILIMO_DB_PATH` | Custom path for the SQLite price database (default: `data/input/akilimo_compute.sqlite`) |
+| `AKILIMO_API_URL` | URL of an external price service for automatic price refresh |
+| `AKILIMO_API_TOKEN` | Authentication token for the price service |
 | `PRICE_MAX_AGE_DAYS` | How many days before fertilizer prices are considered stale (default: 7) |
 | `STARCH_PRICE_MAX_AGE_DAYS` | How many days before starch factory prices are considered stale (default: 30) |

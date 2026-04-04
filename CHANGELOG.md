@@ -147,8 +147,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.4.0] - 2026-04-02
 
 ### Added
-- SQLite price store (`R/prices_db.R`) — replaces CSV-based price lookup with a persistent, auto-refreshable database
-- `open_prices_db()` called at startup; auto-refresh hook in `run_akilimo()`
+- SQLite price store (`R/akilimo_db.R`) — replaces CSV-based price lookup with a persistent, auto-refreshable database
+- `open_akilimo_db()` called at startup; auto-refresh hook in `run_akilimo()`
 - `refresh_prices.R` CLI script for manual price refreshes
 - `DBI` and `RSQLite` package dependencies
 - Price database environment variables in `.env.example`
@@ -159,7 +159,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replace pandoc/wkhtmltopdf with WeasyPrint system library requirements in setup docs
 
 ### Tests
-- Add `tests/test_prices_db.R`
+- Add `tests/test_akilimo_db.R`
 
 ---
 

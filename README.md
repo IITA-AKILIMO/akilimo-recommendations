@@ -86,7 +86,7 @@ Key files:
 | `R/fertilizers.R` | Parses fertilizer types, bag prices, and NPK content |
 | `R/misc.R` | `tr(key, lang, ...)` translation helper, `get_currency()`, `getRFY()`/`getRDY()` |
 | `R/markdown.R` | Renders Rmd → HTML recommendation report |
-| `R/sms_email.R` | Email (mailR/Java) and SMS dispatch |
+| `R/email.R` | PDF generation orchestration; email dispatch (smtp/mailtrap/mailgun) |
 
 ## Recommendation Types
 
@@ -205,8 +205,7 @@ poetry run upload-zenodo --new     # or create Zenodo deposit + upload
 | [docs/ONBOARDING.md](docs/ONBOARDING.md) | Technical onboarding for developers and data scientists |
 | [docs/API-REFERENCE.md](docs/API-REFERENCE.md) | Complete API field reference with examples |
 | [docs/TRANSLATIONS.md](docs/TRANSLATIONS.md) | Translation system: CSV format, adding keys/languages, token substitution |
-| [docs/CODE-REVIEW.md](docs/CODE-REVIEW.md) | Automated code review (security, logic, performance) |
-| [docs/FIX-CHECKLIST.md](docs/FIX-CHECKLIST.md) | Fix tracking for CODE-REVIEW issues |
+| [docs/TECH-DEBT.md](docs/TECH-DEBT.md) | Open issues, deferred tech debt, and architecture notes |
 
 ## License
 

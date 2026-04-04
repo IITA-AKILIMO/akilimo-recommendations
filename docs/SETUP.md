@@ -119,7 +119,7 @@ There are two separate `.env` files — one per subsystem:
 
 | File | Used by | Copy from |
 |------|---------|-----------|
-| `.env` (project root) | R API — server binding, SMS/email credentials | `.env.example` |
+| `.env` (project root) | R API — server binding, email credentials | `.env.example` |
 | `scripts/.env` | Python data scripts — OSF/Zenodo IDs and tokens | `scripts/.env.example` |
 
 ```bash
@@ -149,26 +149,23 @@ Neither file is committed (both matched by `.gitignore`).
 | `MAILGUN_API_KEY` | — | Mailgun API key (mailgun only) |
 | `MAILGUN_DOMAIN` | — | Mailgun sending domain (mailgun only) |
 | `MAILGUN_REGION` | `us` | Mailgun region: `us` \| `eu` (mailgun only) |
-| `PLIVO_AUTH_ID` | — | Plivo account ID (SMS) |
-| `PLIVO_AUTH_TOKEN` | — | Plivo auth token (SMS) |
-| `PLIVO_SRC_NUMBER` | — | Plivo sender number (SMS) |
-| `PRICES_DB_PATH` | `data/input/prices.sqlite` | Path to the SQLite price database |
-| `PRICE_API_URL` | — | Base URL of the external price service (unset = auto-refresh disabled) |
-| `PRICE_API_TOKEN` | — | Bearer token for the price API |
+| `AKILIMO_DB_PATH` | `data/input/akilimo_compute.sqlite` | Path to the SQLite price database |
+| `AKILIMO_API_URL` | — | Base URL of the external price service (unset = auto-refresh disabled) |
+| `AKILIMO_API_TOKEN` | — | Bearer token for the price API |
 | `PRICE_MAX_AGE_DAYS` | `7` | Days before fertilizer/cassava prices trigger an auto-refresh |
 | `STARCH_PRICE_MAX_AGE_DAYS` | `30` | Days before starch factory prices trigger an auto-refresh |
 
 ### Price database (SQLite)
 
 Fertilizer, labour, cassava, and starch factory prices are stored in a local
-SQLite file (`data/input/prices.sqlite`). The file is created automatically on
+SQLite file (`data/input/akilimo_compute.sqlite`). The file is created automatically on
 first server start — seeded from the bundled CSV files — and updated via the
 refresh script below.
 
 #### Manual price refresh
 
 Use `refresh_prices.R` to pull the latest prices from the configured
-`PRICE_API_URL` and write them into the database:
+`AKILIMO_API_URL` and write them into the database:
 
 ```bash
 # Refresh everything (all countries, both price types)
@@ -184,7 +181,7 @@ Rscript refresh_prices.R --type starch
 Rscript refresh_prices.R --dry-run
 ```
 
-`PRICE_API_URL` must be set in `.env` before running. If it is not set, the
+`AKILIMO_API_URL` must be set in `.env` before running. If it is not set, the
 script exits with an error immediately.
 
 #### Scheduled refresh (cron)
@@ -200,13 +197,12 @@ Adjust the schedule to match how frequently your price source publishes updates.
 
 #### Auto-refresh during requests
 
-When `PRICE_API_URL` is set, the API server also checks price freshness on
+When `AKILIMO_API_URL` is set, the API server also checks price freshness on
 each incoming request (after parsing, before computing). If prices are older
 than `PRICE_MAX_AGE_DAYS` (default 7), a background refresh runs silently.
 A failed auto-refresh is logged as WARN and never blocks the recommendation.
 
-See [docs/PRICES-SQLITE-PLAN.md](PRICES-SQLITE-PLAN.md) for full implementation
-details and the external API contract.
+See [docs/TECH-DEBT.md § SQLite price database](TECH-DEBT.md#sqlite-price-database-datainputakilimo_computesqlite) for the database schema and API contract reference.
 
 ### Python data scripts
 
@@ -338,7 +334,7 @@ The systemd unit uses `ProtectSystem=strict`, which makes the entire filesystem 
 | Path | Purpose |
 |------|---------|
 | `<project>/temp/` | Per-request temp directory — HTML and PDF intermediates for WeasyPrint |
-| `<project>/data/` | SQLite price database (`prices.sqlite` is written here) |
+| `<project>/data/` | SQLite price database (`akilimo_compute.sqlite` is written here) |
 | `<project>/logs/` | Application log files |
 
 Create them if they don't exist and set ownership to the service user:

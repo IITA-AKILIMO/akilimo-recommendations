@@ -64,7 +64,7 @@ akilimo-recommendations/
 │   ├── markdown.R          # Shared helpers: FERT_COLOUR/LABEL, calc_fertilizer_recom()
 │   ├── html_helpers.R      # HTML fragment builders for WeasyPrint PDFs
 │   ├── pdf_builders.R      # build_fr/ic/pp/sp_pdf() — one per recommendation type
-│   ├── sms_email.R         # Email (smtp/mailtrap/mailgun) and SMS dispatch
+│   ├── email.R             # PDF generation orchestration; email dispatch (smtp/mailtrap/mailgun)
 │   ├── process-FR.R        # Fertilizer Recommendation processor
 │   ├── process-IC.R        # Intercropping processor
 │   ├── process-PP.R        # Post-Planting processor
@@ -128,7 +128,7 @@ Each processor follows the same pattern:
 
 Processors no longer write CSV files to the temp dir. All data needed for PDF generation is returned in the result list.
 
-### Stage 6 — PDF generation (`R/sms_email.R`, `R/pdf_builders.R`)
+### Stage 6 — PDF generation (`R/email.R`, `R/pdf_builders.R`)
 
 `generate_pdfs()` calls the appropriate `build_*_pdf()` for each active flag. Each builder:
 
@@ -516,7 +516,7 @@ The API sources all `R/*.R` files but does not load data eagerly — data is loa
 If `lat`/`lon` maps to a cell with no soil or yield data (ocean, desert, outside country boundary), the processor may return `NA` yields or fall back silently. The spatial data covers only the agricultural extent of each supported country. Coordinates that are technically in-country but in an unsupported cell will produce a `norecom` (no recommendation) response.
 
 **3. `mailR` requires Java**
-Email dispatch (`R/sms_email.R`) uses `mailR`, which is backed by a Java mail library. If `rJava` cannot find a JVM at startup, the entire server process fails. On Linux: `sudo R CMD javareconf`. On Windows: ensure `JAVA_HOME` is set before starting R.
+Email dispatch (`R/email.R`) uses `mailR`, which is backed by a Java mail library. If `rJava` cannot find a JVM at startup, the entire server process fails. On Linux: `sudo R CMD javareconf`. On Windows: ensure `JAVA_HOME` is set before starting R.
 
 **4. `from_json()` default types must match expected type**
 `from_json("someFlag", body, default_value = FALSE)` returns logical. If you mistakenly pass `default_value = 0`, downstream `isTRUE()` checks will silently fail. Always match the default type to what the code expects.

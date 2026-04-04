@@ -97,7 +97,7 @@ get_fertilizers2 <- function(js, country) {
 	# ── Type-name normalisation ───────────────────────────────────────────────
 	# Input names come from the JSON request fields (e.g. "ureaavailable") after
 	# the prefix is stripped, which always yields lowercase "urea". Downstream
-	# PDF and SMS output expects title-case "Urea", and by convention Urea is
+	# PDF output expects title-case "Urea", and by convention Urea is
 	# displayed first in fertilizer tables.
 	i <- fd$type == "urea"
 	if (any(i)) {

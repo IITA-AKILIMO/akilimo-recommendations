@@ -316,9 +316,9 @@ run_akilimo <- function(json) {
   message(paste0(params$selected_key, ": ", params$country,
                  ", planting: ", params$PD, ", harvest: ", params$HD))
 
-  # Auto-refresh stale prices when an external API is configured.
+  # Auto-refresh stale data when external APIs are configured.
   # Failures are logged as WARN and never block the recommendation.
-  if (nzchar(Sys.getenv("PRICE_API_URL"))) {
+  if (nzchar(Sys.getenv("AKILIMO_API_URL"))) {
     if (prices_are_stale(params$country)) {
       tryCatch(
         refresh_prices(params$country),
@@ -333,6 +333,13 @@ run_akilimo <- function(json) {
           log_write("WARN", "Auto starch price refresh failed:", conditionMessage(e))
       )
     }
+  }
+  if (nzchar(Sys.getenv("AKILIMO_API_URL")) && translations_are_stale()) {
+    tryCatch(
+      refresh_translations(),
+      error = function(e)
+        log_write("WARN", "Auto translation refresh failed:", conditionMessage(e))
+    )
   }
 
   result <- dispatch_recommendations(params, body)
@@ -379,10 +386,7 @@ from_json <- function(field_name, body, default_value = "NA") {
 
 get_user <- function(body) {
   list(
-    send_SMS = from_json("SMS", body, default_value = FALSE),
     send_email = from_json("email", body, default_value = FALSE),
-    PhoneCC = from_json("userPhoneCC", body),
-    PhoneNr = from_json("userPhoneNr", body),
     Name = from_json("userName", body),
     Email = from_json("userEmail", body)
   )

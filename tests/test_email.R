@@ -22,7 +22,7 @@ source(file.path(akpath, "R", "logging.R"))
 source(file.path(akpath, "R", "markdown.R"))
 source(file.path(akpath, "R", "html_helpers.R"))
 source(file.path(akpath, "R", "pdf_builders.R"))
-source(file.path(akpath, "R", "sms_email.R"))
+source(file.path(akpath, "R", "email.R"))
 
 # ── Temp dir ─────────────────────────────────────────────────────────────────
 
@@ -73,8 +73,7 @@ with_env <- function(vars, expr) {
 
 # Minimal dummy user object for sendEmailReport.
 dummy_user <- function(email = "test@example.com") {
-  list(Email = email, Name = "Test User", PhoneNr = "0000000000",
-       send_email = TRUE, send_SMS = FALSE)
+  list(Email = email, Name = "Test User", send_email = TRUE)
 }
 
 # ── 1. Empty PDFs — no send, no warning ──────────────────────────────────────

@@ -37,18 +37,7 @@ cellFromLonLat <- function(lon, lat, res=0.05) {
 get_input_data <- function(x, country = NULL) {
     if (x == "TRNS") {
         cached_read("TRNS", function() {
-            tbl <- read.csv(data_path("input/translations.csv"),
-                            stringsAsFactors = FALSE, strip.white = FALSE,
-                            na.strings = character(0))  # keep "" as "" not NA
-            # QUA-11 guard: cisRatePre en must be "" (no prefix). If the bundled
-            # CSV ever ships with "kg" again, silently correct it here.
-            idx <- which(tbl$key == "cisRatePre")
-            if (length(idx) == 1 && !is.na(tbl$en[idx]) && nzchar(tbl$en[idx])) {
-                log_write("WARN", "translations.csv: cisRatePre 'en' corrected from",
-                          shQuote(tbl$en[idx]), "to \"\"")
-                tbl$en[idx] <- ""
-            }
-            tbl
+            get_translations()
         })
     } else if (x == "default_prices") {
         get_default_prices(country)

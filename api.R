@@ -24,16 +24,16 @@ srcdir <- file.path(akpath, "R")
 # Source in explicit dependency order.
 # Only files in R/ (top-level) are loaded.
 # R/preprocess/ and the project-root old/ directory are intentionally excluded.
-for (f in c("misc.R", "logging.R", "get_data.R", "prices_db.R", "fertilizers.R",
+for (f in c("misc.R", "logging.R", "get_data.R", "akilimo_db.R", "fertilizers.R",
             "quefts.R", "optimize_fert.R", "markdown.R", "html_helpers.R",
-            "pdf_builders.R", "sms_email.R",
+            "pdf_builders.R", "email.R",
             "process-FR.R", "process-IC.R", "process-PP.R", "process-SP.R",
             "AkilimoMain.R")) {
   source(file.path(srcdir, f))
 }
 
 # Open (or create and seed) the SQLite price database.
-open_prices_db()
+open_akilimo_db()
 
 # Verify WeasyPrint is available. Log a clear error at startup rather than
 # discovering it on the first PDF request.
@@ -50,7 +50,7 @@ local({
   }
 })
 
-# Verify all tr("key") literals used in source are present in translations.csv.
+# Verify all tr("key") literals used in source are present in the translations table.
 # A missing key causes a fatal stop() on the first request that hits that code
 # path — indistinguishable from a model crash in the HTTP 500 response. Catching
 # it here produces a clear ERROR in the server log before any traffic arrives.

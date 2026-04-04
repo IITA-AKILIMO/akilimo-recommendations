@@ -243,15 +243,6 @@ html_three_col <- function(col1, col2, col3) {
 
 # ── PII masking ───────────────────────────────────────────────────────────────
 
-#' Mask a phone number for display, retaining only the country prefix and last
-#' two digits.  E.g. "+2348038478119" → "+234 **** **19".
-mask_phone <- function(x) {
-  digits <- gsub("[^0-9]", "", as.character(x %||% ""))
-  n <- nchar(digits)
-  if (n < 4) return("***")
-  paste0("+", substr(digits, 1, min(3, n - 2)), " **** **", substr(digits, n - 1, n))
-}
-
 #' Mask an email address for display, retaining the first character and domain.
 #' E.g. "user@example.com" → "u***r@example.com".
 mask_email <- function(x) {
@@ -271,7 +262,7 @@ mask_email <- function(x) {
 # ── Personal info ─────────────────────────────────────────────────────────────
 
 #' Render the "What you told us" section.
-#' @param user         List with $Name, $PhoneNr.
+#' @param user         List with $Name, $Email.
 #' @param userField    Farm/field name.
 #' @param area         Numeric farm size.
 #' @param areaUnits    Unit string.
@@ -293,7 +284,6 @@ html_personal_info <- function(user, userField, area, areaUnits,
 
   rows <- list(
     list(label = html_label("your_name",     lang), value = user$Name %||% ""),
-    list(label = html_label("phone_number",  lang), value = mask_phone(user$PhoneNr)),
     list(label = html_label("email_address", lang), value = mask_email(user$Email)),
     list(label = html_label("field_name",    lang), value = userField),
     list(label = html_label("field_area",    lang), value = area_fmt),

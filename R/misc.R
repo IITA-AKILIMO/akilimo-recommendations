@@ -117,7 +117,7 @@ check_translation_keys <- function(srcdir) {
     missing <- setdiff(keys_used, known)
     if (length(missing) > 0) {
         log_write("ERROR", sprintf(
-            "check_translation_keys: %d key(s) used in source but absent from translations.csv: %s",
+            "check_translation_keys: %d key(s) used in source but absent from translations table: %s",
             length(missing), paste(sort(missing), collapse = ", ")))
     } else {
         log_write("INFO", sprintf(

@@ -160,11 +160,8 @@ All costs are optional; country defaults are used for any missing value.
 |-------|------|---------|-------------|
 | `userName` | string | | User's name (appears in generated report) |
 | `userEmail` | string | | Email address |
-| `userPhoneCC` | string | | Phone country code (e.g. `+255`) |
-| `userPhoneNr` | string | | Phone number |
 | `userField` | string | | User's field/plot name (appears in report) |
-| `email` | boolean | `false` | Send the HTML report by email |
-| `SMS` | boolean | `false` | Send a brief recommendation by SMS |
+| `email` | boolean | `false` | Send the PDF report by email |
 
 ---
 

@@ -1,10 +1,5 @@
 # Required environment variables (see docs/SETUP.md for full details):
 #
-# SMS (Plivo):
-#   PLIVO_AUTH_ID      — Plivo account AUTH ID
-#   PLIVO_AUTH_TOKEN   — Plivo account AUTH token
-#   PLIVO_SRC_NUMBER   — Sender phone number (with country code)
-#
 # Email — select provider with EMAIL_PROVIDER (default: smtp):
 #
 #   EMAIL_PROVIDER     — smtp | mailtrap | mailgun  (default: smtp)
@@ -23,29 +18,6 @@
 #     MAILGUN_API_KEY  — Mailgun API key
 #     MAILGUN_DOMAIN   — Mailgun sending domain (e.g. mg.example.com)
 #     MAILGUN_REGION   — us | eu  (default: us)
-
-
-sendSMSReport <- function(SMStext, dst) {
-  AUTH_ID <- Sys.getenv("PLIVO_AUTH_ID")
-  AUTH_TOKEN <- Sys.getenv("PLIVO_AUTH_TOKEN")
-  src <- Sys.getenv("PLIVO_SRC_NUMBER")
-
-  if (any(nchar(c(AUTH_ID, AUTH_TOKEN, src)) == 0)) {
-    warning("SMS not sent: PLIVO_AUTH_ID, PLIVO_AUTH_TOKEN or PLIVO_SRC_NUMBER not set.")
-    return(invisible(NULL))
-  }
-
-  url <- paste0("https://api.plivo.com/v1/Account/", AUTH_ID, "/Message/")
-
-  for (txt in SMStext) {
-    if (nchar(txt) > 1600) {
-      txt <- paste0(substr(txt, 1, 1588), " [truncated]")
-      message("text message truncated to the 1600 character limit")
-    }
-    httr::POST(url, httr::authenticate(AUTH_ID, AUTH_TOKEN),
-               body = list(src = src, dst = dst, text = txt))
-  }
-}
 
 
 # ── PDF generation ─────────────────────────────────────────────────────────────
