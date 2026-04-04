@@ -15,10 +15,10 @@ must not be worked on until explicitly planned.
 
 ### HIGH — fix before next production release
 
-- [ ] **NEW-PP-1** `process-PP.R:31` — yield-class threshold `12.5` vs soil-data break `15`; misclassifies medium-yield farms
-- [ ] **NEW-IC-1** `process-IC.R:182` — `maizeUW` divided without zero/NA guard; produces silent NaN
-- [ ] **NEW-SP-1** `process-SP.R:154`, `optimize_fert.R` — QUEFTS calls inside loops with no `tryCatch()`; bad soil data crashes or silently corrupts recommendations
-- [ ] **NEW-NA-1** `AkilimoMain.R` (multiple) — `as.numeric(from_json(...))` produces silent NA on non-numeric input; add `safe_numeric()` helper
+- [x] **NEW-PP-1** `process-PP.R:31` — yield-class threshold `12.5` vs soil-data break `15`; misclassifies medium-yield farms *(fixed c56785b)*
+- [x] **NEW-IC-1** `process-IC.R:182` — `maizeUW` divided without zero/NA guard; produces silent NaN *(fixed fb58bf2)*
+- [x] **NEW-SP-1** `process-SP.R:154`, `optimize_fert.R` — QUEFTS calls inside loops with no `tryCatch()`; bad soil data crashes or silently corrupts recommendations *(fixed 6f34483)*
+- [x] **NEW-NA-1** `AkilimoMain.R` (multiple) — `as.numeric(from_json(...))` produces silent NA on non-numeric input; add `safe_numeric()` helper *(fixed 8dd917f)*
 
 ### MEDIUM — fix in next maintenance window
 
