@@ -1,6 +1,6 @@
 # Technical Debt & Open Issues
 
-**Last reviewed:** 2026-04-04
+**Last reviewed:** 2026-04-04 (re-reviewed after HIGH fixes and linter pass)
 
 This file tracks all confirmed open issues and deferred technical debt.
 Resolved items are removed; see git log for history.
@@ -24,9 +24,9 @@ must not be worked on until explicitly planned.
 
 - [ ] **PERF-3** `process-SP.R:150–190` — row-by-row QUEFTS + getRFY loops (~256 iterations per SP request); vectorise when LOG-12 is unblocked
 - [ ] **NEW-DB-1** `akilimo_db.R:268,294,317` — DB functions only check for NULL connection, not for stale/dropped connections; add `tryCatch` + reconnect
-- [ ] **NEW-FERT-1** `fertilizers.R:82–89` — custom fertilizer merge failure logged as WARN only; recommendation silently uses default data; escalate to ERROR
+- [ ] **NEW-FERT-1** `fertilizers.R:82–89` — custom fertilizer merge failure logged as WARN only and uses `warning()` instead of `log_write()`; recommendation silently uses default data; escalate to ERROR and switch to `log_write("ERROR", ...)`
 - [ ] **NEW-PARSE-1** `AkilimoMain.R:95–98` — `as.Date()` can return NA for edge-case strings even after regex check; assert non-NA immediately after conversion
-- [ ] **QUA-3** Multiple — magic numbers without named constants: `12.5`/`15` (PP), `7.64` (IC/pdf_builders), `seq(235,455,7)`, `34:65`, QUEFTS physiology constants
+- [ ] **QUA-3** Multiple — magic numbers without named constants: `7.64` (IC/pdf_builders), `seq(235,455,7)`, `34:65` (SP harvest window), QUEFTS physiology constants
 - [ ] **NEW-SP-2** `process-SP.R:189` — yield scaling formula undocumented; no guard for FCY outside `[1.5, 13.5]`; add comment + `warning()` for out-of-range input
 - [ ] **QUA-6** `AkilimoMain.R:72`, `api.R` — version string hardcoded in two independent places; centralise (defer full semantic versioning to MNT-3)
 - [ ] **QUA-8** `process-SP.R`, `process-PP.R`, `process-FR.R` — large commented-out code blocks; delete (git history preserves them)
@@ -40,6 +40,7 @@ must not be worked on until explicitly planned.
 - [ ] **NEW-COUNTRY-1** `AkilimoMain.R` — country code validation is case-sensitive; normalise with `toupper(trimws(...))` before the check
 - [ ] **NEW-UTIL-1** `html_helpers.R`, `markdown.R` — `%||%` defined in multiple files with subtly different semantics; consolidate into `misc.R`
 - [ ] **NEW-OPT-1** `optimize_fert.R` — dead `country` parameter in `run_Optim_NG2()`; remove from signature and call sites in `process-FR.R`
+- [ ] **NEW-LOG-1** `fertilizers.R:85` — custom fertilizer merge warning uses `warning()` while all other modules use `log_write()`; inconsistent; switch to `log_write("WARN", ...)`
 
 ---
 
@@ -141,11 +142,14 @@ on connection-related errors, or log a clear diagnostic message.
 **NEW-FERT-1 — Custom fertilizer merge failure silent (`fertilizers.R:82–89`)**
 
 When the `rbind()` of custom and default fertilizers fails, the error is caught
-and logged as a warning, but the recommendation proceeds with only the default
-fertilizers. The user receives a result that silently ignores their custom inputs.
+and logged only as a `warning()`, but the recommendation proceeds with only the
+default fertilizers. The user receives a result that silently ignores their
+custom inputs. Additionally, `warning()` bypasses the structured log file while
+all other error handling in the codebase uses `log_write()`.
 
-Fix: log at ERROR (not WARN). Include a note in the response that custom
-fertilizer data was rejected, so the caller can investigate.
+Fix: replace `warning(...)` with `log_write("ERROR", ...)`. Include a note in
+the response that custom fertilizer data was rejected, so the caller can
+investigate. See also NEW-LOG-1 for the logging inconsistency.
 
 ---
 
@@ -216,6 +220,23 @@ work is scoped.
 ---
 
 ### LOW
+
+**NEW-LOG-1 — `warning()` used instead of `log_write()` in `fertilizers.R:85`**
+
+```r
+warning("Failed to merge custom fertilizer data: ", e$message,
+        " — custom fertilizers ignored")
+```
+
+`warning()` emits to stderr and is not captured by the structured log file. All
+other error/warn paths in the codebase (`akilimo_db.R`, `optimize_fert.R`,
+`process-SP.R`, etc.) use `log_write("WARN", ...)` or `log_write("ERROR", ...)`.
+This makes the fertilizer merge failure invisible in production log monitoring.
+
+Fix: replace with `log_write("WARN", "fertilizers: custom merge failed —",
+conditionMessage(e), "— using defaults")`.
+
+---
 
 **NEW-RESP-1 — Inconsistent error vs success response envelope**
 
@@ -292,7 +313,7 @@ Fix: remove the parameter from the function signature and all call sites in
 | LOG-18 | `optimize_fert.R` | `run_Optim_NG2` hardcoded `country = "NG"` at three call sites | TZ dry-matter data not yet validated; DEFERRED comment in source |
 | MNT-2 | `process-FR.R` | Functions with 11–20+ positional parameters | Large refactor, regression risk |
 | MNT-3 | `AkilimoMain.R` | No semantic versioning — `aki_version` is a hardcoded date string | Requires team decision on versioning scheme; also affects QUA-6 |
-| PERF-4 | `AkilimoMain.R` | `setup_temp_dir` global temp deletion — concurrent requests can delete a live request's temp dir | Per-request scoped cleanup needed; subdirectories already created |
+| PERF-4 | `AkilimoMain.R` | `setup_temp_dir` global temp deletion — concurrent requests can delete a live request's temp dir. *Partially improved (2026-04-04): NA mtime guard, `force=TRUE`, millisecond timestamp, `dir.create` failure check added by linter. Race window narrowed but not eliminated.* | Per-request scoped cleanup or explicit "done" signal needed |
 | MNT-6 | `misc.R` | `getRDY` defined but has no call sites in active code | Kept as inverse of `getRFY`; underlying bug (LOG-16) already fixed |
 | DEBT-1 | `misc.R` | `getWMrecommendations` reserved dead code (also see ERR-7 above) | Remove when weed-management feature is scoped |
 
