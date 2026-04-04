@@ -28,7 +28,7 @@ getPPrecommendations <- function(areaHa, costLMO,
   #adding expected yields
   yd <- expand.grid(ploughing = c(FALSE, TRUE), ridging = c(TRUE, FALSE), YL = c("low", "high"))
   yd$RY <- c(rep(10, 4), 20, 25, 15, 22)
-  yd <- yd[yd$YL == ifelse(FCY < 12.5, "low", "high"),]
+  yd <- yd[yd$YL == ifelse(FCY < 15, "low", "high"),]
   ds <- merge(ds, yd)
   ds$RP <- ds$RY * areaHa
 
