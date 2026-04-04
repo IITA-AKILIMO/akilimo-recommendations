@@ -7,6 +7,42 @@ Resolved items are removed; see git log for history.
 
 ---
 
+## Action List
+
+Check off each item after the fix is committed. Grouped by priority; tackle
+HIGH items before MEDIUM before LOW. Deferred items are listed separately and
+must not be worked on until explicitly planned.
+
+### HIGH — fix before next production release
+
+- [ ] **NEW-PP-1** `process-PP.R:31` — yield-class threshold `12.5` vs soil-data break `15`; misclassifies medium-yield farms
+- [ ] **NEW-IC-1** `process-IC.R:182` — `maizeUW` divided without zero/NA guard; produces silent NaN
+- [ ] **NEW-SP-1** `process-SP.R:154`, `optimize_fert.R` — QUEFTS calls inside loops with no `tryCatch()`; bad soil data crashes or silently corrupts recommendations
+- [ ] **NEW-NA-1** `AkilimoMain.R` (multiple) — `as.numeric(from_json(...))` produces silent NA on non-numeric input; add `safe_numeric()` helper
+
+### MEDIUM — fix in next maintenance window
+
+- [ ] **PERF-3** `process-SP.R:150–190` — row-by-row QUEFTS + getRFY loops (~256 iterations per SP request); vectorise when LOG-12 is unblocked
+- [ ] **NEW-DB-1** `akilimo_db.R:268,294,317` — DB functions only check for NULL connection, not for stale/dropped connections; add `tryCatch` + reconnect
+- [ ] **NEW-FERT-1** `fertilizers.R:82–89` — custom fertilizer merge failure logged as WARN only; recommendation silently uses default data; escalate to ERROR
+- [ ] **NEW-PARSE-1** `AkilimoMain.R:95–98` — `as.Date()` can return NA for edge-case strings even after regex check; assert non-NA immediately after conversion
+- [ ] **QUA-3** Multiple — magic numbers without named constants: `12.5`/`15` (PP), `7.64` (IC/pdf_builders), `seq(235,455,7)`, `34:65`, QUEFTS physiology constants
+- [ ] **NEW-SP-2** `process-SP.R:189` — yield scaling formula undocumented; no guard for FCY outside `[1.5, 13.5]`; add comment + `warning()` for out-of-range input
+- [ ] **QUA-6** `AkilimoMain.R:72`, `api.R` — version string hardcoded in two independent places; centralise (defer full semantic versioning to MNT-3)
+- [ ] **QUA-8** `process-SP.R`, `process-PP.R`, `process-FR.R` — large commented-out code blocks; delete (git history preserves them)
+- [ ] **ERR-7** `misc.R:139–162` — `getWMrecommendations` dead code with an AND/OR logic bug; remove until weed-management is scoped
+
+### LOW — clean up when convenient
+
+- [ ] **NEW-RESP-1** `AkilimoMain.R`, `api.R` — error and success response envelopes have different shapes; normalise to `{ status, version, data: {...} }`
+- [ ] **NEW-SEC-1** `html_helpers.R:255–268` — `mask_email()` retains full domain, leaking org affiliation; mask domain or drop email from PDF
+- [ ] **NEW-CASH-1** `html_helpers.R:472–480` — cash-stack ratio produces NaN/Inf when both amounts are zero; handle as special case
+- [ ] **NEW-COUNTRY-1** `AkilimoMain.R` — country code validation is case-sensitive; normalise with `toupper(trimws(...))` before the check
+- [ ] **NEW-UTIL-1** `html_helpers.R`, `markdown.R` — `%||%` defined in multiple files with subtly different semantics; consolidate into `misc.R`
+- [ ] **NEW-OPT-1** `optimize_fert.R` — dead `country` parameter in `run_Optim_NG2()`; remove from signature and call sites in `process-FR.R`
+
+---
+
 ## Open Issues — actionable, not yet scheduled
 
 ### CRITICAL / Blocking
