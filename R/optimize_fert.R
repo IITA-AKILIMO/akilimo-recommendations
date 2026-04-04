@@ -66,7 +66,13 @@ run_Optim_NG2 <- function(rootUP, QID, fertilizer, invest, WLYData, lat, lon, ar
 
 		# Yield possible at recommended NPK in kg/ha dry wt.
 		# TY for ha of land
-		TY <- QUEFTS(QID, rec)    
+		TY <- tryCatch(
+			QUEFTS(QID, rec),
+			error = function(e) {
+				log_write("WARN", "QUEFTS failed computing target yield:", conditionMessage(e))
+				DCY  # fall back to current yield so NR = 0 and result is zeroed below
+			}
+		)
 
 		## both CY and TY should be changed to user land size in ton/ha and fresh wt
 		TY_user <- ((getRFY(HD = HD, RDY = TY, country = "NG")) / 1000) * areaHa  # DEFERRED LOG-18: see comment above
@@ -127,7 +133,13 @@ optim_NR <- function(fertRate, rootUP, QID, CY, fertilizer, invest, HD, country,
 		as.vector(fertRate %*% fertilizer$P_cont),
 		as.vector(fertRate %*% fertilizer$K_cont)
 	)
-	yield <- QUEFTS(QID, rec)
+	yield <- tryCatch(
+		QUEFTS(QID, rec),
+		error = function(e) {
+			warning("QUEFTS failed in optim_NR: ", conditionMessage(e))
+			0
+		}
+	)
 
  ## chage in DM is converted to FW
 	AdditionalYield <- (yield - CY) / DC

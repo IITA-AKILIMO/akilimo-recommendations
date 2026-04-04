@@ -140,10 +140,12 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
 
 	WLY <- get_data("WLY_15M_ncdf", country, lon=lon, lat=lat)
 
-	if ((nrow(SoilData) == 0) || isTRUE(is.na(SoilData$soilN)) || (NROW(WLY) == 0)) {
+	if ((nrow(SoilData) == 0) || isTRUE(is.na(SoilData$soilN)) ||
+	    isTRUE(is.na(SoilData$soilP)) || isTRUE(is.na(SoilData$soilK)) ||
+	    (NROW(WLY) == 0)) {
 		return(NULL)
 	}
-   
+
 	WLY <- merge(WLY, data.frame(daysOnField = seq(235, 455, 7), haw = 34:65), by = "daysOnField")
 
 	# DEFERRED (LOG-12): QUEFTS() uses scalar max()/min() internally and cannot be
@@ -151,7 +153,19 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
 	# For a 2-month planting × 2-month harvest window this is ~256 iterations per request.
 	for (k in 1:nrow(WLY)) {
 		Qinw <- data.frame(SoilData, WLY=WLY$WLY[k])
-		WLY$Current_Yield[k] <- QUEFTS(Qinw, c(0,0,0), HI=.55) # in kg/ha dry
+		WLY$Current_Yield[k] <- tryCatch(
+			QUEFTS(Qinw, c(0,0,0), HI=.55), # in kg/ha dry
+			error = function(e) {
+				log_write("WARN", "SP: QUEFTS failed for row", k, "—", conditionMessage(e))
+				NA_real_
+			}
+		)
+	}
+	# Drop rows where QUEFTS could not produce a valid yield estimate.
+	WLY <- WLY[!is.na(WLY$Current_Yield), ]
+	if (nrow(WLY) == 0) {
+		log_write("WARN", "SP: all QUEFTS calls failed for", country, lon, lat)
+		return(NULL)
 	}
 
 #    yld <- unique(data.frame(plw = WLY$PlweekNr, haw = WLY$haw, CY = WLY$Current_Yield, WY = WLY$water_limited_yield)) ## is still dry weight
