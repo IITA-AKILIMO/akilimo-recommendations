@@ -24,6 +24,18 @@ tr <- function(key, lang, ...) {
 }
 
 
+# Convert x to numeric, stopping with a clear message if coercion fails.
+# Use in parse_request() for all fields that must be numeric. When the field is
+# absent from the JSON body, from_json() already returns the default_value, so
+# safe_numeric() only fires when the client sends an explicit non-numeric string.
+safe_numeric <- function(x, field_name) {
+  val <- suppressWarnings(as.numeric(x))
+  if (is.na(val))
+    stop(sprintf("Field '%s' must be numeric, got: %s", field_name, x))
+  val
+}
+
+
 # Returns the minimum net-revenue-to-cost multiplier for a given risk attitude.
 # A fertilizer application is recommended only when NR >= TC * min_nr_multiplier(riskAtt).
 #   riskAtt 0 — risk averse:    threshold = 1.8× cost (highest bar)

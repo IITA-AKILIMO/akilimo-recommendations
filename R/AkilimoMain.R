@@ -102,8 +102,8 @@ parse_request <- function(body) {
   saleSF <- from_json("saleSF", body, default_value = FALSE)
   nameSF <- from_json("nameSF", body, default_value = NA)
   cassPD <- from_json("cassPD", body, default_value = "roots")
-  cassUW <- as.numeric(from_json("cassUW", body, default_value = 1000))
-  cassUP <- as.numeric(from_json("cassUP", body, default_value = 0))
+  cassUW <- safe_numeric(from_json("cassUW", body, default_value = 1000), "cassUW")
+  cassUP <- safe_numeric(from_json("cassUP", body, default_value = 0), "cassUP")
   maxInv <- from_json("maxInv", body, default_value = NA)
   if (!isTRUE(maxInv > 0)) maxInv <- NA
 
@@ -174,7 +174,7 @@ dispatch_recommendations <- function(p, body) {
       if (maizePD == "grain") maizeUW <- as.numeric(as.character(maizeUW))
       if (!is.na(maizeUW) && maizeUW == 0) maizeUW <- NA
 
-      maizeUP <- as.numeric(from_json("maizeUP", body, default_value = 0))
+      maizeUP <- safe_numeric(from_json("maizeUP", body, default_value = 0), "maizeUP")
       if (!is.na(maizeUP) && maizeUP == 0) {
         maizeUW <- 1
         maizeUP <- if (maizePD == "fresh_cob") 50 else 230
@@ -311,7 +311,12 @@ run_akilimo <- function(json) {
   err <- validate_request(body)
   if (!is.null(err)) return(bad_request(err))
 
-  params <- parse_request(body)
+  params <- tryCatch(
+    parse_request(body),
+    error = function(e) bad_request(conditionMessage(e))
+  )
+  if (!is.null(params[["status"]])) return(params)
+
   set_temp_dir(setup_temp_dir(country = params$country,
                               rec_type = paste(params$selected_key, collapse = "_")))
 
