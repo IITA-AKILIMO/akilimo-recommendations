@@ -179,6 +179,8 @@ dispatch_recommendations <- function(p, body) {
         maizeUW <- 1
         maizeUP <- if (maizePD == "fresh_cob") 50 else 230
       }
+      if (maizePD == "grain" && (is.na(maizeUW) || maizeUW <= 0))
+        return(bad_request("maizeUW must be a positive number when maizePD is 'grain'"))
       cobUP <- ifelse(maizePD == "fresh_cob", maizeUP, maizeUP / maizeUW / 7.64)
 
       process_IC_NG(
