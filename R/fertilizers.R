@@ -82,8 +82,8 @@ get_fertilizers2 <- function(js, country) {
 	fd <- tryCatch(
 		rbind(fd, d_new),
 		error = function(e) {
-			warning("Failed to merge custom fertilizer data: ", e$message,
-					" — custom fertilizers ignored")
+			log_write("ERROR", "fertilizers: custom fertilizer merge failed —",
+			          conditionMessage(e), "— custom fertilizers ignored")
 			fd
 		}
 	)
