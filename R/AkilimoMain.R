@@ -1,6 +1,7 @@
 bad_request <- function(msg) {
-  list(status = jsonlite::unbox("400 - bad request"),
-       data = list(message = jsonlite::unbox(msg)))
+  list(status  = jsonlite::unbox("400 - bad request"),
+       version = jsonlite::unbox(AKI_VERSION),
+       data    = list(message = jsonlite::unbox(msg)))
 }
 
 validate_request <- function(body) {
@@ -337,7 +338,11 @@ build_response <- function(result) {
   if (is.null(result)) return(bad_request("No valid recommendation found"))
   result$recommendation <- jsonlite::unbox(gsub("[ ]+", " ", result$recommendation %||% ""))
   result$rec_type <- jsonlite::unbox(result$rec_type)
-  c(list(status = jsonlite::unbox("success"), version = jsonlite::unbox(AKI_VERSION)), result)
+  list(
+    status  = jsonlite::unbox("success"),
+    version = jsonlite::unbox(AKI_VERSION),
+    data    = result
+  )
 }
 
 
