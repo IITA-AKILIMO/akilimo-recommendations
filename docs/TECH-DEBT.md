@@ -1,6 +1,6 @@
 # Technical Debt & Open Issues
 
-**Last reviewed:** 2026-04-04 (re-reviewed after HIGH fixes and linter pass)
+**Last reviewed:** 2026-04-05 (all HIGH and MEDIUM items resolved; LOW items resolved)
 
 This file tracks all confirmed open issues and deferred technical debt.
 Resolved items are removed; see git log for history.
@@ -34,12 +34,12 @@ must not be worked on until explicitly planned.
 
 ### LOW — clean up when convenient
 
-- [ ] **NEW-RESP-1** `AkilimoMain.R`, `api.R` — error and success response envelopes have different shapes; normalise to `{ status, version, data: {...} }`
-- [ ] **NEW-SEC-1** `html_helpers.R:255–268` — `mask_email()` retains full domain, leaking org affiliation; mask domain or drop email from PDF
-- [ ] **NEW-CASH-1** `html_helpers.R:472–480` — cash-stack ratio produces NaN/Inf when both amounts are zero; handle as special case
-- [ ] **NEW-COUNTRY-1** `AkilimoMain.R` — country code validation is case-sensitive; normalise with `toupper(trimws(...))` before the check
-- [ ] **NEW-UTIL-1** `html_helpers.R`, `markdown.R` — `%||%` defined in multiple files with subtly different semantics; consolidate into `misc.R`
-- [ ] **NEW-OPT-1** `optimize_fert.R` — dead `country` parameter in `run_Optim_NG2()`; remove from signature and call sites in `process-FR.R`
+- [x] **NEW-RESP-1** `AkilimoMain.R`, `api.R` — error and success response envelopes have different shapes; normalise to `{ status, version, data: {...} }` — fixed 4c842d0 (**breaking change**: success fields moved under `data`)
+- [x] **NEW-SEC-1** `html_helpers.R:255–268` — `mask_email()` retains full domain, leaking org affiliation; mask domain, keep TLD only — fixed e93a726
+- [x] **NEW-CASH-1** `html_helpers.R:472–480` — cash-stack ratio produces NaN/Inf when both amounts are zero — fixed f1484df
+- [x] **NEW-COUNTRY-1** `AkilimoMain.R` — country code validation is case-sensitive; normalise with `toupper(trimws(...))` — fixed 197bd13
+- [x] **NEW-UTIL-1** `html_helpers.R`, `markdown.R` — `%||%` defined in multiple files; consolidated into `misc.R` — fixed 791e006
+- [x] **NEW-OPT-1** `optimize_fert.R` — dead `country` parameter in `run_Optim_NG2()`; removed from signature and call sites — fixed 5302681
 - [x] **NEW-LOG-1** `fertilizers.R:85` — custom fertilizer merge warning uses `warning()` while all other modules use `log_write()`; inconsistent — fixed f08eaa1 (resolved as part of NEW-FERT-1)
 
 ---
