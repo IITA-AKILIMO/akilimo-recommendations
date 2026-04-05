@@ -536,11 +536,6 @@ html_table <- function(df, col_names = NULL) {
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
 
-#' NULL / empty-string coalescing operator.
-`%||%` <- function(x, y) {
-  if (!is.null(x) && length(x) > 0 && !is.na(x[1]) && nzchar(trimws(x[1]))) x else y
-}
-
 #' HTML-escape special characters.
 htmlEscape <- function(x) {
   x <- gsub("&",  "&amp;",  as.character(x), fixed = TRUE)

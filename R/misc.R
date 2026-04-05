@@ -1,7 +1,19 @@
 
-# Look up a translation string by key and country.
-# Falls back to "NG" (English) when the key is absent or blank for the given country.
-# Stops with an error if the key is missing entirely.
+# ---------------------------------------------------------------------------
+# %||% — NULL / empty-string coalescing operator
+#
+# Returns y when x is NULL, zero-length, NA, or a blank string.
+# Returns x otherwise.
+#
+# Defined here (misc.R, sourced first) so it is available to every module
+# including akilimo_db.R which is sourced before html_helpers.R.
+# The definition in html_helpers.R was the prior home; removed there (NEW-UTIL-1).
+# ---------------------------------------------------------------------------
+`%||%` <- function(x, y) {
+  if (!is.null(x) && length(x) > 0 && !is.na(x[1]) && nzchar(trimws(x[1]))) x else y
+}
+
+
 # ---------------------------------------------------------------------------
 # Named constants — replace magic numbers throughout the codebase
 # ---------------------------------------------------------------------------
