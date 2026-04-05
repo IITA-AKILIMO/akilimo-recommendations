@@ -2,6 +2,36 @@
 # Look up a translation string by key and country.
 # Falls back to "NG" (English) when the key is absent or blank for the given country.
 # Stops with an error if the key is missing entirely.
+# ---------------------------------------------------------------------------
+# Named constants — replace magic numbers throughout the codebase
+# ---------------------------------------------------------------------------
+
+# Maize cobs-to-grain conversion: approximately 7.64 fresh cobs per 1 kg of
+# shelled grain.  Used in dispatch_recommendations() (AkilimoMain.R) to
+# convert a per-cob maize price to a per-kg-grain price, and in
+# pdf_builders.R to back-convert extra grain to cobs for display.
+MAIZE_COBS_PER_KG_GRAIN <- 7.64
+
+# SP harvest-age window (days on field) modelled by the WLY NetCDF rasters.
+# seq(235, 455, 7) produces 32 values (235, 242, ..., 452).
+# Corresponding week numbers: 34:65 (32 values; merged by position after daysOnField join).
+SP_HAW_DAYS_MIN   <- 235L   # minimum harvest age in days
+SP_HAW_DAYS_MAX   <- 455L   # maximum harvest age in days (seq upper bound, last step = 452)
+SP_HAW_DAYS_STEP  <- 7L     # weekly step
+SP_HAW_WEEKS_MIN  <- 34L    # minimum harvest age in weeks (= first row week number)
+SP_HAW_WEEKS_MAX  <- 65L    # maximum harvest age in weeks (= last row week number)
+
+# SP yield-scaling formula bounds (tonnes/ha fresh weight, per-ha basis).
+# FCY values outside [SP_FCY_MIN, SP_FCY_MAX] are outside the interpolation
+# range; the formula extrapolates silently — see NEW-SP-2 guard in process-SP.R.
+SP_FCY_MIN <- 1.5    # lower FCY bound (t/ha FW)
+SP_FCY_MAX <- 13.5   # upper FCY bound (t/ha FW)
+SP_FCY_DIV <- 2.5    # divisor used in the linear scaling expression
+
+
+# Look up a translation string by key and country.
+# Falls back to "NG" (English) when the key is absent or blank for the given country.
+# Stops with an error if the key is missing entirely.
 tr <- function(key, lang, ...) {
     tbl <- get_data("TRNS")
     known_langs <- setdiff(names(tbl), "key")   # e.g. c("en", "sw")

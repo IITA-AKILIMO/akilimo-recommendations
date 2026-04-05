@@ -142,8 +142,7 @@ getICrecText <- function(x, maizePD, lang, country) {
         fs$rate_fmt <- formatC(round(fs$rate), format = "f", big.mark = ",", digits = 0)
 
         if (maizePD == "grain") {
-            # 1 kg of grain ~ 7.64 cobs
-            dMP_fmt <- formatC(round(dMP / 7.64, digits = 0), format = "f", big.mark = ",", digits = 0)
+            dMP_fmt <- formatC(round(dMP / MAIZE_COBS_PER_KG_GRAIN, digits = 0), format = "f", big.mark = ",", digits = 0)
             recF <- paste0(
                 tr("werec", lang), "\n",
                 paste0(fs$rate_fmt, tr("kgof", lang), fs$type, collapse = "\n"), "\n",

@@ -294,7 +294,7 @@ build_ic_pdf <- function(rr, user, country,
   if (subtype == "IC") {
     dMP <- as.numeric(rr$data$dMP)
     if (!is.null(rr$maizePD) && rr$maizePD == "grain") {
-      extra_prod_val <- formatC(round(dMP / 7.64, digits = 0), format = "f", big.mark = ",", digits = 0)
+      extra_prod_val <- formatC(round(dMP / MAIZE_COBS_PER_KG_GRAIN, digits = 0), format = "f", big.mark = ",", digits = 0)
       extra_prod_str <- sprintf(html_label("extra_maize_grain_fmt", lang), extra_prod_val)
     } else {
       extra_prod_str <- sprintf(html_label("extra_maize_cobs_fmt", lang), formatC(round(dMP, digits = 0), format = "f", big.mark = ",", digits = 0))

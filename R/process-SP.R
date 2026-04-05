@@ -146,7 +146,10 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
 		return(NULL)
 	}
 
-	WLY <- merge(WLY, data.frame(daysOnField = seq(235, 455, 7), haw = 34:65), by = "daysOnField")
+	WLY <- merge(WLY, data.frame(
+		daysOnField = seq(SP_HAW_DAYS_MIN, SP_HAW_DAYS_MAX, SP_HAW_DAYS_STEP),
+		haw = SP_HAW_WEEKS_MIN:SP_HAW_WEEKS_MAX
+	), by = "daysOnField")
 
 	# DEFERRED (LOG-12): QUEFTS() uses scalar max()/min() internally and cannot be
 	# vectorised without a major rewrite of quefts.R. Each row requires a separate call.
