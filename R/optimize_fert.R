@@ -14,7 +14,7 @@
 #' @param WLY water limitied yeild
 #' @param DCY dry current wt, the output of QUEFTS
 #' @param country
-run_Optim_NG2 <- function(rootUP, QID, fertilizer, invest, WLYData, lat, lon, areaHa, HD, country) {
+run_Optim_NG2 <- function(rootUP, QID, fertilizer, invest, WLYData, lat, lon, areaHa, HD) {
 
 	DCY <- WLYData$Current_Yield
 	QID$WLY <- WLY <- WLYData$WLY
@@ -46,10 +46,10 @@ run_Optim_NG2 <- function(rootUP, QID, fertilizer, invest, WLYData, lat, lon, ar
 	
 ## this is where the optimization is done, and thereuslt is the NPK rate that gives max profit
 	invest[is.na(invest)] <- Inf
-	FR <- optim(par = initial, fn = optim_NR, lower = lowerST, method = "L-BFGS-B", 
+	FR <- optim(par = initial, fn = optim_NR, lower = lowerST, method = "L-BFGS-B",
 		control = list(fnscale = -1, ndeps=rep(1, length(initial))),
-		rootUP = rootUP, QID = QID, CY = DCY, fertilizer = fertilizer, 
-		invest = invest, HD = HD, country = country, DC=DC)$par
+		rootUP = rootUP, QID = QID, CY = DCY, fertilizer = fertilizer,
+		invest = invest, HD = HD, DC=DC)$par
 
 	if (all(FR == 0)) {
 		return(data.frame(lat = lat, lon = lon, plDate, N = 0, P = 0, K = 0, WLY = WLY_user, CurrentY = CY_user, TargetY = 	CY_user, TC = 0, NR = 0))
@@ -122,10 +122,9 @@ run_Optim_NG2 <- function(rootUP, QID, fertilizer, invest, WLYData, lat, lon, ar
 #' @param fertilizer fertilizer types and prices
 #' @param invest investment capacity
 #' @param HD harvest date
-#' @param country
 
 
-optim_NR <- function(fertRate, rootUP, QID, CY, fertilizer, invest, HD, country, DC) {
+optim_NR <- function(fertRate, rootUP, QID, CY, fertilizer, invest, HD, DC) {
 
 	TC <- sum(round(fertRate) * fertilizer$price)
 	rec <- c(
