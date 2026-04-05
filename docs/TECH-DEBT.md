@@ -25,7 +25,7 @@ must not be worked on until explicitly planned.
 - [ ] **PERF-3** `process-SP.R:150–190` — row-by-row QUEFTS + getRFY loops (~256 iterations per SP request); vectorise when LOG-12 is unblocked
 - [ ] **NEW-DB-1** `akilimo_db.R:268,294,317` — DB functions only check for NULL connection, not for stale/dropped connections; add `tryCatch` + reconnect
 - [ ] **NEW-FERT-1** `fertilizers.R:82–89` — custom fertilizer merge failure logged as WARN only and uses `warning()` instead of `log_write()`; recommendation silently uses default data; escalate to ERROR and switch to `log_write("ERROR", ...)`
-- [ ] **NEW-PARSE-1** `AkilimoMain.R:95–98` — `as.Date()` can return NA for edge-case strings even after regex check; assert non-NA immediately after conversion
+- [x] **NEW-PARSE-1** `AkilimoMain.R:95–98` — `as.Date()` can return NA for edge-case strings even after regex check; assert non-NA immediately after conversion — fixed 0cc9881
 - [ ] **QUA-3** Multiple — magic numbers without named constants: `7.64` (IC/pdf_builders), `seq(235,455,7)`, `34:65` (SP harvest window), QUEFTS physiology constants
 - [ ] **NEW-SP-2** `process-SP.R:189` — yield scaling formula undocumented; no guard for FCY outside `[1.5, 13.5]`; add comment + `warning()` for out-of-range input
 - [ ] **QUA-6** `AkilimoMain.R:72`, `api.R` — version string hardcoded in two independent places; centralise (defer full semantic versioning to MNT-3)
@@ -153,15 +153,12 @@ investigate. See also NEW-LOG-1 for the logging inconsistency.
 
 ---
 
-**NEW-PARSE-1 — NA from `as.Date()` not caught before dispatch (`AkilimoMain.R:95–98`)**
+**NEW-PARSE-1 — NA from `as.Date()` not caught before dispatch (`AkilimoMain.R:95–98`)** ✅ fixed 0cc9881
 
-`validate_request()` checks date string format with a regex, but does not guard
-against `as.Date()` returning NA for edge-case strings (e.g. `"0000-00-00"`).
-The NA propagates into processors that call `strftime(PD, ...)` and fail with a
-confusing error.
-
-Fix: after `as.Date()`, assert `!is.na(PD) && !is.na(HD)` and return
-`bad_request()` on failure.
+Switched `default_value=0` → `NA_character_` (numeric 0 bypassed the format arg,
+silently producing 1970-01-01). Added `stop()` guard for edge-case strings that
+pass the regex but fail `as.Date()` (e.g. `"0000-00-00"`). Safe because
+`parse_request()` is wrapped in `tryCatch → bad_request()` in `run_akilimo()`.
 
 ---
 
