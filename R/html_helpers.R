@@ -471,8 +471,14 @@ html_fertilizer_table <- function(fr, area, areaUnits, currency,
 #' @param lang          Language code.
 #' @return character(1)
 html_cost_benefit <- function(sum_total, totalSale, netRevenue, currency, lang = "en") {
-  # Compute cash-stack ratios
-  if (min(sum_total, netRevenue) == sum_total) {
+  # Compute cash-stack ratios.
+  # Guard: when both cost and net revenue are zero the divisor is 0 and all
+  # ratios would be NaN/Inf.  Render a flat 1:1:1 stack in that case.
+  if (isTRUE(sum_total == 0) && isTRUE(netRevenue == 0)) {
+    ratio_cost    <- 1L
+    ratio_sale    <- 1L
+    ratio_revenue <- 1L
+  } else if (min(sum_total, netRevenue) == sum_total) {
     ratio_cost    <- 1L
     ratio_sale    <- max(1L, min(10L, as.integer(round(totalSale   / sum_total))))
     ratio_revenue <- max(1L, min(10L, as.integer(round(netRevenue  / sum_total))))
