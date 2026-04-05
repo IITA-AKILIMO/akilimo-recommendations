@@ -81,7 +81,6 @@ rerun_25kgha <- function(rootUP, rdd, fertilizer, QID, onlyFert25, country, WLY 
 	rdd$TC <- round(sum(fertilizer$price * fert) * areaHa, -2)
 	rdd$NR <- round((rdd$TargetY - rdd$CurrentY) * rootUP, -2) - rdd$TC
 
-#	rdd <- subset(rdd, select = c(lat, lon, plDate, N, P, K, WLY, CurrentY, TargetY, TC, NR))
 	if ((rdd$NR <= 0) | (rdd$TargetY <= rdd$CurrentY)) {
 		rdd$N <- rdd$P <- rdd$K <- rdd$TC <- rdd$NR <- 0
 		rdd$TargetY <- rdd$CurrentY
@@ -157,30 +156,21 @@ getFRrecommendations <- function(lat, lon, HD, PD, maxInv, fertilizers, rootUP, 
 		data.frame(type=names(x), rate=as.numeric(unlist(x)))
 	}
 
-	# Calculate planting and harvest dates/weeks
-	pd <- as.numeric(strftime(PD, format = "%j"))  # Planting day of year
-	pw <- as.numeric(strftime(PD, format = "%W"))  # Planting week of year
-	#hd <- as.numeric(strftime(HD, format = "%j"))  # Harvest day of year
-	#hw <- as.numeric(strftime(HD, format = "%W"))  # Harvest week of year
+	pd  <- as.numeric(strftime(PD, format = "%j"))  # Planting day of year
+	pw  <- as.numeric(strftime(PD, format = "%W"))  # Planting week of year
 	had <- as.numeric(difftime(HD, PD, units = "days"))  # Age in days
-	#haw <- round(had / 7)                                # Age in weeks
 
-## get WLY:get PDand HD to the closest daes fr which we have WLY
 	WLY_365 <- get_data("WLY_365", country=country, lon=lon, lat=lat)
-	
-	#wlyPD <- unique(WLY_365$pl_Date)
+
 	wlyPD <- seq(1, 365, 7)
-	PD2 <- wlyPD[which.min(abs(pd - wlyPD))]
-	wlyHD <- seq(214, 455, 7) # need to check the logic here 
-	HD2 <- wlyHD[which.min(abs(had - wlyHD))]
+	PD2   <- wlyPD[which.min(abs(pd - wlyPD))]
+	wlyHD <- seq(214, 455, 7)
+	HD2   <- wlyHD[which.min(abs(had - wlyHD))]
 
-##WLY_15M[WLY_15M$long == lonr & WLY_15M$lat == latr, ]
-	wlypd <- WLY_365[WLY_365$pl_Date == PD2,] 
-
-  #  wlypd <- WLY_365[WLY_365$lon==lon2 & WLY_365$lat == lat2 & WLY_365$pl_Date == PD2, ]
+	wlypd <- WLY_365[WLY_365$pl_Date == PD2,]
 	if (nrow(wlypd) == 0) {
-		return(list(data = NULL, fertilizer_rates = NULL))	
-	} 
+		return(list(data = NULL, fertilizer_rates = NULL))
+	}
 
 	WLYdata <- wlypd[, c("lat", "lon", HD2, "pl_Date")]
 	colnames(WLYdata)[3] <- "WLY"
@@ -194,12 +184,6 @@ getFRrecommendations <- function(lat, lon, HD, PD, maxInv, fertilizers, rootUP, 
 	Qinw <- data.frame(SoilData, WLY=WLYdata$WLY)
 	WLYdata$Current_Yield <- QUEFTS(Qinw, c(0,0,0), HI=.55)
 
-    #############################
-    ## 1. get WLY, CY, fert recom and soil data
-#    WLY <- WLYdata$WLY ## DM in kg/ha
-#    DCY <- WLYdata$Current_Yield ## DM in kg/ha
-
-    ## 2. change investment from given areaHa to 1ha
     InvestHa <- (maxInv / areaHa)
 
 ## 3. optimize the fertilizer recommendation for maxInv in local currency and provide expected target yield in kg

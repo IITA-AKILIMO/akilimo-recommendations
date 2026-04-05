@@ -38,17 +38,9 @@ getPPrecommendations <- function(areaHa, costLMO,
   ds$NR <- ds$GR - ds$TC
 
 
-#  ds <- subset(ds, select = -c(cost_ploughing, cost_ridging, cost_weeding, YL, RY))
-  #order by decreasing net revenue, increasing ridging and increasing ploughing so that recommendation is first row
+  # Order by decreasing net revenue, increasing ridging, increasing ploughing
+  # so the recommended row is always first.
   ds <- ds[order(-ds$NR, ds$ridging, ds$ploughing),]
-
-  #comparing to current practice
-  # Create a logical column 'CP' based on conditions
-  # bad!
-  #ds$CP <- with(ds, ploughing == ploughing &
-  #  method_ploughing == method_ploughing &
-  #  ridging == ridging &
-  #  method_ridging == method_ridging)
 
   # Mark the row that matches the farmer's current practice.
   # ds$ploughing / ds$ridging are column vectors; ploughing / ridging are scalar flags from the request.
@@ -56,22 +48,6 @@ getPPrecommendations <- function(areaHa, costLMO,
            (ds$ridging   == ridging)   &
            (!ploughing | ds$method_ploughing == method_ploughing) &
            (!ridging   | ds$method_ridging   == method_ridging)
-
-# Calculate the differences only for rows where 'CP' is TRUE
-# bad: there must be one that is true...
-#  if (any(ds$CP)) {
-#    cp_values <- ds[ds$CP,]
-#    ds$dTC <- ds$TC - cp_values$TC
-#    ds$dRP <- ds$RP - cp_values$RP
-#    ds$dGR <- ds$GR - cp_values$GR
-#    ds$dNR <- ds$NR - cp_values$NR
-#  } else {
-#    # Handle case where no rows match the 'CP' condition
-#    ds$dTC <- ds$TC
-#    ds$dRP <- ds$RP
-#    ds$dGR <- ds$GR
-#    ds$dNR <- ds$NR
-#  }
 
   cp_idx <- which(ds$CP)
   if (length(cp_idx) == 0) {

@@ -123,21 +123,7 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
 			PD, HD, PD_window, HD_window, saleSF, nameSF, FCY, 
 			rootUP, rootUP_m1, rootUP_m2, rootUP_p1, rootUP_p2) {
 
-  #rounding lat and lon to centroid of 5x5km pixel
-  #latr <- as.factor(floor(lat * 10) / 10 + ifelse(lat - (floor(lat * 10) / 10) < 0.05, 0.025, 0.075))
-  #lonr <- as.factor(floor(lon * 10) / 10 + ifelse(lat - (floor(lon * 10) / 10) < 0.05, 0.025, 0.075))
-  #                                                --- note the error 
-  #latr <- as.numeric(levels(latr))
-  #lonr <- as.numeric(levels(lonr))
- 
   SoilData <- get_data("soil_NPK-4", lon=lon, lat=lat)
-  
-	# it takes more than 10 seconds to read this, need to use a better apporach
-#	WLY <- get_data("WLY_15M", country)
-#	latlon <- paste(latr, lonr, sep = "_")
-	##WLY_15M[WLY_15M$long == lonr & WLY_15M$lat == latr, ]
-#	WLY <- WLY[WLY$location == latlon,] 
-
 	WLY <- get_data("WLY_15M_ncdf", country, lon=lon, lat=lat)
 
 	if ((nrow(SoilData) == 0) || isTRUE(is.na(SoilData$soilN)) ||
@@ -171,9 +157,7 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
 		return(NULL)
 	}
 
-#    yld <- unique(data.frame(plw = WLY$PlweekNr, haw = WLY$haw, CY = WLY$Current_Yield, WY = WLY$water_limited_yield)) ## is still dry weight
-
-    yld <- unique(data.frame(plw = WLY$PlweekNr, haw = WLY$haw, CY = WLY$Current_Yield, WY = WLY$WLY)) ## is still dry weight
+    yld <- unique(data.frame(plw = WLY$PlweekNr, haw = WLY$haw, CY = WLY$Current_Yield, WY = WLY$WLY))
 
     yld$CY <- round(yld$CY / 1000)
     yld$WY <- round(yld$WY / 1000)
@@ -185,7 +169,6 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
     ds$PD <- as.Date(PD) + ds$rPWnr * 7
     ds$HD <- as.Date(HD) + ds$rHWnr * 7
 
-    # ds <- droplevels(ds[ds$PD >= Sys.Date(),])
     ds$plw <- as.numeric(format(ds$PD, format = "%W")) + 1
     ds$haw <- round(as.numeric(ds$HD - ds$PD) / 7)
 
