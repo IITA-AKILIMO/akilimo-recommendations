@@ -333,17 +333,15 @@ dispatch_recommendations <- function(p, body) {
 }
 
 
-build_response <- function(result, aki_version) {
+build_response <- function(result) {
   if (is.null(result)) return(bad_request("No valid recommendation found"))
   result$recommendation <- jsonlite::unbox(gsub("[ ]+", " ", result$recommendation %||% ""))
   result$rec_type <- jsonlite::unbox(result$rec_type)
-  c(list(status = jsonlite::unbox("success"), version = jsonlite::unbox(aki_version)), result)
+  c(list(status = jsonlite::unbox("success"), version = jsonlite::unbox(AKI_VERSION)), result)
 }
 
 
 run_akilimo <- function(json) {
-
-  aki_version <- "20251228"
 
   body <- try(jsonlite::fromJSON(json))
   if (inherits(body, "try-error")) return(bad_request("Malformed JSON body"))
@@ -419,7 +417,7 @@ run_akilimo <- function(json) {
     }
   }
 
-  build_response(result, aki_version)
+  build_response(result)
 }
 
 

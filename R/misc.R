@@ -21,6 +21,10 @@ SP_HAW_DAYS_STEP  <- 7L     # weekly step
 SP_HAW_WEEKS_MIN  <- 34L    # minimum harvest age in weeks (= first row week number)
 SP_HAW_WEEKS_MAX  <- 65L    # maximum harvest age in weeks (= last row week number)
 
+# API version string — single source of truth used by run_akilimo() and the
+# /health endpoint.  Update here only; see also MNT-3 (full semantic versioning).
+AKI_VERSION <- "20251228"
+
 # SP yield-scaling formula bounds (tonnes/ha fresh weight, per-ha basis).
 # FCY values outside [SP_FCY_MIN, SP_FCY_MAX] are outside the interpolation
 # range; the formula extrapolates silently — see NEW-SP-2 guard in process-SP.R.
