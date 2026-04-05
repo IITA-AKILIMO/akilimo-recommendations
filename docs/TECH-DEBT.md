@@ -23,14 +23,14 @@ must not be worked on until explicitly planned.
 ### MEDIUM — fix in next maintenance window
 
 - [ ] **PERF-3** `process-SP.R:150–190` — row-by-row QUEFTS + getRFY loops (~256 iterations per SP request); vectorise when LOG-12 is unblocked
-- [ ] **NEW-DB-1** `akilimo_db.R:268,294,317` — DB functions only check for NULL connection, not for stale/dropped connections; add `tryCatch` + reconnect
-- [ ] **NEW-FERT-1** `fertilizers.R:82–89` — custom fertilizer merge failure logged as WARN only and uses `warning()` instead of `log_write()`; recommendation silently uses default data; escalate to ERROR and switch to `log_write("ERROR", ...)`
+- [x] **NEW-DB-1** `akilimo_db.R:268,294,317` — DB functions only check for NULL connection, not for stale/dropped connections; add `tryCatch` + reconnect — fixed dbea2fb
+- [x] **NEW-FERT-1** `fertilizers.R:82–89` — custom fertilizer merge failure logged as WARN only and uses `warning()` instead of `log_write()`; recommendation silently uses default data; escalate to ERROR and switch to `log_write("ERROR", ...)` — fixed f08eaa1 (also fixes NEW-LOG-1)
 - [x] **NEW-PARSE-1** `AkilimoMain.R:95–98` — `as.Date()` can return NA for edge-case strings even after regex check; assert non-NA immediately after conversion — fixed 0cc9881
-- [ ] **QUA-3** Multiple — magic numbers without named constants: `7.64` (IC/pdf_builders), `seq(235,455,7)`, `34:65` (SP harvest window), QUEFTS physiology constants
-- [ ] **NEW-SP-2** `process-SP.R:189` — yield scaling formula undocumented; no guard for FCY outside `[1.5, 13.5]`; add comment + `warning()` for out-of-range input
-- [ ] **QUA-6** `AkilimoMain.R:72`, `api.R` — version string hardcoded in two independent places; centralise (defer full semantic versioning to MNT-3)
-- [ ] **QUA-8** `process-SP.R`, `process-PP.R`, `process-FR.R` — large commented-out code blocks; delete (git history preserves them)
-- [ ] **ERR-7** `misc.R:139–162` — `getWMrecommendations` dead code with an AND/OR logic bug; remove until weed-management is scoped
+- [x] **QUA-3** Multiple — magic numbers without named constants: `7.64` (IC/pdf_builders), `seq(235,455,7)`, `34:65` (SP harvest window) — fixed 9483b2c (QUEFTS constants deferred, quefts.R rewrite risk)
+- [x] **NEW-SP-2** `process-SP.R:189` — yield scaling formula undocumented; no guard for FCY outside `[1.5, 13.5]`; add comment + `warning()` for out-of-range input — fixed 089310d
+- [x] **QUA-6** `AkilimoMain.R:72`, `api.R` — version string hardcoded in two independent places; centralise (defer full semantic versioning to MNT-3) — fixed e45b701
+- [x] **QUA-8** `process-SP.R`, `process-PP.R`, `process-FR.R` — large commented-out code blocks; delete (git history preserves them) — fixed bc73680
+- [x] **ERR-7** `misc.R:139–162` — `getWMrecommendations` dead code with an AND/OR logic bug; remove until weed-management is scoped — fixed e546a24
 
 ### LOW — clean up when convenient
 
@@ -40,7 +40,7 @@ must not be worked on until explicitly planned.
 - [ ] **NEW-COUNTRY-1** `AkilimoMain.R` — country code validation is case-sensitive; normalise with `toupper(trimws(...))` before the check
 - [ ] **NEW-UTIL-1** `html_helpers.R`, `markdown.R` — `%||%` defined in multiple files with subtly different semantics; consolidate into `misc.R`
 - [ ] **NEW-OPT-1** `optimize_fert.R` — dead `country` parameter in `run_Optim_NG2()`; remove from signature and call sites in `process-FR.R`
-- [ ] **NEW-LOG-1** `fertilizers.R:85` — custom fertilizer merge warning uses `warning()` while all other modules use `log_write()`; inconsistent; switch to `log_write("WARN", ...)`
+- [x] **NEW-LOG-1** `fertilizers.R:85` — custom fertilizer merge warning uses `warning()` while all other modules use `log_write()`; inconsistent — fixed f08eaa1 (resolved as part of NEW-FERT-1)
 
 ---
 
