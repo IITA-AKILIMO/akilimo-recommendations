@@ -202,8 +202,18 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
       ds$RFWY[k] <- getRFY(HD = ds$HD[k], RDY = ds$WY[k], country = "NG")
     }
 
-    #scaling predicted yield based on farmer-reported current yield relative to modelled CY and WY:
-    ds$RY <- (ds$RFWY - ds$RFCY) / (13.5 - 1.5) / 2.5 * (FCY - 1.5 * 2.5) + ds$RFCY
+    # Scale predicted yield to farmer's self-reported current yield (FCY, t/ha FW).
+    # Linear interpolation between RFCY (at FCY = SP_FCY_MIN) and RFWY (at FCY = SP_FCY_MAX):
+    #   RY = RFCY + (RFWY - RFCY) * (FCY - SP_FCY_MIN * SP_FCY_DIV)
+    #                               / ((SP_FCY_MAX - SP_FCY_MIN) * SP_FCY_DIV)
+    # Simplifies to the expression below.  When FCY = SP_FCY_MIN * SP_FCY_DIV (= 3.75),
+    # the multiplier is zero and RY == RFCY regardless of yield potential (design intent).
+    if (FCY < SP_FCY_MIN || FCY > SP_FCY_MAX) {
+        warning(sprintf(
+            "getSPrecommendations: FCY %.2f is outside the expected range [%.1f, %.1f] t/ha — yield scaling will extrapolate",
+            FCY, SP_FCY_MIN, SP_FCY_MAX))
+    }
+    ds$RY <- (ds$RFWY - ds$RFCY) / (SP_FCY_MAX - SP_FCY_MIN) / SP_FCY_DIV * (FCY - SP_FCY_MIN * SP_FCY_DIV) + ds$RFCY
     ds$RP <- ds$RY * areaHa
 
     #If selling to a starch factory: rootUP is determined by starch content of roots
