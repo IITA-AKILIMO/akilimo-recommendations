@@ -243,20 +243,23 @@ html_three_col <- function(col1, col2, col3) {
 
 # ── PII masking ───────────────────────────────────────────────────────────────
 
-#' Mask an email address for display, retaining the first character and domain.
-#' E.g. "user@example.com" → "u***r@example.com".
+#' Mask an email address for display.
+#' Local part: first + last character retained, middle replaced with ***.
+#' Domain: replaced with ***, keeping only the TLD to avoid leaking org affiliation.
+#' E.g. "user@cgiar.org" → "u***r@***.org".
 mask_email <- function(x) {
   x <- trimws(as.character(x %||% ""))
   if (!grepl("@", x, fixed = TRUE)) return("***")
   at_pos <- regexpr("@", x, fixed = TRUE)
   local  <- substr(x, 1, at_pos - 1)
   domain <- substr(x, at_pos + 1, nchar(x))
-  masked <- if (nchar(local) <= 2) {
+  masked_local <- if (nchar(local) <= 2) {
     paste0(substr(local, 1, 1), "***")
   } else {
     paste0(substr(local, 1, 1), "***", substr(local, nchar(local), nchar(local)))
   }
-  paste0(masked, "@", domain)
+  tld <- sub("^.*\\.", "", domain)
+  paste0(masked_local, "@***.", tld)
 }
 
 # ── Personal info ─────────────────────────────────────────────────────────────
