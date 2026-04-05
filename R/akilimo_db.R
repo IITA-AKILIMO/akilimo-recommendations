@@ -260,29 +260,49 @@ seed_akilimo_db <- function(conn) {
 }
 
 # ---------------------------------------------------------------------------
+# .assert_db_conn()
+# Internal: returns the connection, stopping with a clear diagnostic if it
+# is NULL (never opened) or no longer valid (OS closed the handle, SQLite
+# file deleted, etc.).  Use at the top of every public reader function.
+# ---------------------------------------------------------------------------
+
+.assert_db_conn <- function() {
+    conn <- .akilimo_db_conn
+    if (is.null(conn))
+        stop("akilimo_db: connection not open — call open_akilimo_db() first")
+    if (!DBI::dbIsValid(conn))
+        stop("akilimo_db: connection is no longer valid — restart the server to reconnect")
+    conn
+}
+
+# ---------------------------------------------------------------------------
 # get_default_prices(country)
 # Returns data.frame with columns Country, Item, Price  (matching old CSV)
 # ---------------------------------------------------------------------------
 
 get_default_prices <- function(country = NULL) {
-    conn <- .akilimo_db_conn
-    if (is.null(conn)) stop("akilimo_db: connection not open — call open_akilimo_db() first")
+    conn <- .assert_db_conn()
 
     # NULL country returns all rows — matches old CSV behaviour where callers
     # (e.g. fertilizers.R) load the full table and filter themselves.
-    if (is.null(country)) {
-        DBI::dbGetQuery(conn,
-            "SELECT country AS Country, item AS Item, price AS Price
-             FROM default_prices"
-        )
-    } else {
-        DBI::dbGetQuery(conn,
-            "SELECT country AS Country, item AS Item, price AS Price
-             FROM default_prices
-             WHERE country = ?",
-            params = list(country)
-        )
-    }
+    tryCatch({
+        if (is.null(country)) {
+            DBI::dbGetQuery(conn,
+                "SELECT country AS Country, item AS Item, price AS Price
+                 FROM default_prices"
+            )
+        } else {
+            DBI::dbGetQuery(conn,
+                "SELECT country AS Country, item AS Item, price AS Price
+                 FROM default_prices
+                 WHERE country = ?",
+                params = list(country)
+            )
+        }
+    }, error = function(e) {
+        log_write("ERROR", "akilimo_db: get_default_prices query failed:", conditionMessage(e))
+        stop(conditionMessage(e))
+    })
 }
 
 # ---------------------------------------------------------------------------
@@ -291,20 +311,25 @@ get_default_prices <- function(country = NULL) {
 # ---------------------------------------------------------------------------
 
 get_starch_prices <- function() {
-    conn <- .akilimo_db_conn
-    if (is.null(conn)) stop("akilimo_db: connection not open — call open_akilimo_db() first")
+    conn <- .assert_db_conn()
 
-    DBI::dbGetQuery(conn,
-        "SELECT starch_factory        AS starchFactory,
-                starch_factory_label  AS starchFactory_label,
-                class,
-                country,
-                key                   AS KEY,
-                min_starch            AS minStarch,
-                range_starch          AS rangeStarch,
-                price
-         FROM starch_prices
-         ORDER BY country, starch_factory, class"
+    tryCatch(
+        DBI::dbGetQuery(conn,
+            "SELECT starch_factory        AS starchFactory,
+                    starch_factory_label  AS starchFactory_label,
+                    class,
+                    country,
+                    key                   AS KEY,
+                    min_starch            AS minStarch,
+                    range_starch          AS rangeStarch,
+                    price
+             FROM starch_prices
+             ORDER BY country, starch_factory, class"
+        ),
+        error = function(e) {
+            log_write("ERROR", "akilimo_db: get_starch_prices query failed:", conditionMessage(e))
+            stop(conditionMessage(e))
+        }
     )
 }
 
@@ -314,9 +339,14 @@ get_starch_prices <- function() {
 # ---------------------------------------------------------------------------
 
 get_translations <- function() {
-    conn <- .akilimo_db_conn
-    if (is.null(conn)) stop("akilimo_db: connection not open — call open_akilimo_db() first")
-    DBI::dbGetQuery(conn, "SELECT key, en, sw FROM translations ORDER BY key")
+    conn <- .assert_db_conn()
+    tryCatch(
+        DBI::dbGetQuery(conn, "SELECT key, en, sw FROM translations ORDER BY key"),
+        error = function(e) {
+            log_write("ERROR", "akilimo_db: get_translations query failed:", conditionMessage(e))
+            stop(conditionMessage(e))
+        }
+    )
 }
 
 
