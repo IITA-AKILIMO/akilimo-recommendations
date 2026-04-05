@@ -63,20 +63,53 @@ validate_request <- function(body) {
 
 
 setup_temp_dir <- function(country = "XX", rec_type = "UNK") {
-  dir.create("temp", FALSE, FALSE)
-  # Clean up per-request subdirectories older than 1 hour
-  subdirs <- list.dirs("temp", full.names = TRUE, recursive = FALSE)
-  old <- subdirs[file.info(subdirs)$mtime < Sys.time() - 3600]
-  for (d in old) unlink(d, recursive = TRUE)
-  # Create an isolated directory: YYYYMMDD_HHMMSS_{country}_{type}_{rand4}
-  rand4 <- paste0(as.hexmode(sample.int(65535L, 2)), collapse = "")
-  req_id <- paste0(format(Sys.time(), "%Y%m%d_%H%M%S"), "_",
-                   toupper(country), "_", toupper(rec_type), "_", rand4)
-  req_dir <- file.path("temp", req_id)
-  dir.create(req_dir)
-  req_dir
-}
+  # Ensure base temp directory exists
+  # - suppress warnings if it already exists
+  # - recursive=TRUE avoids failure if parent dirs are missing
+  dir.create("temp", showWarnings = FALSE, recursive = TRUE)
 
+  # List only immediate subdirectories (each represents a prior request)
+  subdirs <- list.dirs("temp", full.names = TRUE, recursive = FALSE)
+
+  # Get metadata for cleanup decisions
+  info <- file.info(subdirs)
+
+  # Identify directories older than 1 hour based on last modified time
+  # - guard against NA mtimes (can happen if files disappear mid-check)
+  old <- subdirs[!is.na(info$mtime) & info$mtime < (Sys.time() - 3600)]
+
+  # Remove stale directories
+  # - recursive=TRUE removes contents
+  # - force=TRUE handles permissions/locks more aggressively
+  unlink(old, recursive = TRUE, force = TRUE)
+
+  # Generate a short random hex suffix to reduce collision risk
+  # - fixed width (4 hex chars * 2) ensures consistent naming
+  rand4 <- paste(sprintf("%04x", sample.int(65535L, 2)), collapse = "")
+
+  # Build a unique request ID:
+  # - timestamp with milliseconds to reduce same-second collisions
+  # - uppercase country and type for consistency
+  # - random suffix as final disambiguator
+  req_id <- paste0(
+    format(Sys.time(), "%Y%m%d_%H%M%OS3"), "_",
+    toupper(country), "_",
+    toupper(rec_type), "_",
+    rand4
+  )
+
+  # Full path for this request's working directory
+  req_dir <- file.path("temp", req_id)
+
+  # Create the directory and fail fast if it doesn't succeed
+  # - prevents returning a non-existent path downstream
+  if (!dir.create(req_dir, showWarnings = FALSE)) {
+    stop("Failed to create temp directory: ", req_dir)
+  }
+
+  # Return the path for use by the caller
+  return(req_dir)
+}
 
 # Extract and normalise all common request parameters into a named list.
 parse_request <- function(body) {
@@ -92,8 +125,15 @@ parse_request <- function(body) {
   SPP <- from_json("SPP", body, default_value = FALSE)
   SPH <- from_json("SPH", body, default_value = FALSE)
 
-  PD <- as.Date(from_json("PD", body, default_value = 0), format = "%Y-%m-%d")
-  HD <- as.Date(from_json("HD", body, default_value = 0), format = "%Y-%m-%d")
+  pd_raw <- from_json("PD", body, default_value = NA_character_)
+  PD     <- as.Date(as.character(pd_raw), format = "%Y-%m-%d")
+  if (!is.na(pd_raw) && is.na(PD))
+    stop("PD must be a valid date in YYYY-MM-DD format (got: ", pd_raw, ")")
+
+  hd_raw <- from_json("HD", body, default_value = NA_character_)
+  HD     <- as.Date(as.character(hd_raw), format = "%Y-%m-%d")
+  if (!is.na(hd_raw) && is.na(HD))
+    stop("HD must be a valid date in YYYY-MM-DD format (got: ", hd_raw, ")")
   PD_window <- from_json("PD_window", body, default_value = 0)
   HD_window <- from_json("HD_window", body, default_value = 0)
 
