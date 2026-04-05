@@ -7,7 +7,7 @@ validate_request <- function(body) {
   VALID_COUNTRIES <- c("NG", "TZ", "RW", "GH", "BI")
   VALID_AREA_UNITS <- c("ha", "acre", "are", "m2")
 
-  country <- body[["country"]]
+  country  <- toupper(trimws(body[["country"]] %||% ""))
   lat <- body[["lat"]]
   lon <- body[["lon"]]
   area <- body[["area"]]
@@ -15,7 +15,7 @@ validate_request <- function(body) {
   if (!is.null(areaUnits)) areaUnits <- tolower(areaUnits)
   flags <- as.logical(c(body[["FR"]], body[["IC"]], body[["PP"]], body[["SPP"]], body[["SPH"]]))
 
-  if (is.null(country) || nchar(trimws(country)) == 0)
+  if (!nzchar(country))
     return("Missing required field: country")
   if (!country %in% VALID_COUNTRIES)
     return(paste("Invalid country:", country, "— must be one of:", paste(VALID_COUNTRIES, collapse = ", ")))
@@ -113,7 +113,7 @@ setup_temp_dir <- function(country = "XX", rec_type = "UNK") {
 
 # Extract and normalise all common request parameters into a named list.
 parse_request <- function(body) {
-  country <- from_json("country", body)
+  country <- toupper(trimws(from_json("country", body)))
   lat <- from_json("lat", body)
   lon <- from_json("lon", body)
   area <- from_json("area", body)
