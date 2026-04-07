@@ -6,10 +6,10 @@ setwd(akpath)
 # Headless PNG rendering — no X11 display required.
 # Priority: ragg (ggplot2 >= 3.5.0) → ragg legacy → Cairo fallback.
 if (.Platform$OS.type == "unix") {
-  has_ragg           <- requireNamespace("ragg", quietly = TRUE)
-  has_set_default    <- exists("set_default_device",
-                               envir    = asNamespace("ggplot2"),
-                               inherits = FALSE)
+  has_ragg <- requireNamespace("ragg", quietly = TRUE)
+  has_set_default <- exists("set_default_device",
+                            envir = asNamespace("ggplot2"),
+                            inherits = FALSE)
   if (has_ragg && has_set_default) {
     # ggplot2 >= 3.5.0: set ragg as the default device for all ggsave() calls
     ggplot2::set_default_device(ragg::agg_png)
@@ -68,9 +68,9 @@ pr$handle(
   handler = function(res) {
     res$status <- 200L
     list(
-      status  = jsonlite::unbox("ok"),
+      status = jsonlite::unbox("ok"),
       version = jsonlite::unbox(AKI_VERSION),
-      time    = jsonlite::unbox(format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"))
+      time = jsonlite::unbox(format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"))
     )
   }
 )
@@ -84,6 +84,7 @@ pr$handle(
       status_str <- result[["status"]]
       if (!is.null(status_str) && grepl("^400", status_str)) res$status <- 400L
 
+      log_write("TRACE", "REQUEST:", prettify(req$postBody))
       log_write("DEBUG", "RESULT:", result)
 
       result
@@ -101,9 +102,9 @@ pr$handle(
 
       list(
         status = jsonlite::unbox("error"),
-        data   = list(
+        data = list(
           request_token = token,
-          message       = jsonlite::unbox(e$message)
+          message = jsonlite::unbox(e$message)
         )
       )
     })
