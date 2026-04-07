@@ -141,11 +141,15 @@ getICrecText <- function(x, maizePD, lang, country) {
         dMP <- signif(ds$dMP, digits = 2)
         fs$rate_fmt <- formatC(round(fs$rate), format = "f", big.mark = ",", digits = 0)
 
+        rate_lines <- paste0(
+            tr("fert_rate_line", lang, rate = fs$rate_fmt, fertilizer = fs$type),
+            collapse = "\n"
+        )
         if (maizePD == "grain") {
             dMP_fmt <- formatC(round(dMP / MAIZE_COBS_PER_KG_GRAIN, digits = 0), format = "f", big.mark = ",", digits = 0)
             recF <- paste0(
                 tr("werec", lang), "\n",
-                paste0(fs$rate_fmt, tr("kgof", lang), fs$type, collapse = "\n"), "\n",
+                rate_lines, "\n",
                 tr("area", lang), "\n",
                 tr("willc", lang, currency = currency, amount = dTC), " ",
                 tr("icFertGrain", lang, amount = dMP_fmt, currency = currency, value = dNR), "\n"
@@ -154,7 +158,7 @@ getICrecText <- function(x, maizePD, lang, country) {
             dMP_fmt <- formatC(round(dMP, digits = 0), format = "f", big.mark = ",", digits = 0)
             recF <- paste0(
                 tr("werec", lang), "\n",
-                paste0(fs$rate_fmt, tr("kgof", lang), fs$type, collapse = "\n"), "\n",
+                rate_lines, "\n",
                 tr("area", lang), "\n",
                 tr("willc", lang, currency = currency, amount = dTC), " ",
                 tr("icFertCobs", lang, amount = dMP_fmt, currency = currency, value = dNR), "\n"
@@ -339,9 +343,13 @@ getCISrecText <- function(d, country, lang) {
       currency <- get_currency(country)
       fs       <- d[["fertilizer_rates"]]
       fs$rate_fmt <- formatC(round(fs$rate), format = "f", big.mark = ",", digits = 0)
+      rate_lines <- paste0(
+          tr("fert_rate_line", lang, rate = fs$rate_fmt, fertilizer = fs$type),
+          collapse = "\n"
+      )
       recF <- paste0(tr("cisFertYesPfx", lang), "\n",
-                     paste0(tr("cisRatePre", lang), fs$rate_fmt, tr("cisRatePost", lang), fs$type, collapse = "\n"), " ",
-                     "\n", tr("cisFertField", lang), "\n",
+                     rate_lines, "\n",
+                     tr("cisFertField", lang), "\n",
                      tr("cisCostPfx", lang, currency = currency, amount = dTC), " ",
                      tr("cisNet", lang, currency = currency, amount = dNR))
     }

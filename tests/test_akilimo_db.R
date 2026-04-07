@@ -298,16 +298,17 @@ if (nzchar(live_url)) {
 
 ctx <- new_test_db()
 DBI::dbExecute(ctx$conn,
-    "INSERT INTO translations (key, en, sw) VALUES (?, ?, ?)",
-    params = list("testKey", "test english", "test swahili"))
+    "INSERT INTO translations (key, en, sw, rw) VALUES (?, ?, ?, ?)",
+    params = list("testKey", "test english", "test swahili", "test kinyarwanda"))
 
 tbl <- get_translations()
-expect_true(all(c("key", "en", "sw") %in% names(tbl)),
-    info = "get_translations returns key, en, sw columns")
+expect_true(all(c("key", "en", "sw", "rw") %in% names(tbl)),
+    info = "get_translations returns key, en, sw, rw columns")
 row <- tbl[tbl$key == "testKey", ]
 expect_equal(nrow(row), 1L, info = "get_translations finds inserted row")
 expect_equal(row$en, "test english", info = "get_translations returns correct en value")
 expect_equal(row$sw, "test swahili", info = "get_translations returns correct sw value")
+expect_equal(row$rw, "test kinyarwanda", info = "get_translations returns correct rw value")
 
 cleanup_test_db(ctx)
 
@@ -337,13 +338,53 @@ Sys.setenv(AKILIMO_DB_PATH = old_db)
 conn2 <- open_akilimo_db()
 
 ver2 <- DBI::dbGetQuery(conn2, "PRAGMA user_version;")[[1]]
-expect_equal(ver2, 2L, info = "v1→v2 migration sets user_version to 2")
+expect_equal(ver2, 3L, info = "v1→v3 migration sets user_version to 3")
 
 tabs2 <- DBI::dbListTables(conn2)
-expect_true("translations" %in% tabs2, info = "translations table created by v1→v2 migration")
+expect_true("translations" %in% tabs2, info = "translations table created by v1→v3 migration")
+
+cols2 <- DBI::dbListFields(conn2, "translations")
+expect_true("rw" %in% cols2, info = "rw column added by v1→v3 migration")
 
 DBI::dbDisconnect(conn2)
 unlink(old_db)
+if (is.na(old_env)) Sys.unsetenv("AKILIMO_DB_PATH") else Sys.setenv(AKILIMO_DB_PATH = old_env)
+assign(".akilimo_db_conn", NULL, envir = globalenv())
+
+# ---------------------------------------------------------------------------
+# 12. schema migration v2 → v3 (adds rw column)
+# ---------------------------------------------------------------------------
+
+v2_db <- tempfile(fileext = ".sqlite")
+v2_conn <- DBI::dbConnect(RSQLite::SQLite(), v2_db)
+DBI::dbExecute(v2_conn, "PRAGMA journal_mode=WAL;")
+for (ddl in c(
+    "CREATE TABLE default_prices (country TEXT, item TEXT, price REAL, unit TEXT,
+         currency TEXT, updated_at TEXT, source TEXT, PRIMARY KEY (country, item));",
+    "CREATE TABLE starch_prices (starch_factory TEXT, starch_factory_label TEXT,
+         class INTEGER, country TEXT, key TEXT PRIMARY KEY, min_starch REAL,
+         range_starch TEXT, price REAL, currency TEXT, updated_at TEXT, source TEXT);",
+    "CREATE TABLE price_refresh_log (id INTEGER PRIMARY KEY AUTOINCREMENT,
+         price_type TEXT, country TEXT, source TEXT, status TEXT,
+         rows_upserted INTEGER, message TEXT, ran_at TEXT);",
+    "CREATE TABLE translations (key TEXT NOT NULL PRIMARY KEY,
+         en TEXT NOT NULL DEFAULT '', sw TEXT NOT NULL DEFAULT '',
+         updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')));",
+    "PRAGMA user_version = 2;"
+)) DBI::dbExecute(v2_conn, ddl)
+DBI::dbDisconnect(v2_conn)
+
+Sys.setenv(AKILIMO_DB_PATH = v2_db)
+conn3 <- open_akilimo_db()
+
+ver3 <- DBI::dbGetQuery(conn3, "PRAGMA user_version;")[[1]]
+expect_equal(ver3, 3L, info = "v2→v3 migration sets user_version to 3")
+
+cols3 <- DBI::dbListFields(conn3, "translations")
+expect_true("rw" %in% cols3, info = "rw column present after v2→v3 migration")
+
+DBI::dbDisconnect(conn3)
+unlink(v2_db)
 if (is.na(old_env)) Sys.unsetenv("AKILIMO_DB_PATH") else Sys.setenv(AKILIMO_DB_PATH = old_env)
 assign(".akilimo_db_conn", NULL, envir = globalenv())
 

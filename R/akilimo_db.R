@@ -8,13 +8,13 @@
 #   seed_akilimo_db(conn)                      → called once when DB is new
 #   get_default_prices(country)               → data.frame(Country, Item, Price)
 #   get_starch_prices()                       → data.frame matching old CSV columns
-#   get_translations()                        → data.frame(key, en, sw)
+#   get_translations()                        → data.frame(key, en, sw, rw)
 #   refresh_prices(country, source_tag, dry_run)
 #   refresh_starch_prices(country, source_tag, dry_run)
 #   prices_are_stale(country)                 → logical
 #   starch_prices_are_stale(country = NULL)   → logical
 #   translations_are_stale()                  → logical
-#   refresh_translations(source_tag, dry_run)  endpoint: GET {AKILIMO_API_URL}/translations
+#   refresh_translations(source_tag, dry_run)  endpoint: GET {AKILIMO_API_URL}/translations (paginated)
 
 VALID_COUNTRIES <- c("NG", "TZ", "RW", "GH", "BI")
 VALID_UNITS     <- c("per_bag", "per_kg", "per_tonne", "per_acre", "per_ha")
@@ -23,7 +23,7 @@ VALID_UNITS     <- c("per_bag", "per_kg", "per_tonne", "per_acre", "per_ha")
 .akilimo_db_conn <- NULL
 
 # Current schema version — increment whenever DDL changes
-.DB_SCHEMA_VERSION <- 2L
+.DB_SCHEMA_VERSION <- 3L
 
 # ---------------------------------------------------------------------------
 # DDL helpers
@@ -75,6 +75,7 @@ VALID_UNITS     <- c("per_bag", "per_kg", "per_tonne", "per_acre", "per_ha")
             key        TEXT NOT NULL PRIMARY KEY,
             en         TEXT NOT NULL DEFAULT '',
             sw         TEXT NOT NULL DEFAULT '',
+            rw         TEXT NOT NULL DEFAULT '',
             updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
         );
     ")
@@ -101,6 +102,11 @@ migrate_akilimo_db <- function(conn, current_version) {
                          updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
                      );"),
             seed_fn = .seed_translations
+        ),
+        # version 3 — add rw (Kinyarwanda) column to translations
+        "3" = list(
+            sql = c("ALTER TABLE translations ADD COLUMN rw TEXT NOT NULL DEFAULT '';"),
+            seed_fn = NULL
         )
     )
 
@@ -189,7 +195,8 @@ open_akilimo_db <- function() {
     rows <- data.frame(
         key        = tr_raw$key,
         en         = tr_raw$en,
-        sw         = tr_raw$sw,
+        sw         = if (!is.null(tr_raw$sw)) tr_raw$sw else rep("", nrow(tr_raw)),
+        rw         = if (!is.null(tr_raw$rw)) tr_raw$rw else rep("", nrow(tr_raw)),
         updated_at = strftime(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
         stringsAsFactors = FALSE
     )
@@ -341,7 +348,7 @@ get_starch_prices <- function() {
 get_translations <- function() {
     conn <- .assert_db_conn()
     tryCatch(
-        DBI::dbGetQuery(conn, "SELECT key, en, sw FROM translations ORDER BY key"),
+        DBI::dbGetQuery(conn, "SELECT key, en, sw, rw FROM translations ORDER BY key"),
         error = function(e) {
             log_write("ERROR", "akilimo_db: get_translations query failed:", conditionMessage(e))
             stop(conditionMessage(e))
@@ -745,47 +752,95 @@ refresh_translations <- function(source_tag = "api",
     result
 }
 
+# Walk all pages of the Laravel paginated translations endpoint and collect
+# every record.  Returns the same status/rows_upserted/message list as the
+# other .refresh_*_inner helpers.
+#
+# Pagination: follows resp$next_page_url until it is NULL.
+# Duplicate keys: last record wins (keyed named list, matches CSV row-order semantics).
+# Partial sync: only rows returned by the API are upserted; existing DB rows
+#   for keys absent from the remote feed are left untouched.
 .refresh_translations_inner <- function(conn, api_url, source_tag, dry_run) {
-    url   <- paste0(api_url, "/translations")
-    token <- Sys.getenv("AKILIMO_API_TOKEN", unset = "")
+    base_url <- paste0(api_url, "/translations")
+    token    <- Sys.getenv("AKILIMO_API_TOKEN", unset = "")
+    per_page <- 50L
 
-    resp <- tryCatch({
-        raw <- httr::GET(url,
-            if (nzchar(token)) httr::add_headers(Authorization = paste("Bearer", token)),
-            httr::timeout(10)
-        )
-        httr::content(raw, as = "parsed", type = "application/json")
-    }, error = function(e) {
-        log_write("WARN", "akilimo_db: HTTP error fetching translations:", conditionMessage(e))
-        return(list(status = "error", rows_upserted = 0L, message = conditionMessage(e)))
-    })
+    now_str  <- strftime(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
+    # Named list keyed by translation key — last record wins on duplicates
+    valid    <- list()
+    page_num <- 1L
+    page_url <- paste0(base_url, "?page=1&per_page=", per_page)
 
-    if (inherits(resp, "list") && !is.null(resp$status)) return(resp)
+    repeat {
+        log_write("DEBUG", sprintf("akilimo_db: fetching translations page %d", page_num))
 
-    now_str <- strftime(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
-    valid   <- list()
+        resp <- tryCatch({
+            raw <- httr::GET(page_url,
+                if (nzchar(token)) httr::add_headers(Authorization = paste("Bearer", token)),
+                httr::timeout(15)
+            )
+            httr::content(raw, as = "parsed", type = "application/json")
+        }, error = function(e) {
+            log_write("WARN", sprintf(
+                "akilimo_db: HTTP error fetching translations page %d: %s",
+                page_num, conditionMessage(e)))
+            NULL
+        })
 
-    for (row in resp) {
-        key <- trimws(row$key %||% "")
-        en  <- row$en %||% ""
-        sw  <- row$sw %||% ""
-
-        if (!nzchar(key)) {
-            log_write("WARN", "akilimo_db: empty translation key — skipping row")
-            next
+        # Network failure
+        if (is.null(resp)) {
+            if (page_num == 1L) {
+                return(list(status = "error", rows_upserted = 0L,
+                            message = "network error on first translations page"))
+            }
+            log_write("WARN", sprintf(
+                "akilimo_db: network error on translations page %d — using %d rows fetched so far",
+                page_num, length(valid)))
+            break
         }
-        if (!is.character(en) || !is.character(sw)) {
-            log_write("WARN", "akilimo_db: non-string value for key", key, "— skipping row")
-            next
+
+        # Early-return error sentinel from the API
+        if (inherits(resp, "list") && isTRUE(resp$status %in% c("error", "skipped")))
+            return(resp)
+
+        # Laravel paginated envelope: records are in resp$data.
+        # Fall back to treating the whole response as a flat array if $data is absent
+        # (forward-compat with a non-paginated endpoint).
+        records <- resp$data %||% resp
+
+        for (row in records) {
+            key <- trimws(row$key %||% "")
+            en  <- row$en %||% ""
+            sw  <- row$sw %||% ""
+            rw  <- row$rw %||% ""
+
+            if (!nzchar(key)) {
+                log_write("WARN", "akilimo_db: empty translation key — skipping row")
+                next
+            }
+            if (!is.character(en)) {
+                log_write("WARN", "akilimo_db: non-string 'en' for key", key, "— skipping row")
+                next
+            }
+
+            valid[[key]] <- list(
+                key        = key,
+                en         = en,
+                sw         = if (is.character(sw)) sw else "",
+                rw         = if (is.character(rw)) rw else "",
+                updated_at = now_str
+            )
         }
 
-        valid[[length(valid) + 1L]] <- list(
-            key        = key,
-            en         = en,
-            sw         = sw,
-            updated_at = now_str,
-            source     = source_tag
-        )
+        log_write("DEBUG", sprintf(
+            "akilimo_db: translations page %d — %d record(s), total so far: %d",
+            page_num, length(records), length(valid)))
+
+        # Follow next page
+        next_url <- resp$next_page_url %||% ""
+        if (!nzchar(next_url)) break
+        page_url <- next_url
+        page_num <- page_num + 1L
     }
 
     if (length(valid) == 0) {
@@ -795,19 +850,21 @@ refresh_translations <- function(source_tag = "api",
     }
 
     if (dry_run) {
-        log_write("INFO", sprintf("akilimo_db [dry-run] translations: %d valid row(s)", length(valid)))
+        log_write("INFO", sprintf("akilimo_db [dry-run] translations: %d valid row(s) across %d page(s)",
+                                  length(valid), page_num))
         return(list(status = "ok", rows_upserted = length(valid), message = "dry-run"))
     }
 
     tryCatch({
         for (v in valid) {
             DBI::dbExecute(conn,
-                "INSERT OR REPLACE INTO translations (key, en, sw, updated_at)
-                 VALUES (?, ?, ?, ?)",
-                params = list(v$key, v$en, v$sw, v$updated_at)
+                "INSERT OR REPLACE INTO translations (key, en, sw, rw, updated_at)
+                 VALUES (?, ?, ?, ?, ?)",
+                params = list(v$key, v$en, v$sw, v$rw, v$updated_at)
             )
         }
-        log_write("INFO", sprintf("akilimo_db: refreshed translations (%d rows)", length(valid)))
+        log_write("INFO", sprintf("akilimo_db: refreshed translations (%d rows, %d page(s))",
+                                  length(valid), page_num))
         list(status = "ok", rows_upserted = length(valid), message = NULL)
     }, error = function(e) {
         log_write("WARN", "akilimo_db: DB write error for translations:", conditionMessage(e))

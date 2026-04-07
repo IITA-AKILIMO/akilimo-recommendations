@@ -36,13 +36,11 @@ getFRrecText <- function(ds, country, lang) {
                tr("frImpact", lang, dy = DY, currency = currency, nr = NR))
 			}
 
-		recText <- if (lang != "sw") {
-			add_more(paste0(tr("werec", lang), "\n",
-				paste0(frate$rate_fmt, tr("kgof", lang), frate$type, collapse = "\n")))
-		} else {
-			add_more(paste0(tr("werec", lang), "\n",
-				paste0(tr("kgof", lang), frate$rate_fmt, tr("of", lang), frate$type, collapse = "\n")))
-		}
+		rate_lines <- paste0(
+			tr("fert_rate_line", lang, rate = frate$rate_fmt, fertilizer = frate$type),
+			collapse = "\n"
+		)
+		recText <- add_more(paste0(tr("werec", lang), "\n", rate_lines))
 		
       # NOTE: recommendation text is minimal. Future enhancements could include:
       # split application regime, best application method (furrow vs full ring),

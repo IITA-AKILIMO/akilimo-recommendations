@@ -79,43 +79,42 @@ getPPrecommendations <- function(areaHa, costLMO,
 #' @examples
 getPPrecText <- function(ds, country, lang) {
 
-  ds$method_ploughing <- as.character(ds$method_ploughing)
-  ds$method_ridging <- as.character(ds$method_ridging)
-
   method_tractor <- tr("method_tractor", lang)
   method_manual  <- tr("method_manual",  lang)
-  ds$method_ploughing <- ifelse(ds$method_ploughing == "tractor", method_tractor,
-                         ifelse(ds$method_ploughing == "manual",  method_manual, ds$method_ploughing))
-  ds$method_ridging   <- ifelse(ds$method_ridging   == "tractor", method_tractor,
-                         ifelse(ds$method_ridging   == "manual",  method_manual, ds$method_ridging))
+
+  # Translate a raw method value ("tractor"/"manual"/"N/A") to a localised label.
+  translate_method <- function(m) {
+      switch(as.character(m),
+          tractor = method_tractor,
+          manual  = method_manual,
+          tr("no", lang)   # N/A and any unexpected value
+      )
+  }
+
+  plo_label  <- translate_method(ds[1,]$method_ploughing)
+  ridg_label <- translate_method(ds[1,]$method_ridging)
 
   if (ds[1,]$CP) {
-      paste0(tr("optim", lang),
-             ifelse(ds[1,]$method_ploughing == "N/A", tr("no", lang), ds[1,]$method_ploughing), paste(tr("plo", lang)),
-             ifelse(ds[1,]$method_ridging   == "N/A", tr("no", lang), ds[1,]$method_ridging),   paste(tr("ridg", lang)), "\n", " ", tr("decnet", lang))
+      tr("optim", lang, plo_method = plo_label, ridg_method = ridg_label)
   } else {
     recT <- if (ds[1,]$ploughing && ds[1,]$ridging) {
-      if (lang == "sw") {
-        paste0(tr("werec", lang), tr("plofol", lang), ds[1,]$method_ploughing, tr("plofol2", lang), ds[1,]$method_ridging, tr("ridg", lang), "\n")
-      } else {
-        paste0(tr("werec", lang), ds[1,]$method_ploughing, tr("plofol", lang), ds[1,]$method_ridging, tr("ridg", lang), "\n")
-      }
+        tr("recT_plo_ridg", lang, plo_method = plo_label, ridg_method = ridg_label)
     } else if (!(ds[1,]$ploughing || ds[1,]$ridging)) {
-        paste0(tr("zerot", lang), "\n")
+        tr("zerot", lang)
     } else if (ds[1,]$ploughing) {
-        paste0(tr("werec", lang), ds[1,]$method_ploughing, tr("noridg", lang), "\n")
-    } else if (ds[1,]$ridging) {
-        paste0(tr("noplo", lang), ds[1,]$method_ridging, "\n")
-    } else {""}
+        tr("recT_plo_only", lang, plo_method = plo_label)
+    } else {
+        tr("recT_ridg_only", lang, ridg_method = ridg_label)
+    }
 
     rcost <- if (ds[1,]$ploughing | ds[1,]$ridging) {
         if (ds[1,]$dTC == 0) {
-            paste0(tr("changcost", lang), tr("rtprod", lang), "\n")
+            tr("rcost_nochange", lang)
         } else {
             dTC_fmt <- formatC(abs(ds[1,]$dTC), format = "f", big.mark = ",", digits = 0)
-            paste0(tr("this", lang),
-                   ifelse(ds[1,]$dTC < 0, tr("decr", lang), tr("incr", lang)),
-                   tr("costb", lang), dTC_fmt, tr("rtprod", lang), "\n")
+            tr("rcost_change", lang,
+               direction = tr(ifelse(ds[1,]$dTC < 0, "decr", "incr"), lang),
+               amount    = dTC_fmt)
         }
     } else {""}
 
