@@ -124,15 +124,15 @@ getICrecText <- function(x, maizePD, lang, country) {
     if (!ds$rec_F) {
         recF <- switch(ds$reason_F,
             "appropriate fertilizer is not available" =
-                tr("icFertNoAvail", lang),
+                tr("ic_maize_fert_unavailable", lang),
             "fertilizer use is not sufficiently profitable" =
-                tr("icFertNotProfit", lang),
+                tr("ic_maize_fert_not_profitable", lang),
             # CMP == 1 override
             "Your soil is very poor. You need to improve soil fertility before considering investing in fertilizer. You should apply compost or manure, or fallow for at least 2 years. Plant maize at low density (20,000 plants per hectare) and sow the seeds at 50 cm within rows." =
-                tr("icCMP1", lang),
+                tr("ic_soil_poor_advice", lang),
             # CMP == 5 override
             "Your soil is very fertile. It is likely that your maize yield will not improve much after fertilizer application. Plant maize at high density (40,000 plants per hectare) and sow the seeds at 25 cm within rows." =
-                tr("icCMP5", lang),
+                tr("ic_soil_fertile_advice", lang),
             ds$reason_F  # fallback: raw string (should not occur in practice)
         )
     } else {
@@ -148,25 +148,25 @@ getICrecText <- function(x, maizePD, lang, country) {
         if (maizePD == "grain") {
             dMP_fmt <- formatC(round(dMP / MAIZE_COBS_PER_KG_GRAIN, digits = 0), format = "f", big.mark = ",", digits = 0)
             recF <- paste0(
-                tr("werec", lang), "\n",
+                tr("fr_apply_prefix", lang), "\n",
                 rate_lines, "\n",
-                tr("area", lang), "\n",
-                tr("willc", lang, currency = currency, amount = dTC), " ",
-                tr("icFertGrain", lang, amount = dMP_fmt, currency = currency, value = dNR), "\n"
+                tr("suffix_field_area", lang), "\n",
+                tr("cost_amount", lang, currency = currency, amount = dTC), " ",
+                tr("ic_maize_grain_impact", lang, amount = dMP_fmt, currency = currency, value = dNR), "\n"
             )
         } else {
             dMP_fmt <- formatC(round(dMP, digits = 0), format = "f", big.mark = ",", digits = 0)
             recF <- paste0(
-                tr("werec", lang), "\n",
+                tr("fr_apply_prefix", lang), "\n",
                 rate_lines, "\n",
-                tr("area", lang), "\n",
-                tr("willc", lang, currency = currency, amount = dTC), " ",
-                tr("icFertCobs", lang, amount = dMP_fmt, currency = currency, value = dNR), "\n"
+                tr("suffix_field_area", lang), "\n",
+                tr("cost_amount", lang, currency = currency, amount = dTC), " ",
+                tr("ic_maize_cobs_impact", lang, amount = dMP_fmt, currency = currency, value = dNR), "\n"
             )
         }
     }
 
-    recD <- ifelse(ds$rec_D, tr("icDensHigh", lang), tr("icDensLow", lang))
+    recD <- ifelse(ds$rec_D, tr("ic_density_high", lang), tr("ic_density_low", lang))
 
     paste0(recF, recD)
 
@@ -327,15 +327,15 @@ getCISrecText <- function(d, country, lang) {
 	ds <- d[["data"]]
 
   if (!ds$rec_IC) {
-    recIC <- paste0(tr("cisNoIC", lang), "\n")
-    recF  <- tr("cisNoICfert", lang)
+    recIC <- paste0(tr("ic_not_recommended", lang), "\n")
+    recF  <- tr("ic_use_fr_tool", lang)
   } else {
-    recIC <- tr("cisRecIC", lang)
+    recIC <- tr("ic_recommended", lang)
     if (!ds$rec_F) {
       recF <- if (ds$reason_F == "no_fertilizer_available") {
-        tr("cisFertNoAvail", lang)
+        tr("ic_sp_fert_unavailable", lang)
       } else {
-        tr("cisFertNotProfit", lang)
+        tr("ic_sp_fert_not_profitable", lang)
       }
     } else {
       dTC      <- formatC(signif(ds$dTC, digits = 3), format = "f", big.mark = ",", digits = 0)
@@ -347,11 +347,11 @@ getCISrecText <- function(d, country, lang) {
           tr("fert_rate_line", lang, rate = fs$rate_fmt, fertilizer = fs$type),
           collapse = "\n"
       )
-      recF <- paste0(tr("cisFertYesPfx", lang), "\n",
+      recF <- paste0(tr("ic_sp_fert_apply_prefix", lang), "\n",
                      rate_lines, "\n",
-                     tr("cisFertField", lang), "\n",
-                     tr("cisCostPfx", lang, currency = currency, amount = dTC), " ",
-                     tr("cisNet", lang, currency = currency, amount = dNR))
+                     tr("ic_sp_fert_field_area", lang), "\n",
+                     tr("ic_sp_cost_amount", lang, currency = currency, amount = dTC), " ",
+                     tr("ic_sp_net_value", lang, currency = currency, amount = dNR))
     }
   }
 

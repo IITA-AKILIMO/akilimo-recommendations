@@ -10,11 +10,11 @@
 getFRrecText <- function(ds, country, lang) {
 
 	if (is.null(ds$data)) {	# out of geographic scope
-		recText <- tr("recloc", lang)
+		recText <- tr("fr_out_of_domain", lang)
 	} else if (ds$data$NR <= 0) { # not profitable
-		recText <- tr("frnotrec", lang)
+		recText <- tr("fr_not_profitable", lang)
 	} else if (ds$data$TC == 0) { # profitable, but do not apply
-        recText <- tr("notapply", lang)
+        recText <- tr("fr_no_fert", lang)
       # NOTE: recommendation text does not explain the reason for non-application.
       # Possible causes: unfavourable price ratio, low yield potential, or high
       # indigenous nutrient supply. Adding cause-specific text requires extending
@@ -31,16 +31,16 @@ getFRrecText <- function(ds, country, lang) {
 		frate$rate_fmt <- formatC(round(frate$rate), format = "f", big.mark = ",", digits = 0)
 
 		add_more <- function(x) {
-            paste0(x, tr("area", lang), "\n",
-               tr("willc", lang, currency = currency, amount = TC), "\n",
-               tr("frImpact", lang, dy = DY, currency = currency, nr = NR))
+            paste0(x, tr("suffix_field_area", lang), "\n",
+               tr("cost_amount", lang, currency = currency, amount = TC), "\n",
+               tr("fr_impact", lang, dy = DY, currency = currency, nr = NR))
 			}
 
 		rate_lines <- paste0(
 			tr("fert_rate_line", lang, rate = frate$rate_fmt, fertilizer = frate$type),
 			collapse = "\n"
 		)
-		recText <- add_more(paste0(tr("werec", lang), "\n", rate_lines))
+		recText <- add_more(paste0(tr("fr_apply_prefix", lang), "\n", rate_lines))
 		
       # NOTE: recommendation text is minimal. Future enhancements could include:
       # split application regime, best application method (furrow vs full ring),

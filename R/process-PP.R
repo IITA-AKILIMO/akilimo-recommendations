@@ -87,7 +87,7 @@ getPPrecText <- function(ds, country, lang) {
       switch(as.character(m),
           tractor = method_tractor,
           manual  = method_manual,
-          tr("no", lang)   # N/A and any unexpected value
+          tr("word_no", lang)   # N/A and any unexpected value
       )
   }
 
@@ -95,30 +95,30 @@ getPPrecText <- function(ds, country, lang) {
   ridg_label <- translate_method(ds[1,]$method_ridging)
 
   if (ds[1,]$CP) {
-      tr("optim", lang, plo_method = plo_label, ridg_method = ridg_label)
+      tr("pp_practice_optimal", lang, plo_method = plo_label, ridg_method = ridg_label)
   } else {
     recT <- if (ds[1,]$ploughing && ds[1,]$ridging) {
-        tr("recT_plo_ridg", lang, plo_method = plo_label, ridg_method = ridg_label)
+        tr("pp_rec_plough_ridge", lang, plo_method = plo_label, ridg_method = ridg_label)
     } else if (!(ds[1,]$ploughing || ds[1,]$ridging)) {
-        tr("zerot", lang)
+        tr("pp_zero_tillage", lang)
     } else if (ds[1,]$ploughing) {
-        tr("recT_plo_only", lang, plo_method = plo_label)
+        tr("pp_rec_plough_only", lang, plo_method = plo_label)
     } else {
-        tr("recT_ridg_only", lang, ridg_method = ridg_label)
+        tr("pp_rec_ridge_only", lang, ridg_method = ridg_label)
     }
 
     rcost <- if (ds[1,]$ploughing | ds[1,]$ridging) {
         if (ds[1,]$dTC == 0) {
-            tr("rcost_nochange", lang)
+            tr("pp_cost_no_change", lang)
         } else {
             dTC_fmt <- formatC(abs(ds[1,]$dTC), format = "f", big.mark = ",", digits = 0)
-            tr("rcost_change", lang,
+            tr("pp_cost_change", lang,
                direction = tr(ifelse(ds[1,]$dTC < 0, "decr", "incr"), lang),
                amount    = dTC_fmt)
         }
     } else {""}
 
-    thank <- trimws(sub("^\\.", "", tr("thank", lang)))
+    thank <- trimws(sub("^\\.", "", tr("closing_thanks", lang)))
     parts <- Filter(nzchar, trimws(c(recT, rcost)))
     paste(c(parts, thank), collapse = " ")
   }

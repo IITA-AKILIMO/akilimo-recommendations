@@ -13,12 +13,12 @@
 getSPrecText <- function(ds, country, lang, PD, HD) {
 
   if (is.null(ds)) {
-    rec <- tr("norecom", lang)
+    rec <- tr("sp_no_recommendation", lang)
   } else {
     if (ds[1,]$CP) {
-        rec <- paste0(tr("recrev", lang, pd_date = format(ds[1,]$PD, "%d %B %Y")),
-                      tr("hvsdate", lang, hd_date = format(ds[1,]$HD, "%d %B %Y")),
-                      tr("nochange", lang))
+        rec <- paste0(tr("sp_proposed_planting_prefix", lang, pd_date = format(ds[1,]$PD, "%d %B %Y")),
+                      tr("sp_proposed_harvest_suffix", lang, hd_date = format(ds[1,]$HD, "%d %B %Y")),
+                      tr("sp_no_change", lang))
 
       # NOTE: "no change" text gives no reason. Possible causes: unfavourable prices at
       # other dates, low starch at later harvest (starch factory sales), or unattractive
@@ -28,22 +28,22 @@ getSPrecText <- function(ds, country, lang, PD, HD) {
     } else {
 
       if (ds[1,]$PD != ds[which(ds$CP)[1],]$PD) {
-        recP <- paste0(tr("recPln", lang,
+        recP <- paste0(tr("sp_rec_plant_date", lang,
                           date      = format(ds[1,]$PD, "%d %B %Y"),
                           weeks     = abs(ds[1,]$rPWnr),
-                          direction = ifelse(ds[1,]$rPWnr < 0, tr("early", lang), tr("late", lang))), "\n")
+                          direction = ifelse(ds[1,]$rPWnr < 0, tr("dir_earlier", lang), tr("dir_later", lang))), "\n")
       } else {
-        recP <- tr("recPopt", lang, date = format(ds[1,]$PD, "%d %B %Y"))
+        recP <- tr("sp_planting_optimal", lang, date = format(ds[1,]$PD, "%d %B %Y"))
       }
 
 
       if (ds[1,]$HD != ds[which(ds$CP)[1],]$HD) {
-        recH <- paste0(tr("recHvs", lang,
+        recH <- paste0(tr("sp_rec_harvest_date", lang,
                           date      = format(ds[1,]$HD, "%d %B %Y"),
                           weeks     = abs(ds[1,]$rHWnr),
-                          direction = ifelse(ds[1,]$rHWnr < 0, tr("early", lang), tr("late", lang))), "\n")
+                          direction = ifelse(ds[1,]$rHWnr < 0, tr("dir_earlier", lang), tr("dir_later", lang))), "\n")
       } else {
-        recH <- tr("recHopt", lang, date = format(ds[1,]$HD, "%d %B %Y"))
+        recH <- tr("sp_harvest_optimal", lang, date = format(ds[1,]$HD, "%d %B %Y"))
       }
 
       DP <- signif(ds[1,]$RP - ds[which(ds$CP)[1],]$RP, digits = 2)
@@ -53,22 +53,22 @@ getSPrecText <- function(ds, country, lang, PD, HD) {
 
       if (DP == 0) {
         if (dGR == 0) {
-            recR <- tr("rechange", lang,
-                       action = ifelse(!is.null(recH), tr("hvst", lang), tr("plnt", lang)))
+            recR <- tr("sp_no_yield_change", lang,
+                       action = ifelse(!is.null(recH), tr("sp_action_harvest", lang), tr("sp_action_plant", lang)))
         } else {
-            recR <- tr("recRatt1", lang, currency = currency, amount = dGR)
+            recR <- tr("sp_value_increase_only", lang, currency = currency, amount = dGR)
         }
       } else {
-        direction_str <- ifelse(DP < 0, tr("dec", lang), tr("inc", lang))
-        action_str    <- ifelse(!is.null(recH), tr("hvst", lang), tr("plnt", lang))
+        direction_str <- ifelse(DP < 0, tr("sp_direction_decrease", lang), tr("sp_direction_increase", lang))
+        action_str    <- ifelse(!is.null(recH), tr("sp_action_harvest", lang), tr("sp_action_plant", lang))
         if (dGR == 0) {
-            recR <- tr("recRyieldOnly", lang,
+            recR <- tr("sp_rec_yield_only", lang,
                        direction = direction_str, amount = DP_fmt, action = action_str)
         } else {
-            recR <- tr("recRfull", lang,
+            recR <- tr("sp_rec_full", lang,
                        direction = direction_str,
                        amount    = DP_fmt,
-                       conj      = ifelse(DP < 0, tr("but", lang), tr("and", lang)),
+                       conj      = ifelse(DP < 0, tr("conj_but", lang), tr("conj_and", lang)),
                        currency  = currency,
                        value     = dGR)
         }
@@ -251,9 +251,9 @@ process_SP <- function(
 	success <- FALSE
 	res <- NULL
 	if ((PD_window == 0) && (HD_window == 0)) {
-		recText <- tr("spinfo", lang)
+		recText <- tr("sp_info", lang)
 	} else if ((HD - PD) <= 30) {
-		recText <- tr("sphdpd", lang)
+		recText <- tr("sp_harvest_date_error", lang)
 	} else {
 
 		res <- getSPrecommendations(
@@ -263,7 +263,7 @@ process_SP <- function(
 			rootUP_p2 = rootUP_p2)
 
 		if (!is.data.frame(res)) {
-			recText <- tr("recloc", lang)
+			recText <- tr("fr_out_of_domain", lang)
 		} else {
 			success <- TRUE
 
