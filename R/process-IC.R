@@ -19,7 +19,7 @@ getICrecommendations <- function(areaHa, CMP, cobUP, fertilizers, riskAtt = c(0,
   dGR <- dMP * cobUP
 
   if ((dGR == 0 || nrow(fertilizers) == 0)) {
-    reason_F <- ifelse(CMP == 1, "of low soil fertility", "of high soil fertility")
+    reason_F <- if (CMP == 1) "soil_poor" else if (CMP == 5) "soil_fertile" else "fert_unavailable"
     dTC <- 0
     FRATE <- 0
   } else {
@@ -42,9 +42,9 @@ getICrecommendations <- function(areaHa, CMP, cobUP, fertilizers, riskAtt = c(0,
     if (dTC == 0) {
       dGR <- 0
       dMP <- 0
-      reason_F <- "appropriate fertilizer is not available"
-    }else {
-      reason_F <- "appropriate fertilizer is available"
+      reason_F <- "fert_unavailable"
+    } else {
+      reason_F <- "fert_available"
     }
   }
 
@@ -57,7 +57,7 @@ getICrecommendations <- function(areaHa, CMP, cobUP, fertilizers, riskAtt = c(0,
   #check profitability of fertilizer use
   if (dNR > dNRmin) {
     rec_F <- TRUE
-    reason_F <- "fertilizer use is sufficiently profitable"
+    reason_F <- "fert_profitable"
   } else {
     dMP <- 0
     dTC <- 0
@@ -65,13 +65,13 @@ getICrecommendations <- function(areaHa, CMP, cobUP, fertilizers, riskAtt = c(0,
     dNR <- 0
     FRATE <- 0
     rec_F <- FALSE
-    reason_F <- "fertilizer use is not sufficiently profitable"
+    reason_F <- "fert_not_profitable"
   }
 
   #recommendation on high density maize planting
   rec_D <- ifelse(rec_F == TRUE | CMP == 5, TRUE, FALSE)
-  reason_D <- ifelse(rec_F == TRUE, "fertilizer use is recommended", 
-		ifelse(CMP == 5, "of high soil fertility", NA))
+  reason_D <- ifelse(rec_F == TRUE, "fert_profitable",
+		ifelse(CMP == 5, "soil_fertile", NA))
 
 
   #output
@@ -101,12 +101,6 @@ getICrecommendations <- function(areaHa, CMP, cobUP, fertilizers, riskAtt = c(0,
 		fertilizer_rates <- data.frame(type = "", rate = 0)[0,]
 	}
 	
-  if (CMP == 1) {
-    rec$reason_F <- "Your soil is very poor. You need to improve soil fertility before considering investing in fertilizer. You should apply compost or manure, or fallow for at least 2 years. Plant maize at low density (20,000 plants per hectare) and sow the seeds at 50 cm within rows."
-  } else if (CMP == 5) {
-    rec$reason_F <- "Your soil is very fertile. It is likely that your maize yield will not improve much after fertilizer application. Plant maize at high density (40,000 plants per hectare) and sow the seeds at 25 cm within rows."
-  }
-
   list(data=rec, fertilizer_rates=fertilizer_rates)
 }
 
@@ -123,17 +117,11 @@ getICrecText <- function(x, maizePD, lang, country) {
 
     if (!ds$rec_F) {
         recF <- switch(ds$reason_F,
-            "appropriate fertilizer is not available" =
-                tr("ic_maize_fert_unavailable", lang),
-            "fertilizer use is not sufficiently profitable" =
-                tr("ic_maize_fert_not_profitable", lang),
-            # CMP == 1 override
-            "Your soil is very poor. You need to improve soil fertility before considering investing in fertilizer. You should apply compost or manure, or fallow for at least 2 years. Plant maize at low density (20,000 plants per hectare) and sow the seeds at 50 cm within rows." =
-                tr("ic_soil_poor_advice", lang),
-            # CMP == 5 override
-            "Your soil is very fertile. It is likely that your maize yield will not improve much after fertilizer application. Plant maize at high density (40,000 plants per hectare) and sow the seeds at 25 cm within rows." =
-                tr("ic_soil_fertile_advice", lang),
-            ds$reason_F  # fallback: raw string (should not occur in practice)
+            fert_unavailable    = tr("ic_maize_fert_unavailable", lang),
+            fert_not_profitable = tr("ic_maize_fert_not_profitable", lang),
+            soil_poor           = tr("ic_soil_poor_advice", lang),
+            soil_fertile        = tr("ic_soil_fertile_advice", lang),
+            stop(sprintf("getICrecText: unhandled reason_F '%s'", ds$reason_F))
         )
     } else {
         dTC <- formatC(signif(ds$dTC, digits = 3), format = "f", big.mark = ",", digits = 0)
@@ -332,11 +320,11 @@ getCISrecText <- function(d, country, lang) {
   } else {
     recIC <- tr("ic_recommended", lang)
     if (!ds$rec_F) {
-      recF <- if (ds$reason_F == "no_fertilizer_available") {
-        tr("ic_sp_fert_unavailable", lang)
-      } else {
-        tr("ic_sp_fert_not_profitable", lang)
-      }
+      recF <- switch(ds$reason_F,
+        no_fertilizer_available = tr("ic_sp_fert_unavailable", lang),
+        fertilizer_not_profitable = tr("ic_sp_fert_not_profitable", lang),
+        stop(sprintf("getCISrecText: unhandled reason_F '%s'", ds$reason_F))
+      )
     } else {
       dTC      <- formatC(signif(ds$dTC, digits = 3), format = "f", big.mark = ",", digits = 0)
       dNR      <- formatC(signif(ds$dNR, digits = 3), format = "f", big.mark = ",", digits = 0)
