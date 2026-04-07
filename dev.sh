@@ -34,6 +34,9 @@ if [ -z "$RSCRIPT_CMD" ]; then
     exit 1
 fi
 
+# Delete any stale SQLite databases before starting
+rm -f "$TARGET_DIR"/data/input/*.sqlite "$TARGET_DIR"/data/input/*.db
+
 echo "Akilimo dev server — auto-restart enabled"
 echo "Rscript : $RSCRIPT_CMD"
 echo "Root    : $TARGET_DIR"

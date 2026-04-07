@@ -38,6 +38,10 @@ if defined WORKDIR (
     cd /d "%~dp0"
 )
 
+REM Delete any stale SQLite databases before starting
+del /q data\input\*.sqlite 2>nul
+del /q data\input\*.db 2>nul
+
 echo Akilimo dev server — auto-restart enabled
 echo Root    : %CD%
 echo Watching: R\  api.R  net\  data\input\translations.csv
