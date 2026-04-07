@@ -62,6 +62,8 @@ tr <- function(key, lang, ...) {
         val <- row[["en"]]
     }
     if (length(val) == 0 || is.na(val)) stop(sprintf("Missing translation key '%s'", key))
+    # {SPACE} is a sentinel for an intentional space that must survive editor trimming.
+    val <- gsub("{SPACE}", " ", val, fixed = TRUE)
     args <- list(...)
     for (nm in names(args)) {
         val <- gsub(paste0("\\{", nm, "\\}"), args[[nm]], val, fixed = FALSE)
