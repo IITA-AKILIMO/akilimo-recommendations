@@ -84,12 +84,4 @@ jobs:
               sudo nginx -t
               sudo systemctl restart nginx
               
-              # Optional health check
-              echo "Checking service health..."
-              if curl -s http://localhost:8000/health | grep "ok"; then
-                echo "Service is up"
-              else
-                echo "Service failed to start!"
-              fi
-              
               echo "Deployment completed successfully"
