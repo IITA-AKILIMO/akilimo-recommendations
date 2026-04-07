@@ -8,7 +8,7 @@ if (file.exists(env_file)) {
   load_dot_env(env_file)
 }
 
-log_levels <- c("DEBUG" = 1, "INFO" = 2, "SUCCESS" = 3, "WARN" = 4, "ERROR" = 5)
+log_levels <- c("TRACE" = 0, "DEBUG" = 1, "INFO" = 2, "SUCCESS" = 3, "WARN" = 4, "ERROR" = 5)
 
 # Cache the minimum log level numeric value once.
 # Falls back to INFO for empty or unrecognised LOG_LEVEL values.
