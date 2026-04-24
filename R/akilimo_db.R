@@ -387,7 +387,7 @@ refresh_prices <- function(country = NULL,
                            source_tag = "api",
                            dry_run    = FALSE) {
     conn    <- .akilimo_db_conn
-    api_url <- Sys.getenv("AKILIMO_API_URL", unset = "")
+    api_url <- sub("/+$", "", Sys.getenv("AKILIMO_API_URL", unset = ""))
 
     if (!nzchar(api_url)) {
         log_write("DEBUG", "akilimo_db: AKILIMO_API_URL not set — skipping default price refresh")
@@ -425,46 +425,77 @@ refresh_prices <- function(country = NULL,
 }
 
 .refresh_default_one <- function(conn, api_url, country, source_tag, dry_run) {
-    url <- paste0(api_url, "/prices?country=", country)
-    token <- Sys.getenv("AKILIMO_API_TOKEN", unset = "")
+    token    <- Sys.getenv("AKILIMO_API_TOKEN", unset = "")
+    now_str  <- strftime(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
+    valid    <- list()
+    page_num <- 1L
+    page_url <- paste0(api_url, "/prices?country=", country, "&page=1")
 
-    resp <- tryCatch({
-        raw <- httr::GET(url,
-            if (nzchar(token)) httr::add_headers(Authorization = paste("Bearer", token)),
-            httr::timeout(10)
-        )
-        httr::content(raw, as = "parsed", type = "application/json")
-    }, error = function(e) {
-        log_write("WARN", "akilimo_db: HTTP error fetching default prices for", country, ":", conditionMessage(e))
-        return(list(status = "error", rows_upserted = 0L, message = conditionMessage(e)))
-    })
+    repeat {
+        log_write("DEBUG", sprintf("akilimo_db: fetching default prices %s page %d", country, page_num))
 
-    if (inherits(resp, "list") && !is.null(resp$status)) return(resp)
+        resp <- tryCatch({
+            raw <- httr::GET(page_url,
+                if (nzchar(token)) httr::add_headers(Authorization = paste("Bearer", token)),
+                httr::timeout(10)
+            )
+            httr::content(raw, as = "parsed", type = "application/json")
+        }, error = function(e) {
+            log_write("WARN", "akilimo_db: HTTP error fetching default prices for", country, ":", conditionMessage(e))
+            NULL
+        })
 
-    # Validate and coerce rows
-    now_str <- strftime(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
-    valid   <- list()
+        if (is.null(resp)) {
+            if (page_num == 1L)
+                return(list(status = "error", rows_upserted = 0L,
+                            message = paste("network error fetching prices for", country)))
+            log_write("WARN", sprintf("akilimo_db: network error on prices %s page %d — using %d rows so far",
+                                      country, page_num, length(valid)))
+            break
+        }
 
-    for (row in resp) {
-        ctry  <- row$country %||% ""
-        item  <- row$item    %||% ""
-        price <- suppressWarnings(as.numeric(row$price))
-        unit  <- row$unit    %||% "per_bag"
+        if (inherits(resp, "list") && isTRUE(resp$status %in% c("error", "skipped")))
+            return(resp)
 
-        if (!ctry  %in% VALID_COUNTRIES) { log_write("WARN", "akilimo_db: invalid country", ctry,  "— skipping row"); next }
-        if (!nzchar(item))               { log_write("WARN", "akilimo_db: empty item — skipping row"); next }
-        if (is.na(price) || price <= 0)  { log_write("WARN", "akilimo_db: invalid price for", item, "— skipping row"); next }
-        if (!unit %in% VALID_UNITS)      { log_write("WARN", "akilimo_db: invalid unit", unit, "for", item, "— skipping row"); next }
+        records <- resp$data
+        if (is.null(records)) {
+            if (page_num == 1L)
+                return(list(status = "error", rows_upserted = 0L,
+                            message = paste("prices API response missing 'data' field for", country)))
+            log_write("WARN", sprintf("akilimo_db: missing 'data' on prices %s page %d — stopping early",
+                                      country, page_num))
+            break
+        }
 
-        valid[[length(valid) + 1L]] <- list(
-            country    = ctry,
-            item       = item,
-            price      = price,
-            unit       = unit,
-            currency   = row$currency %||% "",
-            updated_at = now_str,
-            source     = source_tag
-        )
+        for (row in records) {
+            ctry  <- row$country %||% ""
+            item  <- row$item    %||% ""
+            price <- suppressWarnings(as.numeric(row$price))
+            unit  <- row$unit    %||% "per_bag"
+
+            if (!ctry  %in% VALID_COUNTRIES) { log_write("WARN", "akilimo_db: invalid country", ctry,  "— skipping row"); next }
+            if (!nzchar(item))               { log_write("WARN", "akilimo_db: empty item — skipping row"); next }
+            if (is.na(price) || price <= 0)  { log_write("WARN", "akilimo_db: invalid price for", item, "— skipping row"); next }
+            if (!unit %in% VALID_UNITS)      { log_write("WARN", "akilimo_db: invalid unit", unit, "for", item, "— skipping row"); next }
+
+            valid[[length(valid) + 1L]] <- list(
+                country    = ctry,
+                item       = item,
+                price      = price,
+                unit       = unit,
+                currency   = row$currency %||% "",
+                updated_at = now_str,
+                source     = source_tag
+            )
+        }
+
+        log_write("DEBUG", sprintf("akilimo_db: prices %s page %d — %d record(s), total so far: %d",
+                                   country, page_num, length(records), length(valid)))
+
+        next_url <- resp$links[["next"]] %||% ""
+        if (!nzchar(next_url)) break
+        page_url <- next_url
+        page_num <- page_num + 1L
     }
 
     if (length(valid) == 0) {
@@ -503,7 +534,7 @@ refresh_starch_prices <- function(country    = NULL,
                                   source_tag = "api",
                                   dry_run    = FALSE) {
     conn    <- .akilimo_db_conn
-    api_url <- Sys.getenv("AKILIMO_API_URL", unset = "")
+    api_url <- sub("/+$", "", Sys.getenv("AKILIMO_API_URL", unset = ""))
 
     if (!nzchar(api_url)) {
         log_write("DEBUG", "akilimo_db: AKILIMO_API_URL not set — skipping starch price refresh")
@@ -539,56 +570,88 @@ refresh_starch_prices <- function(country    = NULL,
 }
 
 .refresh_starch_one <- function(conn, api_url, country, source_tag, dry_run) {
-    url   <- paste0(api_url, "/starch-prices?country=", country)
-    token <- Sys.getenv("AKILIMO_API_TOKEN", unset = "")
-
-    resp <- tryCatch({
-        raw <- httr::GET(url,
-            if (nzchar(token)) httr::add_headers(Authorization = paste("Bearer", token)),
-            httr::timeout(10)
-        )
-        httr::content(raw, as = "parsed", type = "application/json")
-    }, error = function(e) {
-        log_write("WARN", "akilimo_db: HTTP error fetching starch prices for", country, ":", conditionMessage(e))
-        return(list(status = "error", rows_upserted = 0L, message = conditionMessage(e)))
-    })
-
-    if (inherits(resp, "list") && !is.null(resp$status)) return(resp)
-
-    now_str <- strftime(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
-    valid   <- list()
+    token     <- Sys.getenv("AKILIMO_API_TOKEN", unset = "")
+    now_str   <- strftime(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
+    valid     <- list()
     seen_keys <- character(0)
+    page_num  <- 1L
+    page_url  <- paste0(api_url, "/starch-prices?country=", country, "&page=1")
 
-    for (row in resp) {
-        factory  <- row$starch_factory        %||% ""
-        key      <- row$key                   %||% ""
-        cls      <- suppressWarnings(as.integer(row$class))
-        ctry     <- row$country               %||% ""
-        minstarch <- suppressWarnings(as.numeric(row$min_starch))
-        price    <- suppressWarnings(as.numeric(row$price))
+    repeat {
+        log_write("DEBUG", sprintf("akilimo_db: fetching starch prices %s page %d", country, page_num))
 
-        if (!ctry %in% VALID_COUNTRIES)       { log_write("WARN", "akilimo_db: invalid country", ctry, "— skipping starch row"); next }
-        if (!nzchar(factory))                 { log_write("WARN", "akilimo_db: empty starch_factory — skipping row"); next }
-        if (!nzchar(key))                     { log_write("WARN", "akilimo_db: empty key — skipping starch row"); next }
-        if (key %in% seen_keys)               { log_write("WARN", "akilimo_db: duplicate key", key, "— skipping row"); next }
-        if (is.na(cls)  || cls  < 1L)         { log_write("WARN", "akilimo_db: invalid class for", key, "— skipping row"); next }
-        if (is.na(minstarch) || minstarch < 0){ log_write("WARN", "akilimo_db: invalid min_starch for", key, "— skipping row"); next }
-        if (is.na(price) || price <= 0)       { log_write("WARN", "akilimo_db: invalid price for", key, "— skipping row"); next }
+        resp <- tryCatch({
+            raw <- httr::GET(page_url,
+                if (nzchar(token)) httr::add_headers(Authorization = paste("Bearer", token)),
+                httr::timeout(10)
+            )
+            httr::content(raw, as = "parsed", type = "application/json")
+        }, error = function(e) {
+            log_write("WARN", "akilimo_db: HTTP error fetching starch prices for", country, ":", conditionMessage(e))
+            NULL
+        })
 
-        seen_keys <- c(seen_keys, key)
-        valid[[length(valid) + 1L]] <- list(
-            starch_factory       = factory,
-            starch_factory_label = row$starch_factory_label %||% "",
-            class                = cls,
-            country              = ctry,
-            key                  = key,
-            min_starch           = minstarch,
-            range_starch         = row$range_starch %||% "",
-            price                = price,
-            currency             = row$currency %||% "",
-            updated_at           = now_str,
-            source               = source_tag
-        )
+        if (is.null(resp)) {
+            if (page_num == 1L)
+                return(list(status = "error", rows_upserted = 0L,
+                            message = paste("network error fetching starch prices for", country)))
+            log_write("WARN", sprintf("akilimo_db: network error on starch prices %s page %d — using %d rows so far",
+                                      country, page_num, length(valid)))
+            break
+        }
+
+        if (inherits(resp, "list") && isTRUE(resp$status %in% c("error", "skipped")))
+            return(resp)
+
+        records <- resp$data
+        if (is.null(records)) {
+            if (page_num == 1L)
+                return(list(status = "error", rows_upserted = 0L,
+                            message = paste("starch prices API response missing 'data' field for", country)))
+            log_write("WARN", sprintf("akilimo_db: missing 'data' on starch prices %s page %d — stopping early",
+                                      country, page_num))
+            break
+        }
+
+        for (row in records) {
+            factory   <- row$starch_factory %||% ""
+            key       <- row$key            %||% ""
+            cls       <- suppressWarnings(as.integer(row$class))
+            ctry      <- row$country        %||% ""
+            minstarch <- suppressWarnings(as.numeric(row$min_starch))
+            price     <- suppressWarnings(as.numeric(row$price))
+
+            if (!ctry %in% VALID_COUNTRIES)        { log_write("WARN", "akilimo_db: invalid country", ctry, "— skipping starch row"); next }
+            if (!nzchar(factory))                  { log_write("WARN", "akilimo_db: empty starch_factory — skipping row"); next }
+            if (!nzchar(key))                      { log_write("WARN", "akilimo_db: empty key — skipping starch row"); next }
+            if (key %in% seen_keys)                { log_write("WARN", "akilimo_db: duplicate key", key, "— skipping row"); next }
+            if (is.na(cls) || cls < 1L)            { log_write("WARN", "akilimo_db: invalid class for", key, "— skipping row"); next }
+            if (is.na(minstarch) || minstarch < 0) { log_write("WARN", "akilimo_db: invalid min_starch for", key, "— skipping row"); next }
+            if (is.na(price) || price <= 0)        { log_write("WARN", "akilimo_db: invalid price for", key, "— skipping row"); next }
+
+            seen_keys <- c(seen_keys, key)
+            valid[[length(valid) + 1L]] <- list(
+                starch_factory       = factory,
+                starch_factory_label = row$starch_factory_label %||% "",
+                class                = cls,
+                country              = ctry,
+                key                  = key,
+                min_starch           = minstarch,
+                range_starch         = row$range_starch %||% "",
+                price                = price,
+                currency             = row$currency %||% "",
+                updated_at           = now_str,
+                source               = source_tag
+            )
+        }
+
+        log_write("DEBUG", sprintf("akilimo_db: starch prices %s page %d — %d record(s), total so far: %d",
+                                   country, page_num, length(records), length(valid)))
+
+        next_url <- resp$links[["next"]] %||% ""
+        if (!nzchar(next_url)) break
+        page_url <- next_url
+        page_num <- page_num + 1L
     }
 
     if (length(valid) == 0) {
@@ -728,7 +791,7 @@ translations_are_stale <- function() {
 refresh_translations <- function(source_tag = "api",
                                  dry_run    = FALSE) {
     conn    <- .akilimo_db_conn
-    api_url <- Sys.getenv("AKILIMO_API_URL", unset = "")
+    api_url <- sub("/+$", "", Sys.getenv("AKILIMO_API_URL", unset = ""))
 
     if (!nzchar(api_url)) {
         log_write("DEBUG", "akilimo_db: AKILIMO_API_URL not set — skipping translation refresh")
@@ -756,20 +819,23 @@ refresh_translations <- function(source_tag = "api",
 # every record.  Returns the same status/rows_upserted/message list as the
 # other .refresh_*_inner helpers.
 #
-# Pagination: follows resp$next_page_url until it is NULL.
+# Only two fields are consumed from each response:
+#   resp$data          — the array of translation records for this page
+#   resp$links[["next"]] — absolute URL of the next page; NULL on the last page
+# Everything in resp$meta is informational and ignored by this function.
+#
 # Duplicate keys: last record wins (keyed named list, matches CSV row-order semantics).
 # Partial sync: only rows returned by the API are upserted; existing DB rows
 #   for keys absent from the remote feed are left untouched.
 .refresh_translations_inner <- function(conn, api_url, source_tag, dry_run) {
     base_url <- paste0(api_url, "/translations")
     token    <- Sys.getenv("AKILIMO_API_TOKEN", unset = "")
-    per_page <- 50L
 
     now_str  <- strftime(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
     # Named list keyed by translation key — last record wins on duplicates
     valid    <- list()
     page_num <- 1L
-    page_url <- paste0(base_url, "?page=1&per_page=", per_page)
+    page_url <- paste0(base_url, "?page=1")
 
     repeat {
         log_write("DEBUG", sprintf("akilimo_db: fetching translations page %d", page_num))
@@ -803,10 +869,17 @@ refresh_translations <- function(source_tag = "api",
         if (inherits(resp, "list") && isTRUE(resp$status %in% c("error", "skipped")))
             return(resp)
 
-        # Laravel paginated envelope: records are in resp$data.
-        # Fall back to treating the whole response as a flat array if $data is absent
-        # (forward-compat with a non-paginated endpoint).
-        records <- resp$data %||% resp
+        # Extract records from resp$data; fail clearly if the envelope is wrong
+        records <- resp$data
+        if (is.null(records)) {
+            if (page_num == 1L)
+                return(list(status = "error", rows_upserted = 0L,
+                            message = "translations API response missing 'data' field"))
+            log_write("WARN", sprintf(
+                "akilimo_db: missing 'data' on page %d — stopping early with %d rows",
+                page_num, length(valid)))
+            break
+        }
 
         for (row in records) {
             key <- trimws(row$key %||% "")
@@ -836,8 +909,8 @@ refresh_translations <- function(source_tag = "api",
             "akilimo_db: translations page %d — %d record(s), total so far: %d",
             page_num, length(records), length(valid)))
 
-        # Follow next page
-        next_url <- resp$next_page_url %||% ""
+        # Advance to next page using the server-provided cursor (links.next)
+        next_url <- resp$links[["next"]] %||% ""
         if (!nzchar(next_url)) break
         page_url <- next_url
         page_num <- page_num + 1L

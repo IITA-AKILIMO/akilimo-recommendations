@@ -553,55 +553,52 @@ The recommendations engine loads user-facing strings from `data/input/translatio
 ### Expected endpoint
 
 ```
-GET /api/translations?page={n}&per_page={size}
+GET {AKILIMO_API_URL}/translations?page={n}
 Accept: application/json
 Authorization: Bearer <token>
 ```
 
-The engine walks every page until `next_page_url` is `null`.
+The engine walks every page until `links.next` is `null`.
 
 ### Paginated response envelope
 
-Laravel's `paginate()` helper produces the following envelope. All fields listed are required — the engine will error if any are absent.
+Laravel's resource paginator produces the following envelope. The engine only reads `data` and `links.next` — everything inside `meta` is informational and not consumed.
 
 ```json
 {
-  "current_page": 1,
   "data": [ ... ],
-  "first_page_url": "https://api.example.com/api/translations?page=1",
-  "from": 1,
-  "last_page": 4,
-  "last_page_url": "https://api.example.com/api/translations?page=4",
-  "links": [
-    { "url": null,                                                    "label": "&laquo; Previous", "active": false },
-    { "url": "https://api.example.com/api/translations?page=1",      "label": "1",               "active": true  },
-    { "url": "https://api.example.com/api/translations?page=2",      "label": "2",               "active": false },
-    { "url": null,                                                    "label": "Next &raquo;",    "active": false }
-  ],
-  "next_page_url": "https://api.example.com/api/translations?page=2",
-  "path": "https://api.example.com/api/translations",
-  "per_page": 50,
-  "prev_page_url": null,
-  "to": 50,
-  "total": 183
+  "links": {
+    "first": "https://api.example.com/api/translations?page=1",
+    "last":  "https://api.example.com/api/translations?page=4",
+    "prev":  null,
+    "next":  "https://api.example.com/api/translations?page=2"
+  },
+  "meta": {
+    "current_page": 1,
+    "from": 1,
+    "last_page": 4,
+    "links": [
+      { "url": null,                                                    "label": "&laquo; Previous", "page": null, "active": false },
+      { "url": "https://api.example.com/api/translations?page=1",      "label": "1",               "page": 1,    "active": true  },
+      { "url": "https://api.example.com/api/translations?page=2",      "label": "2",               "page": 2,    "active": false },
+      { "url": "https://api.example.com/api/translations?page=2",      "label": "Next &raquo;",    "page": 2,    "active": false }
+    ],
+    "path": "https://api.example.com/api/translations",
+    "per_page": 50,
+    "to": 50,
+    "total": 183
+  }
 }
 ```
 
-| Envelope field | Type | Description |
-|----------------|------|-------------|
-| `current_page` | integer | 1-based index of the returned page |
-| `data` | array | Translation records for this page (see below) |
-| `first_page_url` | string\|null | Absolute URL of the first page |
-| `last_page` | integer | Total number of pages |
-| `last_page_url` | string\|null | Absolute URL of the last page |
-| `links` | array | Navigation links array (Laravel default shape) |
-| `next_page_url` | string\|null | URL of the next page; `null` on the last page |
-| `path` | string | Base path without `?page=` |
-| `per_page` | integer | Records per page |
-| `prev_page_url` | string\|null | URL of the previous page; `null` on the first page |
-| `from` | integer | 1-based index of the first record on this page |
-| `to` | integer | 1-based index of the last record on this page |
-| `total` | integer | Total number of translation records across all pages |
+| Envelope field | Required | Type | Description |
+|----------------|----------|------|-------------|
+| `data` | **yes** | array | Translation records for this page (see below) |
+| `links.next` | **yes** | string\|null | URL of the next page; `null` signals the last page and stops pagination |
+| `links.first` | no | string | Absolute URL of the first page |
+| `links.last` | no | string | Absolute URL of the last page |
+| `links.prev` | no | string\|null | URL of the previous page |
+| `meta.*` | no | object | Informational only — not read by the engine |
 
 ### Translation record (`data` items)
 
@@ -647,3 +644,151 @@ sw: "Tumia {rate} kg ya {fertilizer} kwa hekta."
 - If the remote API is unreachable the engine falls back to the existing `translations.csv` and logs a warning — recommendations are not blocked.
 - Duplicate `key` values: the last record wins (matches `translations.csv` row-order semantics).
 - Keys present in `translations.csv` but absent from the remote feed are preserved during a partial sync.
+
+---
+
+## Fertilizer Prices Feed
+
+The engine loads fertilizer and input prices from the local SQLite database. When `AKILIMO_API_URL` is set, the engine refreshes prices on startup (if stale) by calling `refresh_prices()`.
+
+### Expected endpoint
+
+```
+GET {AKILIMO_API_URL}/prices?country={COUNTRY}&page={n}
+Accept: application/json
+Authorization: Bearer <token>
+```
+
+`COUNTRY` is one of `NG`, `TZ`, `RW`, `GH`, `BI`. The engine calls this endpoint once per country and walks all pages. Only `data` and `links.next` are consumed from each page.
+
+Staleness threshold: `PRICE_MAX_AGE_DAYS` env var (default `7` days).
+
+### Response
+
+```json
+{
+  "data": [
+    {
+      "country":  "TZ",
+      "item":     "CAN",
+      "price":    45000,
+      "unit":     "per_bag",
+      "currency": "TZS"
+    }
+  ],
+  "links": {
+    "first": "https://api.example.com/api/prices?country=TZ&page=1",
+    "last":  "https://api.example.com/api/prices?country=TZ&page=2",
+    "prev":  null,
+    "next":  "https://api.example.com/api/prices?country=TZ&page=2"
+  },
+  "meta": { "...": "informational only" }
+}
+```
+
+| Field | Required | Type | Description |
+|-------|----------|------|-------------|
+| `country` | **yes** | string | Country code — must be one of `NG`, `TZ`, `RW`, `GH`, `BI` |
+| `item` | **yes** | string | Fertilizer or input identifier (e.g. `"CAN"`, `"UREA"`) |
+| `price` | **yes** | number | Price value — must be > 0 |
+| `unit` | **yes** | string | Price unit — one of `per_bag`, `per_kg`, `per_tonne`, `per_acre`, `per_ha` |
+| `currency` | no | string | ISO currency code (e.g. `"TZS"`) |
+
+Rows with an invalid `country`, blank `item`, non-positive `price`, or unrecognised `unit` are skipped with a WARN log entry.
+
+---
+
+## Starch Prices Feed
+
+Starch factory gate prices used for Tanzania cassava processing recommendations. Refreshed by `refresh_starch_prices()` when `AKILIMO_API_URL` is set.
+
+### Expected endpoint
+
+```
+GET {AKILIMO_API_URL}/starch-prices?country={COUNTRY}&page={n}
+Accept: application/json
+Authorization: Bearer <token>
+```
+
+`COUNTRY` is one of `NG`, `TZ`, `RW`, `GH`, `BI`. The engine walks all pages. On each refresh the entire set for the country is replaced atomically after all pages are collected. Only `data` and `links.next` are consumed from each page.
+
+Staleness threshold: `STARCH_PRICE_MAX_AGE_DAYS` env var (default `30` days).
+
+### Response
+
+```json
+{
+  "data": [
+    {
+      "starch_factory":       "Kibaigwa",
+      "starch_factory_label": "Kibaigwa Starch Factory",
+      "class":                1,
+      "country":              "TZ",
+      "key":                  "kibaigwa_cls1",
+      "min_starch":           20.0,
+      "range_starch":         "20–24%",
+      "price":                180000,
+      "currency":             "TZS"
+    }
+  ],
+  "links": {
+    "first": "https://api.example.com/api/starch-prices?country=TZ&page=1",
+    "last":  "https://api.example.com/api/starch-prices?country=TZ&page=2",
+    "prev":  null,
+    "next":  "https://api.example.com/api/starch-prices?country=TZ&page=2"
+  },
+  "meta": { "...": "informational only" }
+}
+```
+
+| Field | Required | Type | Description |
+|-------|----------|------|-------------|
+| `starch_factory` | **yes** | string | Machine-readable factory identifier |
+| `key` | **yes** | string | Unique row key — duplicates are skipped |
+| `class` | **yes** | integer | Starch class (≥ 1) |
+| `country` | **yes** | string | Country code — must be one of `NG`, `TZ`, `RW`, `GH`, `BI` |
+| `min_starch` | **yes** | number | Minimum starch content (%) for this class — must be ≥ 0 |
+| `price` | **yes** | number | Price per tonne — must be > 0 |
+| `starch_factory_label` | no | string | Human-readable factory name |
+| `range_starch` | no | string | Display string for the starch range (e.g. `"20–24%"`) |
+| `currency` | no | string | ISO currency code (e.g. `"TZS"`) |
+
+Rows with an invalid `country`, blank `starch_factory` or `key`, duplicate `key`, invalid `class`, or non-positive `price`/`min_starch` are skipped with a WARN log entry.
+
+---
+
+## Common API conventions
+
+All three data-feed endpoints share the same auth and env-var conventions.
+
+### Authentication
+
+All requests carry a `Bearer` token when `AKILIMO_API_TOKEN` is set:
+
+```
+Authorization: Bearer <AKILIMO_API_TOKEN>
+```
+
+If the env var is unset the header is omitted (useful for local development without auth).
+
+### Environment variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AKILIMO_API_URL` | _(none)_ | Versioned base URL for all data-feed endpoints, e.g. `https://api.example.com/api/v1`. No trailing slash. If unset, all refreshes are skipped silently |
+| `AKILIMO_API_TOKEN` | _(none)_ | Bearer token sent with every request |
+| `PRICE_MAX_AGE_DAYS` | `7` | Days before fertilizer prices are considered stale |
+| `STARCH_PRICE_MAX_AGE_DAYS` | `30` | Days before starch prices are considered stale |
+| `TRANSLATIONS_MAX_AGE_DAYS` | `30` | Days before translations are considered stale |
+
+### Error handling
+
+All refresh functions return a list with three fields:
+
+| Field | Type | Values |
+|-------|------|--------|
+| `status` | string | `"ok"` / `"error"` / `"skipped"` |
+| `rows_upserted` | integer | Number of rows written to the database |
+| `message` | string\|null | Human-readable error detail; `null` on success |
+
+A `"skipped"` status means the env var was unset or data was still fresh — not a failure. Refresh failures never block a recommendation request; the engine uses cached data from the last successful sync.
