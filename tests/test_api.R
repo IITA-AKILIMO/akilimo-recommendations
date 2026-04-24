@@ -1,13 +1,15 @@
 
 this <- system('hostname', TRUE)
-if (this == "LAPTOP-IVSPBGCA") {
+if (this == "denovo") {
 	setwd("C:/github/omilika/akilimo-recommendations")
 } else {
 	
 }
 
 cmd <- 'curl -X POST http://localhost:8000/compute --data "@./tests/input/in_xxx.json"'
-#cmd <- 'curl --ssl-no-revoke -X POST https://plumbr.akilimo.org/compute --data "@./tests/input/in_xxx.json"'
+#cmd <- 'curl --ssl-no-revoke -X POST https://plumbr.akilimo.org/compute --data "@./tests/input/in_1.json"'
+
+curl --ssl-no-revoke -X POST https://localhost:8000/compute --data "@./tests/input/in_1.json"
 
 jout <- lapply(1:28, \(i) {
 	print(system.time(out <- system(gsub("xxx", i, cmd), intern=TRUE)[4]))

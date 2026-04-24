@@ -1,7 +1,7 @@
 
 run_akilimo <- function(json) {
 	
-	aki_version <- "20251222"
+	aki_version <- "20251228"
 	dir.create("temp", FALSE, FALSE)
     body <- try(jsonlite::fromJSON(json))
 	if (inherits(body, "try-error")) {
@@ -10,10 +10,10 @@ run_akilimo <- function(json) {
 
     # extract parameters from the JSON payload
     country <- from_json("country", body)
-    lat <- from_json("lat", body)
-    lon <- from_json("lon", body)
-    area <- from_json("area", body)
-    areaUnits <- from_json("areaUnits", body)
+    lat <- from_json("lat", body, NA)
+    lon <- from_json("lon", body, NA)
+    area <- from_json("area", body, 1)
+    areaUnits <- from_json("areaUnits", body, "ha")
 
     # not used?
 	#intercrop <- from_json("intercrop", body, default_value = FALSE)
@@ -33,8 +33,8 @@ run_akilimo <- function(json) {
     saleSF <- from_json("saleSF", body, default_value = FALSE)
     nameSF <- from_json("nameSF", body, default_value = NA)
     cassPD <- from_json("cassPD", body, default_value = "roots")
-    cassUW <- from_json("cassUW", body, default_value = 1000)
-    cassUP <- from_json("cassUP", body)
+    cassUW <- as.numeric(from_json("cassUW", body, default_value = 1000))
+    cassUP <- as.numeric(from_json("cassUP", body, default_value = 0))
     maxInv <- from_json("maxInv", body, default_value = NA)
     if (!isTRUE(maxInv > 0)) maxInv <- NA
 
