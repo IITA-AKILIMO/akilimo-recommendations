@@ -394,6 +394,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [docs/EXPERIMENTAL-REVIEW.md](docs/EXPERIMENTAL-REVIEW.md) | Comprehensive review of all changes in the `experimental` branch vs `main` — used for team review before merging |
+
 ## Contributors
 
 - [@rhijmans](https://github.com/rhijmans)
