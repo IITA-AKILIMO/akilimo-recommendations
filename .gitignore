@@ -18,3 +18,6 @@ tests/old/*
 tests/app/*
 tests/request/*
 tests/response/*
+.ai
+.claude
+.Rdata
