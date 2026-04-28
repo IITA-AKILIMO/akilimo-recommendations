@@ -99,30 +99,99 @@ sudo systemctl enable akilimo-api.service
 sudo systemctl start akilimo-api.service
 ```
 
+## Beta Instance (`experimental` branch)
+
+A parallel beta instance runs alongside production using a separate directory and port.
+
+| | Production | Beta |
+|---|---|---|
+| Directory | `/home/akilimo/projects/new_akilimo` | `/home/akilimo/projects/akilimo-beta` |
+| Service | `akilimo-api.service` | `akilimo-api-beta.service` |
+| Port | 8000 | 8001 |
+| Branch | `main` | `experimental` |
+
+### 1. Create the Beta Service File
+
+```bash
+# Clone the repo into the beta directory (first time only)
+git clone <repo-url> /home/akilimo/projects/akilimo-beta
+cd /home/akilimo/projects/akilimo-beta
+git checkout experimental
+
+# Copy the example file
+cp ~/projects/akilimo-beta/systemd/akilimo-api-beta.service.example ~/projects/akilimo-beta/systemd/akilimo-api-beta.service
+
+# Edit the file to match your environment (paths, ports, etc.)
+nano ~/projects/akilimo-beta/systemd/akilimo-api-beta.service
+```
+
+### 2. Create the Symbolic Link
+
+```bash
+sudo ln -s ~/projects/akilimo-beta/systemd/akilimo-api-beta.service /etc/systemd/system/akilimo-api-beta.service
+```
+
+**Verify the symlink:**
+```bash
+ls -la /etc/systemd/system/akilimo-api-beta.service
+```
+
+### 2. Create Required Directories
+
+```bash
+sudo mkdir -p /home/akilimo/projects/akilimo-beta/logs
+sudo chown -R akilimo:akilimo /home/akilimo/projects/akilimo-beta/logs
+```
+
+### 3. Reload Systemd
+
+```bash
+sudo systemctl daemon-reload
+```
+
+### 4. Enable the Service
+
+```bash
+sudo systemctl enable akilimo-api-beta.service
+```
+
+### 5. Start the Service
+
+```bash
+sudo systemctl start akilimo-api-beta.service
+```
+
 ## Service Management
 
 ### Check Service Status
 
 ```bash
+# Production
 sudo systemctl status akilimo-api.service
+
+# Beta
+sudo systemctl status akilimo-api-beta.service
 ```
 
 ### Start the Service
 
 ```bash
 sudo systemctl start akilimo-api.service
+sudo systemctl start akilimo-api-beta.service
 ```
 
 ### Stop the Service
 
 ```bash
 sudo systemctl stop akilimo-api.service
+sudo systemctl stop akilimo-api-beta.service
 ```
 
 ### Restart the Service
 
 ```bash
 sudo systemctl restart akilimo-api.service
+sudo systemctl restart akilimo-api-beta.service
 ```
 
 ### Reload Configuration
@@ -133,12 +202,14 @@ If you modify the service file in your project:
 # The symlink automatically reflects changes, just reload systemd
 sudo systemctl daemon-reload
 sudo systemctl restart akilimo-api.service
+sudo systemctl restart akilimo-api-beta.service
 ```
 
 ### Disable Auto-start
 
 ```bash
 sudo systemctl disable akilimo-api.service
+sudo systemctl disable akilimo-api-beta.service
 ```
 
 ## Monitoring and Logs
@@ -146,25 +217,32 @@ sudo systemctl disable akilimo-api.service
 ### View Real-time Logs
 
 ```bash
+# Production
 sudo journalctl -u akilimo-api.service -f
+
+# Beta
+sudo journalctl -u akilimo-api-beta.service -f
 ```
 
 ### View Recent Logs
 
 ```bash
 sudo journalctl -u akilimo-api.service -n 100
+sudo journalctl -u akilimo-api-beta.service -n 100
 ```
 
 ### View Logs Since Boot
 
 ```bash
 sudo journalctl -u akilimo-api.service -b
+sudo journalctl -u akilimo-api-beta.service -b
 ```
 
 ### View Logs for Specific Time Period
 
 ```bash
 sudo journalctl -u akilimo-api.service --since "2024-01-01" --until "2024-01-02"
+sudo journalctl -u akilimo-api-beta.service --since "2024-01-01" --until "2024-01-02"
 ```
 
 ### Filter by Priority
@@ -172,9 +250,11 @@ sudo journalctl -u akilimo-api.service --since "2024-01-01" --until "2024-01-02"
 ```bash
 # Show only errors
 sudo journalctl -u akilimo-api.service -p err
+sudo journalctl -u akilimo-api-beta.service -p err
 
 # Show warnings and above
 sudo journalctl -u akilimo-api.service -p warning
+sudo journalctl -u akilimo-api-beta.service -p warning
 ```
 
 ## Configuration
