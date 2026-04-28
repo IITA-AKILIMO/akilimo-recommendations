@@ -1,246 +1,409 @@
-# Akilimo Recommendation Engine
+# AKILIMO R Recommendation Engine
 
-R-based REST API that generates science-backed cassava fertilizer and crop management recommendations for smallholder farmers across Sub-Saharan Africa. Supported countries: Nigeria (NG), Tanzania (TZ), Rwanda (RW), Ghana (GH), Burundi (BI).
+This guide covers the deployment and management of the AKILIMO R API as a systemd service on Linux systems.
 
-The engine combines the QUEFTS crop model (Quantitative Evaluation of the Fertility of Tropical Soils) with site-specific spatial data and cost-benefit optimization to produce actionable, localized recommendations in multiple languages.
+## Overview
 
-## Quick Start
+The AKILIMO R API runs as a managed systemd service, providing automatic restarts, resource management, logging, and security hardening. This ensures reliable operation in production environments.
 
-### 1. Get the code
+## Prerequisites
+
+- Linux system with systemd (Ubuntu 16.04+, Debian 8+, CentOS 7+, etc.)
+- R installed at `/usr/bin/Rscript`
+- User `akilimo` with appropriate permissions
+- Project files located at `/home/akilimo/projects/new_akilimo`
+
+## Project Structure
+
+```
+~/projects/new_akilimo/
+├── systemd/
+│   ├── akilimo-api.service.example  # Template (tracked in Git)
+│   └── akilimo-api.service          # Your config (gitignored)
+├── R/
+│   └── api2.R
+└── logs/
+```
+
+**Important:** Add to your `.gitignore`:
+```
+systemd/akilimo-api.service
+```
+
+This ensures environment-specific configurations aren't committed to the repository.
+
+## Installation
+
+### 1. Create the Service File
+
+The repository contains a template file `akilimo-api.service.example`. Copy and customize it for your environment:
 
 ```bash
-git clone https://github.com/masgeek/akilimo-recommendations.git
-cd akilimo-recommendations
+# Copy the example file
+cp ~/projects/new_akilimo/systemd/akilimo-api.service.example ~/projects/new_akilimo/systemd/akilimo-api.service
+
+# Edit the file to match your environment (paths, ports, etc.)
+nano ~/projects/new_akilimo/systemd/akilimo-api.service
 ```
 
-### 2. Install dependencies
+**Note:** The `.example` file is tracked in Git, but `akilimo-api.service` is gitignored to prevent committing environment-specific configurations.
 
-**Linux (Debian/Ubuntu)** — automated:
+### 2. Create the Symbolic Link
+
+Link the configured service file to systemd:
 
 ```bash
-chmod +x setup.sh
-./setup.sh
+sudo ln -s ~/projects/new_akilimo/systemd/akilimo-api.service /etc/systemd/system/akilimo-api.service
 ```
 
-**Windows / macOS** — run the R installer directly, then set up Python:
+**Why use a symlink?**
+- Changes to the file in your project automatically apply to the service
+- Service file stays with your project (not scattered in system directories)
+- Easy to manage and update
+
+**Verify the symlink:**
+```bash
+ls -la /etc/systemd/system/akilimo-api.service
+```
+
+You should see: `... -> /home/akilimo/projects/new_akilimo/systemd/akilimo-api.service`
+
+### 2. Create Required Directories
+
+Ensure log directories exist with proper permissions:
 
 ```bash
-Rscript install_packages.R
-
-cd scripts
-cp .env.example .env
-poetry install
+sudo mkdir -p /home/akilimo/projects/new_akilimo/logs
+sudo chown -R akilimo:akilimo /home/akilimo/projects/new_akilimo/logs
 ```
 
-See [SETUP.md](SETUP.md) for full installation details and manual instructions.
+### 3. Reload Systemd
 
-### 3. Download runtime data
+Tell systemd to recognize the new service:
 
 ```bash
-cd scripts
-poetry run setup-data                      # OSF (default)
-poetry run setup-data --source zenodo      # or from Zenodo record 19231022
-```
-
-### 4. Start the API
-
-```bash
-Rscript api.R
-# API listens on http://0.0.0.0:8000
-```
-
-### 5. Run a test request
-
-```bash
-curl -X POST http://localhost:8000/compute --data "@./tests/input/in_1.json"
-```
-
-## Architecture
-
-```
-POST /compute (api.R)
-    → validate_request() + parse_request() (R/AkilimoMain.R)
-        → Validates country, coordinates, flags; normalises all fields
-        → Dispatches to the first active processor:
-            process-FR.R  — Fertilizer Recommendation
-            process-IC.R  — Intercropping (cassava–maize or cassava–sweet potato)
-            process-PP.R  — Post-Planting (tillage and ridging advice)
-            process-SP.R  — Schedule Planting (optimise planting/harvest dates)
-        → Each processor:
-            1. get_data()         — loads soil NPK (RDS) + yield rasters (NetCDF)
-            2. QUEFTS()           — crop growth model: predicts yield from NPK supply
-            3. run_Optim_*()      — cost-benefit optimisation: finds max-profit NPK rate
-            4. markdown.R         — renders HTML recommendation report
-        → Returns JSON with recommendation text, numeric data, and HTML report
-```
-
-Key files:
-
-| File | Role |
-|------|------|
-| `api.R` | Plumber entry point (port 8000) |
-| `R/AkilimoMain.R` | Request validation, parsing, and processor dispatch |
-| `R/quefts.R` | QUEFTS crop growth model (yield from NPK supply) |
-| `R/optimize_fert.R` | Cost-benefit fertilizer rate optimisation (`L-BFGS-B`) |
-| `R/get_data.R` | Loads soil RDS files and yield NetCDF rasters; in-memory cache |
-| `R/fertilizers.R` | Parses fertilizer types, bag prices, and NPK content |
-| `R/misc.R` | `tr(key, lang, ...)` translation helper, `get_currency()`, `getRFY()`/`getRDY()` |
-| `R/markdown.R` | Renders Rmd → HTML recommendation report |
-| `R/email.R` | PDF generation orchestration; email dispatch (smtp/mailtrap/mailgun) |
-
-## Recommendation Types
-
-| Flag | Type | Description |
-|------|------|-------------|
-| `FR` | Fertilizer Recommendation | Optimal NPK rates and expected yield/revenue gain |
-| `IC` | Intercropping | Cassava–maize (NG) or cassava–sweet potato (TZ) intercrop advice |
-| `PP` | Post-Planting | Tillage and ridging cost-benefit analysis |
-| `SPP` / `SPH` | Schedule Planting | Optimal planting or harvest date window |
-
-Only one recommendation is returned per request. Priority order when multiple flags are set: FR → IC → PP → SP.
-
-## Internationalisation
-
-Response text language is controlled by the `lang` field in the request body (default `"en"`):
-
-| Value | Language |
-|-------|----------|
-| `"en"` | English (default) |
-| `"sw"` | Swahili |
-
-`lang` is independent of `country` — any country can request any supported language. Translation strings live in `data/input/translations.csv`. See [docs/TRANSLATIONS.md](docs/TRANSLATIONS.md) for how to add keys or new languages.
-
-## Testing
-
-### Test suites
-
-| Script | What it runs | Prerequisite |
-|--------|-------------|--------------|
-| `tests/test_small.R` | 29 representative cases in-process | Data downloaded |
-| `tests/test_full.R` | 3203 regression cases in-process | Data downloaded |
-| `tests/test_api.R` | POSTs all fixtures to the live server | Server on port 8000 |
-
-```bash
-# In-process (no server needed)
-Rscript tests/test_small.R
-Rscript tests/test_full.R
-
-# Against a running server
-Rscript api.R &
-Rscript tests/test_api.R
-```
-
-### Single request via curl
-
-Test fixtures are in `tests/input/` named `in_{N}_{COUNTRY}_{TYPE}_{params}.json`:
-
-```bash
-# Start the server first
-Rscript api.R
-
-# Run a single fixture
-curl -X POST http://localhost:8000/compute \
-  -H "Content-Type: application/json" \
-  --data "@./tests/input/in_1_TZ_FR_starch_factory_riskAtt0.json"
-
-# Or send an ad-hoc payload
-curl -X POST http://localhost:8000/compute \
-  -H "Content-Type: application/json" \
-  -d '{"country":"NG","lat":7.55,"lon":4.51,"area":1,"areaUnits":"ha",
-       "FR":true,"IC":false,"PP":false,"SPP":false,"SPH":false,
-       "PD":"2025-05-01","HD":"2026-02-01","FCY":11}'
-```
-
-### Adding a new fixture
-
-Name the file `in_{N}_{COUNTRY}_{TYPE}_{key_params}.json` where:
-- `N` — next sequential number
-- `COUNTRY` — NG, TZ, GH, RW, or BI
-- `TYPE` — FR, IC, PP, or SP
-- `key_params` — brief description (e.g. `starch_factory_riskAtt1`, `custom_price_maxInv`)
-
-Then add the filename to the `test_files` vector in `tests/test_small.R` and `tests/test_api.R`.
-
-## Deployment
-
-### Production (`main` branch)
-
-The API runs as a systemd service. Copy the template and configure it for your server:
-
-```bash
-cp systemd/akilimo-api.service.example systemd/akilimo-api.service
-# Edit paths and environment variables, then:
-sudo ln -s $(pwd)/systemd/akilimo-api.service /etc/systemd/system/akilimo-api.service
 sudo systemctl daemon-reload
-sudo systemctl enable --now akilimo-api.service
 ```
 
-Resource defaults: 2 GB RAM, 2 CPU cores, 65536 open files.
+### 4. Enable the Service
 
-Deployment is automated via GitHub Actions (`deploy-production.yml`) on push to `main`.
-Required secrets: `SERVER_HOST`, `SERVER_USER`, `SERVER_SSH_KEY`.
+Configure the service to start automatically on boot:
+
+```bash
+sudo systemctl enable akilimo-api.service
+```
+
+### 6. Start the Service
+
+```bash
+sudo systemctl start akilimo-api.service
+```
+
+## Service Management
+
+### Check Service Status
 
 ```bash
 sudo systemctl status akilimo-api.service
+```
+
+### Start the Service
+
+```bash
+sudo systemctl start akilimo-api.service
+```
+
+### Stop the Service
+
+```bash
+sudo systemctl stop akilimo-api.service
+```
+
+### Restart the Service
+
+```bash
 sudo systemctl restart akilimo-api.service
+```
+
+### Reload Configuration
+
+If you modify the service file in your project:
+
+```bash
+# The symlink automatically reflects changes, just reload systemd
+sudo systemctl daemon-reload
+sudo systemctl restart akilimo-api.service
+```
+
+### Disable Auto-start
+
+```bash
+sudo systemctl disable akilimo-api.service
+```
+
+## Monitoring and Logs
+
+### View Real-time Logs
+
+```bash
 sudo journalctl -u akilimo-api.service -f
 ```
 
-### Beta (`experimental` branch)
-
-A parallel beta instance runs alongside production from a separate directory and port. It uses the same server secrets.
+### View Recent Logs
 
 ```bash
-# Clone into the beta directory
-git clone <repo-url> /home/akilimo/projects/akilimo-beta
-cd /home/akilimo/projects/akilimo-beta
-git checkout experimental
-
-# Set a different port in .env (e.g. 8001)
-cp .env.example .env   # edit: API_PORT=8001
-
-# Install the service
-sudo cp systemd/akilimo-api-beta.service.example /etc/systemd/system/akilimo-api-beta.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now akilimo-api-beta.service
+sudo journalctl -u akilimo-api.service -n 100
 ```
 
-Deployment is automated via GitHub Actions (`deploy-experimental.yml`) on push to `experimental`.
-Uses the same secrets as production: `SERVER_HOST`, `SERVER_USER`, `SERVER_SSH_KEY`.
+### View Logs Since Boot
 
 ```bash
-sudo systemctl status akilimo-api-beta.service
-sudo systemctl restart akilimo-api-beta.service
-sudo journalctl -u akilimo-api-beta -f
+sudo journalctl -u akilimo-api.service -b
 ```
 
-## Data Management (maintainers)
-
-Runtime data is hosted on **OSF** and **Zenodo** (both contain identical files). See [SETUP.md](SETUP.md) for the full publishing workflow.
+### View Logs for Specific Time Period
 
 ```bash
-cd scripts
-poetry run bundle-assets           # pack data dirs → dist/*.tar.gz
-poetry run upload-osf --new        # create OSF project + upload (recommended)
-poetry run upload-zenodo --new     # or create Zenodo deposit + upload
+sudo journalctl -u akilimo-api.service --since "2024-01-01" --until "2024-01-02"
+```
+
+### Filter by Priority
+
+```bash
+# Show only errors
+sudo journalctl -u akilimo-api.service -p err
+
+# Show warnings and above
+sudo journalctl -u akilimo-api.service -p warning
+```
+
+## Configuration
+
+### Resource Limits
+
+The service includes default resource limits. Adjust these in the service file based on your needs:
+
+```ini
+MemoryMax=2G        # Maximum memory usage
+CPUQuota=200%       # CPU limit (200% = 2 cores)
+LimitNOFILE=65536   # Maximum open files
+```
+
+### Restart Behavior
+
+The service automatically restarts on failure with rate limiting:
+
+- **Restart Policy**: Only on failure (not on clean exit)
+- **Restart Delay**: 5 seconds between attempts
+- **Rate Limit**: Maximum 5 restarts within 5 minutes
+
+To change restart behavior, modify these lines:
+
+```ini
+Restart=on-failure          # Options: no, always, on-success, on-failure, on-abnormal, on-abort, on-watchdog
+RestartSec=5s
+StartLimitInterval=300s
+StartLimitBurst=5
+```
+
+### Environment Variables
+
+Add additional environment variables in the `[Service]` section:
+
+```ini
+Environment=API_PORT=8080
+Environment=LOG_LEVEL=INFO
+Environment=R_LIBS_USER=/home/akilimo/R/library
+```
+
+### File Permissions
+
+The service includes security hardening. If your API needs to write to additional directories, add them to `ReadWritePaths`:
+
+```ini
+ReadWritePaths=/home/akilimo/projects/new_akilimo/logs /home/akilimo/data /tmp
+```
+
+## Troubleshooting
+
+### Service Won't Start
+
+1. Check the service status:
+   ```bash
+   sudo systemctl status akilimo-api.service
+   ```
+
+2. View detailed logs:
+   ```bash
+   sudo journalctl -u akilimo-api.service -n 50
+   ```
+
+3. Verify file permissions:
+   ```bash
+   ls -la /home/akilimo/projects/new_akilimo/R/api2.R
+   ```
+
+4. Test R script manually:
+   ```bash
+   sudo -u akilimo /usr/bin/Rscript /home/akilimo/projects/new_akilimo/R/api2.R
+   ```
+
+### Service Keeps Restarting
+
+Check if the service is hitting the restart rate limit:
+
+```bash
+sudo systemctl status akilimo-api.service
+```
+
+Look for "Start request repeated too quickly" messages. Review logs for the actual error causing the restarts.
+
+### Permission Denied Errors
+
+Ensure the `akilimo` user owns the necessary files:
+
+```bash
+sudo chown -R akilimo:akilimo /home/akilimo/projects/new_akilimo
+```
+
+### Memory or CPU Issues
+
+Check resource usage:
+
+```bash
+systemctl show akilimo-api.service -p MemoryCurrent -p CPUUsageNSec
+```
+
+Adjust limits in the service file if needed.
+
+### Port Already in Use
+
+If the API fails to bind to a port:
+
+```bash
+sudo netstat -tlnp | grep <port_number>
+# or
+sudo ss -tlnp | grep <port_number>
+```
+
+Kill the process using the port or configure your API to use a different port.
+
+## Security Features
+
+The service includes several security hardening measures:
+
+- **NoNewPrivileges**: Prevents privilege escalation
+- **PrivateTmp**: Isolates /tmp directory
+- **ProtectSystem**: Makes system directories read-only
+- **ProtectHome**: Restricts access to home directories
+- **ProtectKernelTunables**: Prevents kernel parameter changes
+- **UMask**: Sets secure file creation permissions
+
+These settings may need adjustment if your application requires broader system access.
+
+## Performance Tuning
+
+### For High-Traffic APIs
+
+Increase resource limits:
+
+```ini
+MemoryMax=4G
+CPUQuota=400%
+LimitNOFILE=131072
+```
+
+### For Low-Resource Environments
+
+Reduce limits:
+
+```ini
+MemoryMax=512M
+CPUQuota=100%
+```
+
+### Adjust Start Timeout
+
+If your R API takes longer to initialize:
+
+```ini
+TimeoutStartSec=120s
+```
+
+## Backup and Maintenance
+
+### Before Updates
+
+1. Stop the service:
+   ```bash
+   sudo systemctl stop akilimo-api.service
+   ```
+
+2. Backup the current version:
+   ```bash
+   cp -r /home/akilimo/projects/new_akilimo /home/akilimo/backups/new_akilimo_$(date +%Y%m%d)
+   ```
+
+3. Deploy updates and restart:
+   ```bash
+   sudo systemctl start akilimo-api.service
+   ```
+
+### Service File Backup
+
+Keep a copy of your service configuration:
+
+```bash
+sudo cp /etc/systemd/system/akilimo-api.service /home/akilimo/backups/
+```
+
+## Support
+
+For issues or questions:
+
+- Check logs: `sudo journalctl -u akilimo-api.service -f`
+- Review service status: `sudo systemctl status akilimo-api.service`
+- Consult the R API documentation
+- Report issues to your development team
+
+## License
+
+This project is licensed under the MIT License.
+
+```
+MIT License
+
+Copyright (c) 2024 Akilimo Project
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
 
 ## Documentation
 
 | Document | Description |
 |----------|-------------|
-| [docs/SETUP.md](docs/SETUP.md) | Full installation and data download guide |
-| [docs/ONBOARDING.md](docs/ONBOARDING.md) | Technical onboarding for developers and data scientists |
-| [docs/API-REFERENCE.md](docs/API-REFERENCE.md) | Complete API field reference with examples |
-| [docs/TRANSLATIONS.md](docs/TRANSLATIONS.md) | Translation system: CSV format, adding keys/languages, token substitution |
-| [docs/TECH-DEBT.md](docs/TECH-DEBT.md) | Open issues, deferred tech debt, and architecture notes |
-
-## License
-
-MIT License — see [LICENSE](LICENSE) for details.
+| [docs/EXPERIMENTAL-REVIEW.md](docs/EXPERIMENTAL-REVIEW.md) | Comprehensive review of all changes in the `experimental` branch vs `main` — used for team review before merging |
 
 ## Contributors
 
 - [@rhijmans](https://github.com/rhijmans)
 - [@omilika](https://github.com/omilika)
 - [@masgeek](https://github.com/masgeek)
+
+We welcome contributions! Please feel free to submit issues and pull requests.
