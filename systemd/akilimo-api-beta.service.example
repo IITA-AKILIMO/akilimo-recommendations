@@ -1,0 +1,30 @@
+[Unit]
+Description=AKILIMO R Recommendation Engine (beta)
+After=network.target
+
+[Service]
+Type=simple
+User=akilimo
+Group=akilimo
+WorkingDirectory=/home/akilimo/projects/akilimo-beta
+
+# Enhanced PATH to include pipx binaries and venvs
+Environment="PATH=/home/akilimo/.local/bin:/home/akilimo/.local/pipx/venvs:/usr/local/bin:/usr/bin:/bin"
+
+ExecStart=/home/akilimo/projects/akilimo-beta/start-akilimo.sh
+
+Restart=on-failure
+RestartSec=5s
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=akilimo-api-beta
+LogRateLimitIntervalSec=30s
+LogRateLimitBurst=1000
+
+# Optional file logging (commented out)
+#StandardOutput=append:/home/akilimo/projects/akilimo-beta/logs/akilimo-api.log
+#StandardError=append:/home/akilimo/projects/akilimo-beta/logs/akilimo-api-error.log
+
+[Install]
+WantedBy=multi-user.target
