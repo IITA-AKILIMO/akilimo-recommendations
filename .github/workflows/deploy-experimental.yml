@@ -45,6 +45,9 @@ jobs:
             echo "Last commit was ${elapsed}s ago — no wait needed."
           fi
 
+      - name: Pull latest changes
+        run: git pull origin experimental
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.4
         env:
