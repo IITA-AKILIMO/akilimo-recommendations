@@ -3,6 +3,11 @@
 akpath <- Sys.getenv("AKILIMO_ROOT", unset = ".")
 setwd(akpath)
 
+dotenv_path <- file.path(akpath, ".env")
+if (file.exists(dotenv_path)) {
+  dotenv::load_dot_env(dotenv_path)
+}
+
 # Headless PNG rendering — no X11 display required.
 # Priority: ragg (ggplot2 >= 3.5.0) → ragg legacy → Cairo fallback.
 if (.Platform$OS.type == "unix") {
