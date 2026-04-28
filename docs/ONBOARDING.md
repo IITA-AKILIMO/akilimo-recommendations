@@ -366,8 +366,9 @@ To register the new fixture:
 
 ### Branching
 
-- `main` — production branch; CI deploys on push
-- `feat/*` — feature branches; open a PR to `main`
+- `main` — production branch; CI deploys on push via `deploy-production.yml`
+- `experimental` — beta branch; CI deploys a parallel beta instance on push via `deploy-experimental.yml`
+- `feat/*` — feature branches; open a PR to `main` (or `experimental` for beta-only work)
 - `fix/*` — bug fix branches
 
 ### Making a change

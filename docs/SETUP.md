@@ -246,9 +246,14 @@ Re-running is safe — already-extracted files are preserved.
 
 ## Production deployment (systemd)
 
-The API runs as a systemd service under a dedicated `akilimo` user. A template unit file is provided at `systemd/akilimo-api.service.example`.
+The API runs as a systemd service under a dedicated `akilimo` user. Two service templates are provided — one for production and one for the beta instance.
 
-### Install or update the service
+| Instance | Branch | Directory | Service | Port |
+|----------|--------|-----------|---------|------|
+| Production | `main` | `/home/akilimo/projects/new_akilimo` | `akilimo-api.service` | 8000 |
+| Beta | `experimental` | `/home/akilimo/projects/akilimo-beta` | `akilimo-api-beta.service` | 8001 |
+
+### Install or update the production service
 
 ```bash
 # Copy template to systemd drop-in directory
@@ -262,6 +267,28 @@ sudo systemctl daemon-reload
 sudo systemctl enable akilimo-api
 sudo systemctl start akilimo-api
 sudo systemctl status akilimo-api
+```
+
+### Install or update the beta service
+
+```bash
+# Clone the repo into the beta directory (first time only)
+git clone <repo-url> /home/akilimo/projects/akilimo-beta
+cd /home/akilimo/projects/akilimo-beta
+git checkout experimental
+
+# Configure a separate port
+cp .env.example .env
+# edit .env: API_PORT=8001
+
+# Install the service
+sudo cp systemd/akilimo-api-beta.service.example /etc/systemd/system/akilimo-api-beta.service
+sudo nano /etc/systemd/system/akilimo-api-beta.service
+
+sudo systemctl daemon-reload
+sudo systemctl enable akilimo-api-beta
+sudo systemctl start akilimo-api-beta
+sudo systemctl status akilimo-api-beta
 ```
 
 ### WeasyPrint PATH under systemd

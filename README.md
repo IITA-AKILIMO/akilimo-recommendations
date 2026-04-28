@@ -161,7 +161,9 @@ Name the file `in_{N}_{COUNTRY}_{TYPE}_{key_params}.json` where:
 
 Then add the filename to the `test_files` vector in `tests/test_small.R` and `tests/test_api.R`.
 
-## Production Deployment
+## Deployment
+
+### Production (`main` branch)
 
 The API runs as a systemd service. Copy the template and configure it for your server:
 
@@ -178,12 +180,38 @@ Resource defaults: 2 GB RAM, 2 CPU cores, 65536 open files.
 Deployment is automated via GitHub Actions (`deploy-production.yml`) on push to `main`.
 Required secrets: `SERVER_HOST`, `SERVER_USER`, `SERVER_SSH_KEY`.
 
-### Service management
-
 ```bash
 sudo systemctl status akilimo-api.service
 sudo systemctl restart akilimo-api.service
 sudo journalctl -u akilimo-api.service -f
+```
+
+### Beta (`experimental` branch)
+
+A parallel beta instance runs alongside production from a separate directory and port. It uses the same server secrets.
+
+```bash
+# Clone into the beta directory
+git clone <repo-url> /home/akilimo/projects/akilimo-beta
+cd /home/akilimo/projects/akilimo-beta
+git checkout experimental
+
+# Set a different port in .env (e.g. 8001)
+cp .env.example .env   # edit: API_PORT=8001
+
+# Install the service
+sudo cp systemd/akilimo-api-beta.service.example /etc/systemd/system/akilimo-api-beta.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now akilimo-api-beta.service
+```
+
+Deployment is automated via GitHub Actions (`deploy-experimental.yml`) on push to `experimental`.
+Uses the same secrets as production: `SERVER_HOST`, `SERVER_USER`, `SERVER_SSH_KEY`.
+
+```bash
+sudo systemctl status akilimo-api-beta.service
+sudo systemctl restart akilimo-api-beta.service
+sudo journalctl -u akilimo-api-beta -f
 ```
 
 ## Data Management (maintainers)

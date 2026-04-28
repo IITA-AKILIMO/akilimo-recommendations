@@ -176,8 +176,15 @@ Full field reference with types and examples: [docs/API-REFERENCE.md](docs/API-R
 
 ## Deployment
 
-Production runs as a systemd service. See `systemd/akilimo-api.service.example` for the service template (resource limits: 2GB RAM, 2 CPU cores, 65536 FDs).
+Two instances run in parallel on the same server:
 
-GitHub Actions (`deploy-production.yml`) deploys on push to `main` via SSH. Required secrets: `SERVER_HOST`, `SERVER_USER`, `SERVER_SSH_KEY`.
+| Instance | Branch | Directory | Service | Workflow |
+|----------|--------|-----------|---------|----------|
+| Production | `main` | `/home/akilimo/projects/new_akilimo` | `akilimo-api.service` | `deploy-production.yml` |
+| Beta | `experimental` | `/home/akilimo/projects/akilimo-beta` | `akilimo-api-beta.service` | `deploy-experimental.yml` |
+
+Both deploy via SSH on push to their respective branch using the same secrets: `SERVER_HOST`, `SERVER_USER`, `SERVER_SSH_KEY`.
+
+Service templates: `systemd/akilimo-api.service.example` (production), `systemd/akilimo-api-beta.service.example` (beta). Resource limits: 2GB RAM, 2 CPU cores, 65536 FDs.
 
 PR reviews are automated via `claude-code-review.yml`. Claude can be invoked on issues/PRs by mentioning `@claude`.
