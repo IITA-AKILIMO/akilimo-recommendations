@@ -170,6 +170,12 @@ getFRrecommendations <- function(lat, lon, HD, PD, maxInv, fertilizers, rootUP, 
 		return(list(data = NULL, fertilizer_rates = NULL))
 	}
 
+	# Guard: HD2 must exist as a column — harvest age outside the model's
+	# supported range (235–452 days) maps to a value not present in the data.
+	if (!as.character(HD2) %in% names(wlypd)) {
+		return(list(data = NULL, fertilizer_rates = NULL))
+	}
+
 	WLYdata <- wlypd[, c("lat", "lon", HD2, "pl_Date")]
 	colnames(WLYdata)[3] <- "WLY"
 	WLYdata$daysOnField <- had
