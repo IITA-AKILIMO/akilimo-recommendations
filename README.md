@@ -2,6 +2,9 @@
 
 This guide covers the deployment and management of the AKILIMO R API as a systemd service on Linux systems.
 
+## Status
+![AKILIMO API](https://cronitor.io/badges/vAYGcx/production/ExvO8BeveiQL0YQDpvu_jVQk3oE/detailed.svg)
+
 ## Overview
 
 The AKILIMO R API runs as a managed systemd service, providing automatic restarts, resource management, logging, and security hardening. This ensures reliable operation in production environments.
