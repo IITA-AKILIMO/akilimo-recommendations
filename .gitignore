@@ -22,6 +22,7 @@ ScriptPackage
 .Rhistory
 .env
 akilimo-api.service
+akilimo-api-beta.service
 data/*
 temp/*
 tests/old/*
