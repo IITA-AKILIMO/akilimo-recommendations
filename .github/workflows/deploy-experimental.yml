@@ -4,6 +4,7 @@ on:
   push:
     branches: [ "experimental" ]
     paths:
+      - '.github/workflows/**'
       - 'R/**'
       - 'api.R'
       - 'tests/**'
