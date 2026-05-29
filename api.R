@@ -63,7 +63,7 @@ local({
   check_translation_keys(srcdir)
 })
 
-library(plumber)
+library(plumbr)
 
 pr <- Plumber$new()
 
