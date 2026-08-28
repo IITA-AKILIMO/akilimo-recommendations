@@ -41,7 +41,7 @@ get_WLY_15M_ncdf <- function(country, lon, lat) {
 
 
 
-get_data <- function(x, country, FCY, lon, lat) {
+get_data <- function(x, country, FCY, lon, lat, crop=NA, pipeline=NA) {
 	
 	if (x == "TRNS") {
 		TRNS <- read.csv(data_path("input/translations_TEST.csv"), stringsAsFactors = FALSE)
@@ -126,6 +126,17 @@ get_data <- function(x, country, FCY, lon, lat) {
 		w[round(w$lon,3)==lon & round(w$lat,3)==lat, ]
 	} else if (x == "WLY_15M_ncdf") {
 		get_WLY_15M_ncdf(country, lon, lat)
+	} else if (x == "dssat") {
+		# get DSSAT data for a given country, crop and pipeline
+		folder <- c(NG = "NGA")[country]
+		if (is.na(folder)) stop(paste("dssat data not available for", country))
+		# TODO: standardize DSSAT filenames
+		Crop <- paste0(toupper(substring(crop, 1, 1)), substring(crop, 2)) # files use Title-case crop names
+		fname <- switch(paste(pipeline, country, crop),
+				"planting-date-and-cultivar NG maize" =
+				paste0("ISRIC_useCase_Nigeria_full_", Crop, "_AOI_season_1.RDS"),
+				stop(paste("dssat data not available for", pipeline, country, crop)))
+		readRDS(data_path(file.path("dssat", pipeline, folder, fname)))
 	} else {
 		stop(paste("no such data:", x))
 	}
