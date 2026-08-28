@@ -22,6 +22,8 @@ run_akilimo <- function(json) {
     PP <- from_json("PP", body, default_value = FALSE)
     SPP <- from_json("SPP", body, default_value = FALSE)
     SPH <- from_json("SPH", body, default_value = FALSE)
+	PDC <- from_json("PDC", body, default_value = FALSE)
+	crop <- from_json("crop", body, default_value = "maize")
 
     PD <- from_json("PD", body, default_value = 0)
     HD <- from_json("HD", body, default_value = 0)
@@ -46,7 +48,7 @@ run_akilimo <- function(json) {
 #		country <- "BU" #use non standard country code for Burundi
 #    }
 
-	selected_key <- unique(c("FR", "PP", "IC", "SP", "SP")[c(FR, PP, IC, SPP, SPH)])
+	selected_key <- unique(c("FR", "PP", "IC", "SP", "SP", "PDC")[c(FR, PP, IC, SPP, SPH, PDC)])
     #riskAtt <- 0
 
     PD <- as.Date(PD, format = "%Y-%m-%d")
@@ -210,6 +212,12 @@ run_akilimo <- function(json) {
 			area = area, areaUnits = areaUnits, maxInv = maxInv, ploughing = ploughing, ridging = ridging, method_ploughing = method_ploughing,	method_ridging = method_ridging, CMP = CMP, 
 			riskAtt = riskAtt, cassPD = cassPD, cassUW = cassUW, cassUP = cassUP,
 			cassUP_m1 = cassUP_m1, cassUP_m2 = cassUP_m2, cassUP_p1 = cassUP_p1, cassUP_p2 = cassUP_p2
+		)
+	} else if (PDC) {
+
+		result <- process_PDC(
+			PDC = PDC, country = country, crop = crop, lat = lat, lon = lon, PD = PD,
+			user = user, userField = userField, area = area, areaUnits = areaUnits
 		)
     }
 
