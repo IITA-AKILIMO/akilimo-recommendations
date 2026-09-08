@@ -11,7 +11,7 @@ cmd <- 'curl -X POST http://localhost:8000/compute --data "@./tests/input/in_xxx
 
 curl --ssl-no-revoke -X POST https://localhost:8000/compute --data "@./tests/input/in_1.json"
 
-jout <- lapply(1:28, \(i) {
+jout <- lapply(1:33, \(i) {
 	print(system.time(out <- system(gsub("xxx", i, cmd), intern=TRUE)[4]))
 	print(out); flush.console()
 	out
