@@ -49,7 +49,7 @@ Refresh endpoints (all share `AKILIMO_API_URL` base URL):
 
 | Data | Endpoint | Staleness env var | Default |
 |------|----------|-------------------|---------|
-| Default prices | `GET /prices?country=XX` | `PRICE_MAX_AGE_DAYS` | 7 days |
+| Default prices | `GET /default-prices?country=XX` | `PRICE_MAX_AGE_DAYS` | 7 days |
 | Starch prices | `GET /starch-prices?country=XX` | `STARCH_PRICE_MAX_AGE_DAYS` | 30 days |
 | Translations | `GET /translations` | `TRANSLATIONS_MAX_AGE_DAYS` | 30 days |
 
