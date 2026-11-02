@@ -1,8 +1,8 @@
 @echo off
 setlocal enabledelayedexpansion
 
-REM ──────────────────────────────────────────────────────────────────────────
-REM  dev.bat  — hot-reload development server for akilimo-recommendations
+REM --------------------------------------------------------------------------
+REM  dev.bat  - hot-reload development server for akilimo-recommendations
 REM
 REM  Watches R/, api.R, net/*.css and data/input/translations.csv.
 REM  Restarts Rscript api.R automatically whenever a watched file changes.
@@ -11,7 +11,7 @@ REM  Requires watchexec:
 REM    winget install watchexec.watchexec
 REM    scoop install watchexec          (alternative)
 REM    https://github.com/watchexec/watchexec/releases
-REM ──────────────────────────────────────────────────────────────────────────
+REM --------------------------------------------------------------------------
 
 REM Check watchexec is available
 watchexec --version >nul 2>&1
@@ -42,21 +42,23 @@ REM Delete any stale SQLite databases before starting
 del /q data\input\*.sqlite 2>nul
 del /q data\input\*.db 2>nul
 
-echo Akilimo dev server — auto-restart enabled
+echo Akilimo dev server - auto-restart enabled
 echo Root    : %CD%
 echo Watching: R\  api.R  net\  data\input\translations.csv
-echo ──────────────────────────────────────────────────────
+echo ------------------------------------------------------
 echo.
 
+REM Absolute watch paths: watchexec 2.7 on Windows fails with
+REM "cannot find the file specified" for relative --watch paths
 watchexec ^
-  --watch R ^
-  --watch api.R ^
-  --watch .env ^
-  --watch net ^
-  --watch data\input\translations.csv ^
+  --watch "%CD%\R" ^
+  --watch "%CD%\api.R" ^
+  --watch "%CD%\.env" ^
+  --watch "%CD%\net" ^
+  --watch "%CD%\data\input\translations.csv" ^
   --exts R,csv,css ^
   --shell=none ^
   --restart ^
   --clear ^
-  --debounce 1000 ^
+  --debounce 1s ^
   -- Rscript api.R
