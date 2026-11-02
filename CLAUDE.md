@@ -103,11 +103,15 @@ When adding a new fixture, also register it in the `test_files` vector in
 
 ## Architecture
 
+See [docs/DATA-FLOW.md](docs/DATA-FLOW.md) for a diagram of how a request moves through validation, data lookup, optimisation, and PDF/email generation.
+
 ### Request Flow
 ```
 POST /compute (api.R)
     → run_akilimo(postBody) (R/AkilimoMain.R)
-        → Validates JSON, parses all fields
+        → validate_request(): field/range checks + is_point_covered() coverage gate
+          (R/get_data.R — rejects lat/lon outside the country's yield grid with a 400)
+        → Parses all fields
         → Creates temp dir: temp/{YYYYMMDD_HHMMSS}_{COUNTRY}_{TYPE}_{rand4}/
         → Dispatches to processor based on request flags:
             process-FR.R  — Fertilizer Recommendation
@@ -118,6 +122,12 @@ POST /compute (api.R)
         → generate_pdfs() → build_*_pdf() → WeasyPrint → PDF files
         → sendEmailReport() if requested
         → Assembles JSON response (PDF failures never suppress the recommendation)
+
+GET /coverage, GET /coverage/<country> (api.R)
+    → get_coverage_geojson() (R/coverage.R)
+        → Builds (and caches, per server process) a GeoJSON polygon footprint
+          per country from the same yield grid is_point_covered() uses
+        → Returns a GeoJSON FeatureCollection for consumption by other services
 ```
 
 ### Key Modules
@@ -127,7 +137,8 @@ POST /compute (api.R)
 | `R/AkilimoMain.R` | Core orchestrator (`run_akilimo()`); validation, parsing, dispatch |
 | `R/quefts.R` | QUEFTS crop growth model |
 | `R/optimize_fert.R` | Cost-benefit fertilizer optimization |
-| `R/get_data.R` | Loads soil/yield data from NetCDF and CSV |
+| `R/get_data.R` | Loads soil/yield data from NetCDF and CSV; `is_point_covered()` coverage gate |
+| `R/coverage.R` | Builds/caches per-country GeoJSON coverage footprints for `GET /coverage` |
 | `R/fertilizers.R` | Parses fertilizer types, prices, NPK content |
 | `R/markdown.R` | Shared helpers: `FERT_COLOUR`, `FERT_LABEL`, `calc_fertilizer_recom()` |
 | `R/html_helpers.R` | HTML fragment builders for WeasyPrint PDFs; `.PDF_LABELS` label lookup |
@@ -156,7 +167,7 @@ Spatial data lives under `./data/` (gitignored):
 ```r
 c("plumber", "limSolve", "ncdf4", "httr", "mailR", "base64enc",
   "ggplot2", "ragg", "scales", "jsonlite", "DBI", "RSQLite",
-  "dotenv", "lubridate", "dplyr", "tidyr", "tinytest")
+  "dotenv", "lubridate", "dplyr", "tidyr", "tinytest", "sf")
 ```
 
 ## API Request Schema
