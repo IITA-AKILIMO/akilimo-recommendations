@@ -52,6 +52,26 @@ Returns `200` on success, `400` on a bad request, `500` on an unexpected server 
 
 ---
 
+### `GET /coverage`
+
+Returns a GeoJSON `FeatureCollection` with one `Feature` per supported country (NG, TZ, RW, GH, BI), each a polygon tracing the actual geographic area the yield/soil data covers (not a bounding box). Each feature's properties include `country` and `n_cells` (number of 0.05° grid cells in that country's yield data).
+
+Intended for other services that need to know where AKILIMO can produce a recommendation — e.g. to draw coverage overlays on a map, or to pre-filter requests before calling `/compute`. The footprint is generated from the same data `is_point_covered()` uses internally, so it matches `/compute`'s own coverage decisions exactly. Computed once per server process and cached in memory.
+
+```bash
+curl http://localhost:8000/coverage
+```
+
+### `GET /coverage/<country>`
+
+Same as above, scoped to a single country (`NG`, `TZ`, `RW`, `GH`, or `BI`, case-insensitive). Returns `400` for an unrecognised country code.
+
+```bash
+curl http://localhost:8000/coverage/RW
+```
+
+---
+
 ## Request Body
 
 All fields are JSON. **R** = required, **O** = optional (default shown).
@@ -337,6 +357,7 @@ Common causes:
 | `Missing required field: country` | `country` absent or blank |
 | `Invalid country: xx — must be one of: NG, TZ, RW, GH, BI` | Unrecognised country code |
 | `Invalid or missing lat — must be numeric between -90 and 90` | `lat` out of range or non-numeric |
+| `No recommendation data available for lat=X, lon=Y in CC — this location is outside the supported agricultural area for this country` | Coordinate falls outside the country's yield/soil grid; check it against `GET /coverage/CC` |
 | `Invalid or missing area — must be a positive number` | `area` ≤ 0 or absent |
 | `At least one recommendation flag must be TRUE` | All of FR/IC/PP/SPP/SPH are false |
 | `PD must be a valid date in YYYY-MM-DD format` | Bad date string |
@@ -654,7 +675,7 @@ The engine loads fertilizer and input prices from the local SQLite database. Whe
 ### Expected endpoint
 
 ```
-GET {AKILIMO_API_URL}/prices?country={COUNTRY}&page={n}
+GET {AKILIMO_API_URL}/default-prices?country={COUNTRY}&page={n}
 Accept: application/json
 Authorization: Bearer <token>
 ```
@@ -677,10 +698,10 @@ Staleness threshold: `PRICE_MAX_AGE_DAYS` env var (default `7` days).
     }
   ],
   "links": {
-    "first": "https://api.example.com/api/prices?country=TZ&page=1",
-    "last":  "https://api.example.com/api/prices?country=TZ&page=2",
+    "first": "https://api.example.com/api/v1/default-prices?country=TZ&page=1",
+    "last":  "https://api.example.com/api/v1/default-prices?country=TZ&page=2",
     "prev":  null,
-    "next":  "https://api.example.com/api/prices?country=TZ&page=2"
+    "next":  "https://api.example.com/api/v1/default-prices?country=TZ&page=2"
   },
   "meta": { "...": "informational only" }
 }
