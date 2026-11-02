@@ -1,6 +1,6 @@
 # Technical Onboarding Guide
 
-This guide is for **developers** and **data scientists** joining the Akilimo project. It assumes you have already completed the environment setup described in [SETUP.md](SETUP.md).
+This guide is for **developers** and **data scientists** joining the Akilimo project. It assumes you have already completed the environment setup described in [SETUP.md](SETUP.md). For a diagram-first view of the request lifecycle, see [DATA-FLOW.md](DATA-FLOW.md).
 
 ---
 
@@ -58,7 +58,8 @@ akilimo-recommendations/
 │   ├── AkilimoMain.R       # Orchestrator: validation, parsing, dispatch
 │   ├── quefts.R            # QUEFTS crop growth model
 │   ├── optimize_fert.R     # Cost-benefit fertilizer optimisation
-│   ├── get_data.R          # Data access layer (soil, yield, CSVs)
+│   ├── get_data.R          # Data access layer (soil, yield, CSVs); is_point_covered() coverage gate
+│   ├── coverage.R          # Builds/caches per-country GeoJSON coverage footprints
 │   ├── fertilizers.R       # Fertilizer type/price/NPK parsing
 │   ├── misc.R              # tr(), get_currency(), getRFY(), getRDY()
 │   ├── markdown.R          # Shared helpers: FERT_COLOUR/LABEL, calc_fertilizer_recom()
@@ -99,11 +100,11 @@ A request goes through six stages:
 
 ### Stage 1 — HTTP entry (`api.R`)
 
-Plumber exposes a single `POST /compute` endpoint. `api.R` sources all `R/*.R` files, sets `akpath` (working directory, derived from hostname), and registers the route.
+Plumber exposes `GET /health`, `GET /coverage`, `GET /coverage/<country>`, and `POST /compute`. `api.R` sources all `R/*.R` files, sets `akpath` (working directory, derived from hostname), and registers the routes. `/coverage` and `/coverage/<country>` return a GeoJSON footprint of the area each country's yield/soil data covers — see [Coverage footprints](#coverage-footprints) below; they bypass `run_akilimo()` entirely.
 
 ### Stage 2 — Validation (`validate_request`, `AkilimoMain.R:7`)
 
-Checks required fields, value ranges, date formats, and that at least one recommendation flag is `TRUE`. Returns a 400 error immediately on the first failure — no partial processing.
+Checks required fields, value ranges, date formats, and that at least one recommendation flag is `TRUE`. It also calls `is_point_covered(country, lon, lat)` (`R/get_data.R`) — if the coordinate falls outside the country's yield grid, validation fails immediately with a 400 rather than letting the request fall through to a silent "no recommendation" result later. Returns a 400 error immediately on the first failure — no partial processing.
 
 ### Stage 3 — Parsing (`parse_request`, `AkilimoMain.R:57`)
 
@@ -211,8 +212,21 @@ Data access layer. All static files are cached in `.data_cache` (a private envir
 | `get_input_data("dry_matter")` | Dry matter content curve (`fd2.csv`) |
 | `get_soil_data(lat, lon, country)` | Soil NPK from `data/soil/{country}_soil.rds` |
 | `get_yield_data(lat, lon, country)` | WLY from `data/yield/{country}_WLY_LINTUL_2020SP.nc` |
+| `is_point_covered(country, lon, lat)` | `TRUE` if the coordinate has a matching yield grid cell for that country; used by `validate_request()` to reject out-of-coverage requests before any processing starts |
 
 Spatial lookup uses `round5min()` to snap coordinates to the 0.05° grid and `cellFromLonLat()` to compute the raster cell index.
+
+### `R/coverage.R` — Coverage footprints
+
+Builds a GeoJSON polygon per country tracing the actual area the yield grid covers (union of every 0.05° grid cell, not a bounding box), so it matches `is_point_covered()`'s decision exactly. Backs `GET /coverage` and `GET /coverage/<country>`.
+
+| Function | Purpose |
+|----------|---------|
+| `build_country_footprint(country)` | Reads the country's yield RDS, turns each grid point into its exact 0.05° cell square, and unions them into one `sf` (multi)polygon |
+| `sf_to_geojson(x)` | Serialises an `sf` object to a GeoJSON string via a temp file |
+| `get_coverage_geojson(country = NULL)` | Public entry point; returns all countries combined or one country's feature, cached in `.data_cache` for the life of the server process |
+
+Uses the `sf` package (planar union of lon/lat cell squares in WGS84, with s2 temporarily off). `scripts/coverage_areas.R` calls the same builder to write the footprints and a per-country bbox CSV to `scripts/output/`. Regenerating the footprints only happens once per server run — the underlying yield grids never change at runtime.
 
 ### `R/misc.R`
 
@@ -355,9 +369,9 @@ To register the new fixture:
 
 ### What to check when a test fails
 
-1. **400 error** — usually a validation failure; check the `message` field and compare against `validate_request()`.
+1. **400 error** — usually a validation failure; check the `message` field and compare against `validate_request()`. A "location is outside the supported agricultural area" message means `is_point_covered()` rejected the coordinate — check it against `GET /coverage/<country>` or `scripts/coverage_areas.R`'s bbox output.
 2. **`recommendation` is empty** — a `tr()` key is missing from `translations.csv` or a `NULL` was passed as a token.
-3. **Yield/NR is 0** — spatial lookup returned no data for the coordinates; check that `lat`/`lon` falls within the country's raster extent.
+3. **Yield/NR is 0** — spatial lookup returned no data for the coordinates despite passing the coverage check (e.g. planting/harvest date outside the model's supported range); check `process-FR.R`'s `HD2`/`PD2` guards.
 4. **Optimiser returns all-zero rates** — the cost of fertilizer exceeds the maximum investment or revenue gain is negative at all NPK levels.
 
 ---
