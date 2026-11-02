@@ -478,6 +478,9 @@ SOFTWARE.
 
 | Document | Description |
 |----------|-------------|
+| [docs/ONBOARDING.md](docs/ONBOARDING.md) | Developer onboarding guide: architecture, request lifecycle, core modules |
+| [docs/API-REFERENCE.md](docs/API-REFERENCE.md) | Full REST API reference — request/response schema, endpoints, error codes |
+| [docs/DATA-FLOW.md](docs/DATA-FLOW.md) | Diagrams of how a request flows through validation, data lookup, optimisation, and PDF/email generation |
 | [docs/EXPERIMENTAL-REVIEW.md](docs/EXPERIMENTAL-REVIEW.md) | Comprehensive review of all changes in the `experimental` branch vs `main` — used for team review before merging |
 
 ## Contributors
