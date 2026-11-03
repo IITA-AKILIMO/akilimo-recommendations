@@ -1,8 +1,19 @@
 name: Data setup
 
+# Pulls runtime data (OSF or Zenodo) onto a deploy target's server.
+# Run it manually, or from deploy.yml with setup_data: true.
+# Target paths come from .github/deploy-targets.json.
 on:
   workflow_dispatch:
     inputs:
+      target:
+        description: "Deploy target"
+        required: true
+        default: "production"
+        type: choice
+        options:
+          - production
+          - beta
       source:
         description: "Download source"
         required: true
@@ -17,34 +28,66 @@ on:
       osf_node_id:
         description: "OSF project node ID (overrides secret; OSF only)"
         required: false
+  workflow_call:
+    inputs:
+      target:
+        type: string
+        required: true
+      source:
+        type: string
+        required: false
+        default: "osf"
+      record_id:
+        type: string
+        required: false
+        default: ""
+      osf_node_id:
+        type: string
+        required: false
+        default: ""
 
 permissions:
   contents: read
 
-env:
-  APP_DIR: "/home/akilimo/projects/new_akilimo"
-
 jobs:
   setup-data:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    # Never run two data pulls against the same server folder at once
+    concurrency:
+      group: setup-data-${{ inputs.target }}
+      cancel-in-progress: false
 
     steps:
+      - name: Checkout deploy config
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github
+
+      - name: Resolve target
+        id: target
+        uses: ./.github/actions/resolve-target
+        with:
+          target: ${{ inputs.target }}
+          app_dir_override: ${{ inputs.target == 'production' && vars.APP_DIR_OVERRIDE || '' }}
+
       - name: Pull runtime data via SSH
         uses: appleboy/ssh-action@v1.2.4
         env:
-          APP_DIR: ${{ secrets.APP_DIR_OVERRIDE || env.APP_DIR }}
+          APP_DIR: ${{ steps.target.outputs.app_dir }}
           DATA_SOURCE: ${{ inputs.source }}
           ZENODO_RECORD_ID: ${{ inputs.record_id || secrets.ZENODO_RECORD_ID }}
           OSF_NODE_ID: ${{ inputs.osf_node_id || secrets.OSF_NODE_ID }}
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
+          host: ${{ vars.SERVER_HOST }}
+          username: ${{ vars.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 40m
           envs: APP_DIR, DATA_SOURCE, ZENODO_RECORD_ID, OSF_NODE_ID
           script: |
             set -e
 
-            cd $APP_DIR/scripts
+            cd "$APP_DIR/scripts"
 
             if [ ! -f ".env" ]; then
               cp .env.example .env
@@ -58,4 +101,4 @@ jobs:
             fi
 
             poetry run setup-data --source "$DATA_SOURCE"
-            echo "Data setup complete (source: $DATA_SOURCE)"
+            echo "Data setup complete (source: $DATA_SOURCE, dir: $APP_DIR)"

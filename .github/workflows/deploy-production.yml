@@ -1,88 +1,42 @@
 name: SSH service deployment
 
+# Production: branch, folder and service come from .github/deploy-targets.json;
+# the pipeline itself is in deploy.yml (shared with beta).
 on:
   push:
     branches: [ "main" ]
     paths:
-      - '.github/workflows/**'
+      - '.github/**'
       - 'R/**'
       - 'api.R'
+      - 'refresh_prices.R'
+      - 'install_packages.R'
+      - 'net/**'
+      - 'systemd/**'
       - 'tests/**'
       - 'scripts/**'
-#  pull_request:
-#    branches: [ "main" ]
   workflow_dispatch:
+    inputs:
+      setup_data:
+        description: "Pull runtime data (OSF/Zenodo) before deploying"
+        type: boolean
+        default: false
+      data_source:
+        description: "Data source (used when setup_data is ticked)"
+        type: choice
+        default: "osf"
+        options:
+          - osf
+          - zenodo
+
 permissions:
   contents: read
 
-env:
-  APP_DIR: "/mnt/data/extra_storage/projects/new_akilimo"
-  SERVICE_NAME: "akilimo-api.service"
-  QUIET_PERIOD: "60" # seconds to wait after last commit
-
-# Ensure only one deployment runs at a time
-concurrency:
-  group: deploy-main
-  cancel-in-progress: true
-
 jobs:
   deploy:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Smart debounce wait
-        run: |
-          last_commit_time=$(git log -1 --format=%ct)
-          current_time=$(date +%s)
-          elapsed=$((current_time - last_commit_time))
-          wait_time=$((QUIET_PERIOD - elapsed))
-
-          if [ $wait_time -gt 0 ]; then
-            echo "Last commit was ${elapsed}s ago — waiting ${wait_time}s..."
-            sleep $wait_time
-          else
-            echo "Last commit was ${elapsed}s ago — no wait needed."
-          fi
-
-      - name: Pull latest changes
-        run: git pull origin ${{ github.ref_name }}
-
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.2.4
-        env:
-          APP_DIR: ${{ secrets.APP_DIR_OVERRIDE || env.APP_DIR }}
-          BRANCH: ${{ github.ref_name }}
-          SERVICE_NAME: ${{ vars.SERVICE_NAME_OVERRIDE || env.SERVICE_NAME }}
-        with:
-          host: ${{ vars.SERVER_HOST }}
-          username: ${{ vars.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          envs: APP_DIR, BRANCH, SERVICE_NAME
-          script: |
-              set -e
-              
-              echo "Deploying branch: $BRANCH to $APP_DIR (service: $SERVICE_NAME)"
-              
-              cd $APP_DIR
-              git fetch origin
-              git checkout $BRANCH
-              git pull origin $BRANCH
-              
-              # Cleanup
-              echo "Cleaning temp folder..."
-              rm -rf "$APP_DIR/temp/*"
-              
-              echo "Removing old SQLite database files..."
-              find . -type f -name 'akilimo_compute*.sqlite*' -exec rm -f {} \;
-              
-              echo "Installing R packages..."
-              sudo Rscript install_packages.R
-              
-              # Reload services
-              sudo systemctl daemon-reload
-              sudo systemctl restart $SERVICE_NAME
-              
-              echo "Deployment completed successfully"
+    uses: ./.github/workflows/deploy.yml
+    with:
+      target: production
+      setup_data: ${{ inputs.setup_data == true }}
+      data_source: ${{ inputs.data_source || 'osf' }}
+    secrets: inherit

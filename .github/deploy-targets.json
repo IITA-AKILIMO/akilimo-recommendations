@@ -1,0 +1,12 @@
+{
+  "production": {
+    "branch": "main",
+    "app_dir": "/mnt/data/extra_storage/projects/new_akilimo",
+    "service_name": "akilimo-api.service"
+  },
+  "beta": {
+    "branch": "experimental",
+    "app_dir": "/data/extra_storage/projects/akilimo-beta",
+    "service_name": "akilimo-api-beta.service"
+  }
+}

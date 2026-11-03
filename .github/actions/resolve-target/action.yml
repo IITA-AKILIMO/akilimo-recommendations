@@ -1,0 +1,57 @@
+name: Resolve deploy target
+description: >
+  Look up branch, app directory and service name for a deploy target in
+  .github/deploy-targets.json, the single place these values are defined.
+  Needs the repository checked out (at least .github/).
+
+inputs:
+  target:
+    description: "Key in deploy-targets.json (production | beta)"
+    required: true
+  app_dir_override:
+    description: "Optional app directory that replaces the file's value"
+    required: false
+    default: ""
+  service_override:
+    description: "Optional service name that replaces the file's value"
+    required: false
+    default: ""
+
+outputs:
+  branch:
+    description: "Git branch deployed to this target"
+    value: ${{ steps.resolve.outputs.branch }}
+  app_dir:
+    description: "Application directory on the server"
+    value: ${{ steps.resolve.outputs.app_dir }}
+  service_name:
+    description: "systemd service to restart"
+    value: ${{ steps.resolve.outputs.service_name }}
+
+runs:
+  using: composite
+  steps:
+    - id: resolve
+      shell: bash
+      env:
+        TARGET: ${{ inputs.target }}
+        APP_DIR_OVERRIDE: ${{ inputs.app_dir_override }}
+        SERVICE_OVERRIDE: ${{ inputs.service_override }}
+        TARGETS_FILE: ${{ github.workspace }}/.github/deploy-targets.json
+      run: |
+        if ! jq -e --arg t "$TARGET" 'has($t)' "$TARGETS_FILE" >/dev/null; then
+          echo "::error::Unknown deploy target '$TARGET' — must be one of: $(jq -r 'keys | join(", ")' "$TARGETS_FILE")"
+          exit 1
+        fi
+        get() { jq -r --arg t "$TARGET" --arg k "$1" '.[$t][$k]' "$TARGETS_FILE"; }
+
+        branch=$(get branch)
+        app_dir=${APP_DIR_OVERRIDE:-$(get app_dir)}
+        service_name=${SERVICE_OVERRIDE:-$(get service_name)}
+
+        echo "Target $TARGET: branch=$branch service=$service_name"
+        {
+          echo "branch=$branch"
+          echo "app_dir=$app_dir"
+          echo "service_name=$service_name"
+        } >> "$GITHUB_OUTPUT"
