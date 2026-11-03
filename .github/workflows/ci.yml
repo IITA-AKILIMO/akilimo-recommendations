@@ -1,0 +1,63 @@
+name: CI
+
+# Runs on pull requests and feature-branch pushes. Pushes to main and
+# experimental run it through the deploy workflows (workflow_call), so a
+# deploy only goes ahead once these checks pass.
+on:
+  pull_request:
+  push:
+    branches-ignore: [ "main", "experimental" ]
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Parse check and unit tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    concurrency:
+      group: ci-${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: release
+          use-public-rspm: true   # prebuilt Linux binaries — much faster installs
+
+      - name: Install system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgdal-dev libgeos-dev libproj-dev libudunits2-dev \
+            libnetcdf-dev libsqlite3-dev libcurl4-openssl-dev
+
+      - name: Cache R packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.R_LIBS_USER }}
+          key: r-pkgs-${{ runner.os }}-${{ hashFiles('install_packages.R') }}
+          restore-keys: r-pkgs-${{ runner.os }}-
+
+      - name: Install R packages
+        run: Rscript install_packages.R
+
+      - name: Check every R file parses
+        run: Rscript tests/check_parse.R
+
+      - name: Unit tests (no data files needed)
+        env:
+          AKILIMO_ROOT: ${{ github.workspace }}
+        run: |
+          Rscript -e '
+            r <- tinytest::run_test_file("tests/test_akilimo_db.R", verbose = 1)
+            print(summary(r))
+            quit(status = if (all(as.logical(r))) 0 else 1)
+          '
