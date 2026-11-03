@@ -30,6 +30,11 @@ validate_request <- function(body) {
     lon < -180 ||
     lon > 180)
     return("Invalid or missing lon — must be numeric between -180 and 180")
+  if (country %in% VALID_COUNTRIES && !is_point_covered(country, lon, lat))
+    return(sprintf(
+      "No recommendation data available for lat=%.3f, lon=%.3f in %s — this location is outside the supported agricultural area for this country",
+      lat, lon, country
+    ))
   if (is.null(area) || !is.numeric(area) || area <= 0)
     return("Invalid or missing area — must be a positive number")
   if (is.null(areaUnits) || !areaUnits %in% VALID_AREA_UNITS)
