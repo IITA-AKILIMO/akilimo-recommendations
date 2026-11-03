@@ -200,6 +200,8 @@ open_akilimo_db <- function() {
         updated_at = strftime(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
         stringsAsFactors = FALSE
     )
+    # The v2 migration seeds before v3 adds `rw`, so write only existing columns
+    rows <- rows[, intersect(names(rows), DBI::dbListFields(conn, "translations")), drop = FALSE]
     DBI::dbWriteTable(conn, "translations", rows, append = TRUE)
     log_write("INFO", sprintf("akilimo_db: seeded translations (%d rows)", nrow(rows)))
     invisible(NULL)
