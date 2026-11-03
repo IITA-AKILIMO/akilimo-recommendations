@@ -55,7 +55,9 @@ test_files <- c(
     "in_32_TZ_SP_riskAtt0",
     "in_33_TZ_IC_CIS_riskAtt2",
     "in_34_TZ_FR_sw_riskAtt2",
-    "in_35_NG_IC_grain_zero_prices_riskAtt1"
+    "in_35_NG_IC_grain_zero_prices_riskAtt1",
+    "in_36_RW_FR_default_prices_riskAtt2",
+    "in_37_BI_FR_default_prices_riskAtt2"
 )
 
 run <- function(i) {
