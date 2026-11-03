@@ -15,6 +15,7 @@ pkgs <- c(
 
   # Spatial / climate data
   "ncdf4",
+  "sf",          # GET /coverage footprints; Linux needs libgdal-dev libgeos-dev libproj-dev
 
   # HTTP / notifications
   "httr",
@@ -68,7 +69,12 @@ if (length(already) > 0) {
 if (length(missing) > 0) {
   message("Installing (", length(missing), "): ",
           paste(missing, collapse = ", "))
-  install.packages(missing, repos = "https://cloud.r-project.org")
+  # Use a repo already configured (e.g. CI's binary package mirror) when set
+  repos <- getOption("repos")
+  cran  <- if ("CRAN" %in% names(repos)) repos[["CRAN"]] else ""
+  if (!nzchar(cran) || cran == "@CRAN@")
+    repos <- "https://cloud.r-project.org"
+  install.packages(missing, repos = repos)
 } else {
   message("Nothing to install.")
 }
