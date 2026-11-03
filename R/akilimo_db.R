@@ -398,11 +398,15 @@ refresh_prices <- function(country = NULL,
 
     total_rows <- 0L
     any_fail   <- FALSE
+    fail_msgs  <- character(0)
 
     for (ctry in countries) {
         result <- .refresh_default_one(conn, api_url, ctry, source_tag, dry_run)
         total_rows <- total_rows + result$rows_upserted
-        if (result$status != "ok") any_fail <- TRUE
+        if (result$status != "ok") {
+            any_fail  <- TRUE
+            fail_msgs <- c(fail_msgs, result$message %||% ctry)
+        }
 
         if (!dry_run) {
             .log_refresh(conn, "default", ctry, source_tag,
@@ -420,7 +424,7 @@ refresh_prices <- function(country = NULL,
     list(
         status        = if (any_fail) "error" else "ok",
         rows_upserted = total_rows,
-        message       = if (any_fail) "one or more countries failed" else NULL
+        message       = if (any_fail) paste(fail_msgs, collapse = "; ") else NULL
     )
 }
 
@@ -429,26 +433,29 @@ refresh_prices <- function(country = NULL,
     now_str  <- strftime(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
     valid    <- list()
     page_num <- 1L
-    page_url <- paste0(api_url, "/prices?country=", country, "&page=1")
+    page_url <- paste0(api_url, "/default-prices?country=", country, "&page=1")
 
     repeat {
         log_write("DEBUG", sprintf("akilimo_db: fetching default prices %s page %d", country, page_num))
 
+        fetch_err <- NULL
         resp <- tryCatch({
             raw <- httr::GET(page_url,
                 if (nzchar(token)) httr::add_headers(Authorization = paste("Bearer", token)),
                 httr::timeout(10)
             )
+            httr::stop_for_status(raw, task = paste("GET", page_url))
             httr::content(raw, as = "parsed", type = "application/json")
         }, error = function(e) {
-            log_write("WARN", "akilimo_db: HTTP error fetching default prices for", country, ":", conditionMessage(e))
+            fetch_err <<- conditionMessage(e)
+            log_write("WARN", "akilimo_db: HTTP error fetching default prices for", country, ":", fetch_err)
             NULL
         })
 
         if (is.null(resp)) {
             if (page_num == 1L)
                 return(list(status = "error", rows_upserted = 0L,
-                            message = paste("network error fetching prices for", country)))
+                            message = paste0("error fetching prices for ", country, ": ", fetch_err)))
             log_write("WARN", sprintf("akilimo_db: network error on prices %s page %d — using %d rows so far",
                                       country, page_num, length(valid)))
             break
@@ -544,11 +551,16 @@ refresh_starch_prices <- function(country    = NULL,
     countries  <- if (is.null(country)) VALID_COUNTRIES else country
     total_rows <- 0L
     any_fail   <- FALSE
+    fail_msgs  <- character(0)
 
     for (ctry in countries) {
         result <- .refresh_starch_one(conn, api_url, ctry, source_tag, dry_run)
         total_rows <- total_rows + result$rows_upserted
-        if (result$status != "ok") any_fail <- TRUE
+        # "skipped" = no starch factories listed for this country; not a failure
+        if (result$status == "error") {
+            any_fail  <- TRUE
+            fail_msgs <- c(fail_msgs, result$message %||% ctry)
+        }
 
         if (!dry_run) {
             .log_refresh(conn, "starch", ctry, source_tag,
@@ -565,7 +577,7 @@ refresh_starch_prices <- function(country    = NULL,
     list(
         status        = if (any_fail) "error" else "ok",
         rows_upserted = total_rows,
-        message       = if (any_fail) "one or more countries failed" else NULL
+        message       = if (any_fail) paste(fail_msgs, collapse = "; ") else NULL
     )
 }
 
@@ -580,21 +592,24 @@ refresh_starch_prices <- function(country    = NULL,
     repeat {
         log_write("DEBUG", sprintf("akilimo_db: fetching starch prices %s page %d", country, page_num))
 
+        fetch_err <- NULL
         resp <- tryCatch({
             raw <- httr::GET(page_url,
                 if (nzchar(token)) httr::add_headers(Authorization = paste("Bearer", token)),
                 httr::timeout(10)
             )
+            httr::stop_for_status(raw, task = paste("GET", page_url))
             httr::content(raw, as = "parsed", type = "application/json")
         }, error = function(e) {
-            log_write("WARN", "akilimo_db: HTTP error fetching starch prices for", country, ":", conditionMessage(e))
+            fetch_err <<- conditionMessage(e)
+            log_write("WARN", "akilimo_db: HTTP error fetching starch prices for", country, ":", fetch_err)
             NULL
         })
 
         if (is.null(resp)) {
             if (page_num == 1L)
                 return(list(status = "error", rows_upserted = 0L,
-                            message = paste("network error fetching starch prices for", country)))
+                            message = paste0("error fetching starch prices for ", country, ": ", fetch_err)))
             log_write("WARN", sprintf("akilimo_db: network error on starch prices %s page %d — using %d rows so far",
                                       country, page_num, length(valid)))
             break
@@ -840,24 +855,27 @@ refresh_translations <- function(source_tag = "api",
     repeat {
         log_write("DEBUG", sprintf("akilimo_db: fetching translations page %d", page_num))
 
+        fetch_err <- NULL
         resp <- tryCatch({
             raw <- httr::GET(page_url,
                 if (nzchar(token)) httr::add_headers(Authorization = paste("Bearer", token)),
                 httr::timeout(15)
             )
+            httr::stop_for_status(raw, task = paste("GET", page_url))
             httr::content(raw, as = "parsed", type = "application/json")
         }, error = function(e) {
+            fetch_err <<- conditionMessage(e)
             log_write("WARN", sprintf(
                 "akilimo_db: HTTP error fetching translations page %d: %s",
-                page_num, conditionMessage(e)))
+                page_num, fetch_err))
             NULL
         })
 
-        # Network failure
+        # Network or HTTP failure
         if (is.null(resp)) {
             if (page_num == 1L) {
                 return(list(status = "error", rows_upserted = 0L,
-                            message = "network error on first translations page"))
+                            message = paste("error on first translations page:", fetch_err)))
             }
             log_write("WARN", sprintf(
                 "akilimo_db: network error on translations page %d — using %d rows fetched so far",
