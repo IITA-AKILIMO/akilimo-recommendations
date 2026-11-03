@@ -32,6 +32,28 @@ cellFromLonLat <- function(lon, lat, res=0.05) {
 
 
 # ---------------------------------------------------------------------------
+# Coverage check — is this lon/lat within the modelled agricultural grid for
+# the given country? Uses the same WLY_365 yield data (available for all five
+# countries) that process-FR.R already looks up, so "covered" means the exact
+# same thing as "a recommendation can actually be computed here".
+# ---------------------------------------------------------------------------
+is_point_covered <- function(country, lon, lat) {
+    w <- tryCatch(
+        get_yield_data("WLY_365", country, lon, lat),
+        error = function(e) {
+            warning(sprintf(
+                "Coverage check failed for country=%s lon=%.3f lat=%.3f: %s — allowing request through",
+                country, lon, lat, conditionMessage(e)
+            ))
+            NULL
+        }
+    )
+    if (is.null(w)) return(TRUE)  # fail open on infra errors (e.g. missing file)
+    nrow(w) > 0
+}
+
+
+# ---------------------------------------------------------------------------
 # Input lookup tables (static CSVs — cached after first load)
 # ---------------------------------------------------------------------------
 get_input_data <- function(x, country = NULL) {
