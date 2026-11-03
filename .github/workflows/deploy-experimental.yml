@@ -15,7 +15,7 @@ permissions:
   contents: read
 
 env:
-  APP_DIR: "/mnt/data/extra_storage/projects/akilimo-beta"
+  APP_DIR: "/data/extra_storage/projects/akilimo-beta"
   SERVICE_NAME: "akilimo-api-beta.service"
   QUIET_PERIOD: "60" # seconds to wait after last commit
 
