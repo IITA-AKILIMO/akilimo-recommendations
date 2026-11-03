@@ -87,6 +87,10 @@ Rscript tests/test_small.R
 
 # WeasyPrint PDF smoke test
 Rscript tests/test_weasyprint_smoke.R
+
+# What CI runs (no data files needed)
+Rscript tests/check_parse.R
+Rscript tests/test_akilimo_db.R
 ```
 
 ### Single test via curl
@@ -191,11 +195,15 @@ Two instances run in parallel on the same server:
 
 | Instance | Branch | Directory | Service | Workflow |
 |----------|--------|-----------|---------|----------|
-| Production | `main` | `/home/akilimo/projects/new_akilimo` | `akilimo-api.service` | `deploy-production.yml` |
-| Beta | `experimental` | `/home/akilimo/projects/akilimo-beta` | `akilimo-api-beta.service` | `deploy-experimental.yml` |
+| Production | `main` | `/mnt/data/extra_storage/projects/new_akilimo` | `akilimo-api.service` | `deploy-production.yml` |
+| Beta | `experimental` | `/data/extra_storage/projects/akilimo-beta` | `akilimo-api-beta.service` | `deploy-experimental.yml` |
 
-Both deploy via SSH on push to their respective branch using the same secrets: `SERVER_HOST`, `SERVER_USER`, `SERVER_SSH_KEY`.
+Branch, directory and service per instance are defined once in `.github/deploy-targets.json` (read by the `.github/actions/resolve-target` action) — edit them there, not in the workflows.
+
+Both deploy via SSH on push to their respective branch using the repo variables `SERVER_HOST`, `SERVER_USER` and the secret `SERVER_SSH_KEY`. `deploy-production.yml` and `deploy-experimental.yml` are thin callers of the shared `deploy.yml`, which runs `ci.yml` and a 60s debounce first, deploys only if CI passes, and fails if `GET /health` does not respond within 180s after the restart.
+
+Runtime data (OSF/Zenodo) is pulled by `setup-zenodo-data.yml`: run it manually with a `target` of `production` or `beta`, or tick `setup_data` when manually running either deploy workflow to pull data before deploying. Both targets share the `ZENODO_RECORD_ID` / `OSF_NODE_ID` secrets.
 
 Service templates: `systemd/akilimo-api.service.example` (production), `systemd/akilimo-api-beta.service.example` (beta). Resource limits: 2GB RAM, 2 CPU cores, 65536 FDs.
 
-PR reviews are automated via `claude-code-review.yml`. Claude can be invoked on issues/PRs by mentioning `@claude`.
+`ci.yml` runs on pull requests and feature-branch pushes: it installs packages via `install_packages.R`, runs `tests/check_parse.R`, and runs `tests/test_akilimo_db.R` (no data files needed).
