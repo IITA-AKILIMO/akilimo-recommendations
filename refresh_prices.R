@@ -128,7 +128,7 @@ run_refresh <- function(label, fn, ...) {
     sprintf(" — %s", r$message) else ""
   cat(sprintf("%-8s %s%s\n", status_str, rows_str, msg_str))
   results[[label]] <<- r
-  if (r$status != "ok") any_fail <<- TRUE
+  if (r$status == "error") any_fail <<- TRUE
 }
 
 countries <- if (is.null(args$country)) VALID_COUNTRIES else args$country
@@ -156,13 +156,14 @@ if (args$type %in% c("translations", "all")) {
 cat(strrep("-", 60), "\n")
 total_rows <- sum(vapply(results, function(r) r$rows_upserted %||% 0L, integer(1)))
 n_ok   <- sum(vapply(results, function(r) r$status == "ok",      logical(1)))
-n_fail <- sum(vapply(results, function(r) r$status != "ok",      logical(1)))
+n_skip <- sum(vapply(results, function(r) r$status == "skipped", logical(1)))
+n_fail <- sum(vapply(results, function(r) r$status == "error",   logical(1)))
 
 if (args$dry_run) {
   cat("Dry run complete — no changes written to DB.\n")
 } else {
-  cat(sprintf("Done: %d succeeded, %d failed, %d row(s) upserted total.\n",
-              n_ok, n_fail, total_rows))
+  cat(sprintf("Done: %d succeeded, %d skipped, %d failed, %d row(s) upserted total.\n",
+              n_ok, n_skip, n_fail, total_rows))
 }
 
 quit(status = if (any_fail) 1L else 0L)
