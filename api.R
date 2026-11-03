@@ -29,7 +29,7 @@ srcdir <- file.path(akpath, "R")
 # Source in explicit dependency order.
 # Only files in R/ (top-level) are loaded.
 # R/preprocess/ and the project-root old/ directory are intentionally excluded.
-for (f in c("misc.R", "logging.R", "get_data.R", "akilimo_db.R", "fertilizers.R",
+for (f in c("misc.R", "logging.R", "get_data.R", "coverage.R", "akilimo_db.R", "fertilizers.R",
             "quefts.R", "optimize_fert.R", "markdown.R", "html_helpers.R",
             "pdf_builders.R", "email.R",
             "process-FR.R", "process-IC.R", "process-PP.R", "process-SP.R",
@@ -77,6 +77,40 @@ pr$handle(
       version = jsonlite::unbox(AKI_VERSION),
       time = jsonlite::unbox(format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"))
     )
+  }
+)
+
+pr$handle(
+  method = "GET",
+  path = "/coverage",
+  handler = function(req, res) {
+    tryCatch({
+      res$setHeader("Content-Type", "application/geo+json")
+      res$body <- get_coverage_geojson()
+      res
+    }, error = function(e) {
+      res$status <- 500L
+      log_write("ERROR", "GET /coverage failed:", e$message)
+      list(status = jsonlite::unbox("error"), data = list(message = jsonlite::unbox(e$message)))
+    })
+  }
+)
+
+pr$handle(
+  method = "GET",
+  path = "/coverage/<country>",
+  handler = function(req, res, country) {
+    tryCatch({
+      res$setHeader("Content-Type", "application/geo+json")
+      res$body <- get_coverage_geojson(country)
+      res
+    }, error = function(e) {
+      # Unknown country code is the caller's fault; anything else (e.g. missing
+      # yield file) is ours
+      res$status <- if (startsWith(e$message, "Invalid country")) 400L else 500L
+      if (res$status == 500L) log_write("ERROR", "GET /coverage/", country, "failed:", e$message)
+      list(status = jsonlite::unbox("error"), data = list(message = jsonlite::unbox(e$message)))
+    })
   }
 )
 
