@@ -7,6 +7,7 @@ scripts/.venv/
 scripts/poetry.lock
 scripts/uv.lock
 scripts/.idea/
+scripts/output/
 scripts/pyproject-old.toml
 *.html
 *.pdf
