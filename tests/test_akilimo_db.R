@@ -29,6 +29,15 @@ new_test_db <- function() {
     list(conn = conn, db_file = db_file, old_env = old)
 }
 
+# Same, but with the price tables emptied: a new DB is seeded from the CSVs
+# when they exist (developer machines), so row counts would differ from CI
+new_empty_test_db <- function() {
+    ctx <- new_test_db()
+    DBI::dbExecute(ctx$conn, "DELETE FROM default_prices")
+    DBI::dbExecute(ctx$conn, "DELETE FROM starch_prices")
+    ctx
+}
+
 cleanup_test_db <- function(ctx) {
     DBI::dbDisconnect(ctx$conn)
     unlink(ctx$db_file)
@@ -89,7 +98,7 @@ expect_true("price_refresh_log" %in% tables, info = "price_refresh_log table exi
 expect_true("translations"     %in% tables, info = "translations table exists")
 
 ver <- DBI::dbGetQuery(ctx$conn, "PRAGMA user_version;")[[1]]
-expect_equal(ver, 2L, info = "schema version is 2")
+expect_equal(ver, 3L, info = "schema version is 3")
 
 cleanup_test_db(ctx)
 
@@ -129,11 +138,12 @@ if (file.exists(tr_csv)) {
     tr_rows <- DBI::dbGetQuery(ctx$conn, "SELECT COUNT(*) AS n FROM translations")$n
     expect_true(tr_rows > 0, info = "translations seeded from CSV")
 
-    # QUA-11: cisRatePre en must be "" (corrected at seed time)
+    # QUA-11: cisRatePre en must be "" (corrected at seed time). The key is no
+    # longer in translations.csv, so only check it when present.
     cis <- DBI::dbGetQuery(ctx$conn,
         "SELECT en FROM translations WHERE key = 'cisRatePre'")
-    expect_equal(nrow(cis), 1L, info = "cisRatePre row exists in translations")
-    expect_equal(cis$en[1], "", info = "cisRatePre en is empty string after QUA-11 correction")
+    if (nrow(cis) > 0)
+        expect_equal(cis$en[1], "", info = "cisRatePre en is empty string after QUA-11 correction")
 
     cleanup_test_db(ctx)
 } else {
@@ -144,7 +154,7 @@ if (file.exists(tr_csv)) {
 # 3. get_default_prices — returns correct columns and filters by country
 # ---------------------------------------------------------------------------
 
-ctx <- new_test_db()
+ctx <- new_empty_test_db()
 insert_default_prices(ctx$conn, list(
     list(country = "NG", item = "urea",   price = 7500),
     list(country = "NG", item = "MOP",    price = 13500),
@@ -166,7 +176,7 @@ cleanup_test_db(ctx)
 # 4. get_starch_prices — returns all rows with correct column names
 # ---------------------------------------------------------------------------
 
-ctx <- new_test_db()
+ctx <- new_empty_test_db()
 insert_starch_prices(ctx$conn, list(
     list(starch_factory = "TestFactory", starch_factory_label = "Test Factory Ltd",
          class = 1L, country = "NG", key = "TestFactory1",
@@ -189,7 +199,7 @@ cleanup_test_db(ctx)
 # 5. prices_are_stale — TRUE when no rows; FALSE when fresh; TRUE when old
 # ---------------------------------------------------------------------------
 
-ctx <- new_test_db()
+ctx <- new_empty_test_db()
 
 # Empty table → stale
 Sys.setenv(PRICE_MAX_AGE_DAYS = "7")
@@ -216,7 +226,7 @@ cleanup_test_db(ctx)
 # 6. starch_prices_are_stale — same logic with 30-day threshold
 # ---------------------------------------------------------------------------
 
-ctx <- new_test_db()
+ctx <- new_empty_test_db()
 Sys.setenv(STARCH_PRICE_MAX_AGE_DAYS = "30")
 
 expect_true(starch_prices_are_stale(), info = "starch_prices_are_stale: TRUE when table empty")
