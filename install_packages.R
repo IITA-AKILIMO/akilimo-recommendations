@@ -15,7 +15,8 @@ pkgs <- c(
 
   # Spatial / climate data
   "ncdf4",
-  "sf",          # GET /coverage footprints; Linux needs libgdal-dev libgeos-dev libproj-dev
+  "sf",          # GET /coverage footprints; Linux needs libgdal-dev libgeos-dev
+                 #   libproj-dev libudunits2-dev libabsl-dev cmake
 
   # HTTP / notifications
   "httr",
@@ -125,6 +126,23 @@ if (requireNamespace("rJava", quietly = TRUE)) {
       message("          sudo R CMD javareconf")
     }
   })
+}
+
+# ---------------------------------------------------------------------------
+# Fail loudly if any required package is still missing, so a deploy or CI
+# run stops here instead of restarting the API without it.
+# install.packages() only warns when a package fails to build.
+# ---------------------------------------------------------------------------
+still_missing <- pkgs[!pkgs %in% rownames(installed.packages())]
+if (length(still_missing) > 0) {
+  msg <- paste0(
+    "Failed to install (", length(still_missing), "): ",
+    paste(still_missing, collapse = ", "),
+    "\n  Check the output above for missing system libraries."
+  )
+  if (interactive()) stop(msg, call. = FALSE)
+  message("ERROR: ", msg)
+  quit(status = 1, save = "no")
 }
 
 message("\nDone.")
