@@ -58,6 +58,8 @@ if $INSTALL_SYSTEM; then
     warn "  libpango-1.0-0  libpangoft2-1.0-0  libgdk-pixbuf2.0-0"
     warn "  libfreetype6-dev  libpng-dev  libtiff5-dev  libjpeg-dev"
     warn "  libssl-dev  libcurl4-openssl-dev  libxml2-dev"
+    warn "  libgdal-dev  libgeos-dev  libproj-dev  libudunits2-dev  libabsl-dev  cmake"
+    warn "  python3-pip, then: pip install weasyprint"
   else
     sudo apt-get update -qq
     sudo apt-get install -y \
@@ -76,8 +78,27 @@ if $INSTALL_SYSTEM; then
       libfreetype6-dev \
       libpng-dev \
       libtiff5-dev \
-      libjpeg-dev
+      libjpeg-dev \
+      libgdal-dev \
+      libgeos-dev \
+      libproj-dev \
+      libudunits2-dev \
+      libabsl-dev \
+      cmake \
+      python3-pip
     success "System packages installed."
+
+    # WeasyPrint renders the PDF reports. Install system-wide so it lands in
+    # /usr/local/bin, which is on the PATH systemd services see.
+    if command -v weasyprint &>/dev/null; then
+      success "WeasyPrint already installed: $(weasyprint --version)"
+    else
+      info "Installing WeasyPrint..."
+      # Debian 12+ / Ubuntu 23.04+ refuse system-wide pip without the override
+      sudo pip3 install weasyprint 2>/dev/null \
+        || sudo pip3 install --break-system-packages weasyprint
+      success "WeasyPrint installed: $(weasyprint --version)"
+    fi
   fi
 fi
 

@@ -37,7 +37,8 @@ sudo apt-get install -y \
   libnetcdf-dev libhdf5-dev \
   libpango-1.0-0 libpangoft2-1.0-0 libgdk-pixbuf2.0-0 \
   libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev \
-  libssl-dev libcurl4-openssl-dev libxml2-dev
+  libssl-dev libcurl4-openssl-dev libxml2-dev \
+  libgdal-dev libgeos-dev libproj-dev libudunits2-dev libabsl-dev cmake
 ```
 
 **Purpose:**
@@ -50,6 +51,11 @@ sudo apt-get install -y \
 | `libfreetype6-dev`, `libpng-dev`, `libtiff5-dev`, `libjpeg-dev` | ragg — headless PNG rendering for ggplot2 charts (no X11 required) |
 | `libssl-dev`, `libcurl4-openssl-dev` | httr R package — HTTP requests |
 | `libxml2-dev` | xml2 R package (dependency of several packages) |
+| `libgdal-dev`, `libgeos-dev`, `libproj-dev` | sf R package — builds the `GET /coverage` footprints |
+| `libudunits2-dev` | units R package (dependency of sf) |
+| `libabsl-dev`, `cmake` | s2 R package (dependency of sf); `cmake` lets s2 build Abseil itself if `libabsl-dev` is unavailable |
+
+> `install_packages.R` exits with an error if any required R package fails to install, so a deploy stops before restarting the API. Check its output for the missing system library.
 
 > **Headless servers:** The API generates ggplot2 charts (PP and SP recommendation matrices) at runtime. The `ragg` R package is used as the rendering backend — it requires no X11 display and produces higher-quality output than the default PNG device. The system libraries above (`libfreetype6-dev` etc.) are its build-time dependencies. If `ragg` is unavailable, the server falls back to Cairo (`options(bitmapType="cairo")`), which also works headless as long as `libcairo2` is present.
 
