@@ -1,0 +1,66 @@
+name: Pull runtime data
+description: >
+  Download the runtime data (OSF or Zenodo) into an app folder on the server
+  over SSH, using scripts/ and Poetry there. Shared by the pipeline's data
+  job and the manual Data setup workflow.
+
+inputs:
+  host:
+    description: "Server host"
+    required: true
+  username:
+    description: "SSH user"
+    required: true
+  key:
+    description: "SSH private key"
+    required: true
+  app_dir:
+    description: "Application folder on the server"
+    required: true
+  source:
+    description: "osf | zenodo"
+    required: false
+    default: "osf"
+  zenodo_record_id:
+    description: "Zenodo record ID written to scripts/.env when set"
+    required: false
+    default: ""
+  osf_node_id:
+    description: "OSF node ID written to scripts/.env when set"
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Download data on the server
+      uses: appleboy/ssh-action@v1.2.4
+      env:
+        APP_DIR: ${{ inputs.app_dir }}
+        DATA_SOURCE: ${{ inputs.source }}
+        ZENODO_RECORD_ID: ${{ inputs.zenodo_record_id }}
+        OSF_NODE_ID: ${{ inputs.osf_node_id }}
+      with:
+        host: ${{ inputs.host }}
+        username: ${{ inputs.username }}
+        key: ${{ inputs.key }}
+        command_timeout: 40m
+        envs: APP_DIR, DATA_SOURCE, ZENODO_RECORD_ID, OSF_NODE_ID
+        script: |
+          set -e
+
+          cd "$APP_DIR/scripts"
+
+          if [ ! -f ".env" ]; then
+            cp .env.example .env
+          fi
+
+          if [ -n "$ZENODO_RECORD_ID" ]; then
+            sed -i "s/^ZENODO_RECORD_ID=.*/ZENODO_RECORD_ID=$ZENODO_RECORD_ID/" .env
+          fi
+          if [ -n "$OSF_NODE_ID" ]; then
+            sed -i "s/^OSF_NODE_ID=.*/OSF_NODE_ID=$OSF_NODE_ID/" .env
+          fi
+
+          poetry run setup-data --source "$DATA_SOURCE"
+          echo "Data setup complete (source: $DATA_SOURCE, dir: $APP_DIR)"

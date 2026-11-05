@@ -196,15 +196,23 @@ Two instances run in parallel on the same server:
 
 | Instance | Branch | Directory | Service | Workflow |
 |----------|--------|-----------|---------|----------|
-| Production | `main` | `/mnt/data/extra_storage/projects/new_akilimo` | `akilimo-api.service` | `deploy-production.yml` |
-| Beta | `experimental` | `/data/extra_storage/projects/akilimo-beta` | `akilimo-api-beta.service` | `deploy-experimental.yml` |
+| Production | `main` | `/mnt/data/extra_storage/projects/new_akilimo` | `akilimo-api.service` | `pipeline.yml` |
+| Beta | `experimental` | `/data/extra_storage/projects/akilimo-beta` | `akilimo-api-beta.service` | `pipeline.yml` |
 
 Branch, directory and service per instance are defined once in `.github/deploy-targets.json` (read by the `.github/actions/resolve-target` action) — edit them there, not in the workflows.
 
-Both deploy via SSH on push to their respective branch using the repo variables `SERVER_HOST`, `SERVER_USER` and the secret `SERVER_SSH_KEY`. `deploy-production.yml` and `deploy-experimental.yml` are thin callers of the shared `deploy.yml`, which runs its jobs in sequence — 60s debounce → `ci.yml` → optional data setup → deploy — so nothing reaches the server until every check passes, and fails if `GET /health` does not respond within 180s after the restart. On `main`, `bump-and-tag.yml` then tags a release, only after a successful production deploy.
+A single workflow, `pipeline.yml` ("Build and deploy"), runs on every push and pull request, with one job per stage:
 
-Runtime data (OSF/Zenodo) is pulled by `setup-zenodo-data.yml`: run it manually with a `target` of `production` or `beta`, or tick `setup_data` when manually running either deploy workflow to pull data before deploying. Both targets share the `ZENODO_RECORD_ID` / `OSF_NODE_ID` secrets.
+```
+Plan → Wait for more pushes → Check R syntax / Test price database / Test PDF templates (side by side)
+     → Pull runtime data (manual runs, optional) → Update code and packages → Restart service
+     → Check health → Tag release (production only)
+```
+
+`Plan` matches the branch to a target in `deploy-targets.json`; any other branch or a pull request stops after the checks. Server jobs run over SSH using the repo variables `SERVER_HOST`, `SERVER_USER` and the secret `SERVER_SSH_KEY`, only after every check passes, and share a per-target lock. `Check health` fails if `GET /health` does not respond within 180s. Shared steps live in composite actions under `.github/actions/` (`resolve-target`, `setup-r-env`, `pull-data`).
+
+Runtime data (OSF/Zenodo) is pulled by the `Pull runtime data` job when "Build and deploy" is run by hand with `setup_data` ticked, or on its own by `setup-zenodo-data.yml` ("Data setup") with a `target` of `production` or `beta`. Both targets share the `ZENODO_RECORD_ID` / `OSF_NODE_ID` secrets.
 
 Service templates: `systemd/akilimo-api.service.example` (production), `systemd/akilimo-api-beta.service.example` (beta). Resource limits: 2GB RAM, 2 CPU cores, 65536 FDs.
 
-`ci.yml` runs on pull requests and feature-branch pushes: it installs packages via `install_packages.R`, runs `tests/check_parse.R`, and runs `tests/test_akilimo_db.R` (no data files needed).
+On pull requests and feature-branch pushes, `pipeline.yml` runs only the three check jobs (no data files needed); a newer push cancels the older run.

@@ -1,0 +1,41 @@
+name: Set up R environment
+description: >
+  Install R and, optionally, the system libraries and R packages the API
+  needs (from install_packages.R), with the package library cached between runs.
+
+inputs:
+  install-packages:
+    description: "Install the API's R packages (not needed for the syntax check)"
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Install R
+      uses: r-lib/actions/setup-r@v2
+      with:
+        r-version: release
+        use-public-rspm: true   # prebuilt Linux binaries, much faster installs
+
+    - name: Install system libraries (GDAL, NetCDF, SQLite)
+      if: inputs.install-packages == 'true'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends \
+          libgdal-dev libgeos-dev libproj-dev libudunits2-dev \
+          libnetcdf-dev libsqlite3-dev libcurl4-openssl-dev
+
+    - name: Restore cached R packages
+      if: inputs.install-packages == 'true'
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.R_LIBS_USER }}
+        key: r-pkgs-${{ runner.os }}-${{ hashFiles('install_packages.R') }}
+        restore-keys: r-pkgs-${{ runner.os }}-
+
+    - name: Install R packages
+      if: inputs.install-packages == 'true'
+      shell: bash
+      run: Rscript install_packages.R
