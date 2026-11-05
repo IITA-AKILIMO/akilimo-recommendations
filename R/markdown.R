@@ -16,6 +16,17 @@ set_temp_dir <- function(path) .akilimo_req$temp_dir <- path
 #' Build an absolute-ish path inside the current request's temp directory.
 tp <- function(filename) file.path(temp_dir(), filename)
 
+# ---------------------------------------------------------------------------
+# Per-request report context
+# What every PDF of the request shows besides its own figures (the reference id, language and the
+# assumptions behind the advice). Set once per request in run_akilimo(), read by html_open() and
+# html_basis(), so the four build_*_pdf() functions need no extra parameters for it.
+# ---------------------------------------------------------------------------
+.akilimo_req$report <- list()
+
+set_report_context <- function(x) .akilimo_req$report <- x
+report_context <- function() .akilimo_req$report
+
 # Sanitise a user-supplied value before embedding it in a file path.
 # Keeps only digits, letters, hyphens and plus signs (covers phone numbers
 # like +234789123456) and strips any path traversal characters.

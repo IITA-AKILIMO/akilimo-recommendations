@@ -198,6 +198,8 @@ All costs are optional; country defaults are applied when a value is absent or `
 | `userEmail` | string | O | — | Recipient for email delivery |
 | `userField` | string | O | — | Farm/plot name shown in report |
 | `email` | boolean | O | `false` | Send PDF report by email (requires `userEmail`) |
+| `returnPdf` | boolean | O | `false` | Also return the generated PDF reports in the response, as `reports` |
+| `requestId` | string (UUID) | O | — | The caller's reference for this request, printed in the PDF footer |
 
 ---
 
@@ -559,7 +561,7 @@ curl -s -X POST http://localhost:8000/compute \
 
 **SP window.** Both `PD_window` and `HD_window` must be `> 0` for SP advice to be returned. If either is `0`, the response contains an informational message rather than scheduling data.
 
-**PDF delivery.** Set `"email": true` and supply `userEmail` to receive a PDF report by email. PDF generation failures do not suppress the JSON recommendation — `data.recommendation` is always populated.
+**PDF delivery.** Set `"email": true` and supply `userEmail` to receive a PDF report by email. Set `"returnPdf": true` to get the reports in the response instead (or as well): a successful response then has a top-level `reports` array next to `data`, one entry per generated PDF, `{"name": "fertilizer_advice.pdf", "content_type": "application/pdf", "content": "<base64>"}`. It is empty when no PDF could be made. The AKILIMO API uses it to store the report and give its callers a download link. PDF generation failures do not suppress the JSON recommendation — `data.recommendation` is always populated.
 
 **Version field.** The `version` string in every response is a date (`YYYYMMDD`) identifying the engine build, not a semantic version. Use it for support correlation only.
 

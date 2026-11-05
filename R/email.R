@@ -70,7 +70,9 @@ generate_pdfs <- function(user, FR, IC, PP, SP, country, result = NULL, params =
         recText = result$recommendation,
         currency = get_currency(params$country),
         lang = params$lang,
-        out_path = fname
+        out_path = fname,
+        areaHa = params$areaHa,
+        FCY = params$FCY
       )
       fname
     })

@@ -20,36 +20,74 @@
   field_area          = c(en = "Field area",                        sw = "Ukubwa wa shamba"),
   planting_date       = c(en = "Planting date",                     sw = "Tarehe ya kupanda"),
   harvest_date        = c(en = "Harvest date",                      sw = "Tarehe ya kuvuna"),
-  current_yield       = c(en = "Current yield",                     sw = "Mavuno yako ya sasa"),
+  current_yield       = c(en = "Estimated current yield",           sw = "Makadirio ya mavuno ya sasa"),
+  reported_yield      = c(en = "Yield you reported",                sw = "Mavuno uliyotaja"),
   current_yield_unit  = c(en = "tonnes per ha",                     sw = "tani kwa hekta"),
   area_unit_ha        = c(en = "ha",                                sw = "hekta"),
   area_unit_acre      = c(en = "acre",                              sw = "ekari"),
+  area_unit_are       = c(en = "are",                               sw = "ari"),
+  area_unit_m2        = c(en = "m²",                                sw = "mita za mraba"),
+
+  # ── Report footer, summary and assumptions ───────────────────────────────
+  reference           = c(en = "Ref.",                              sw = "Kumb."),
+  model_version       = c(en = "Model",                             sw = "Modeli"),
+  in_short            = c(en = "In short:",                         sw = "Kwa ufupi:"),
+  # sprintf args: (bags, bag weight, fertilizer)
+  buy_item_fmt        = c(en = "%s bags of %skg %s",                sw = "mifuko %s ya kilo %s ya %s"),
+  # sprintf args: (items, area, unit, currency, cost, extra tonnes, currency, net gain)
+  buy_summary_fmt     = c(en = "buy %s for your %s %s (cost %s %s). Expected: %s tonnes more cassava roots and %s %s more income after the fertilizer cost.",
+                           sw = "nunua %s kwa shamba lako la %s %s (gharama %s %s). Matarajio: tani %s zaidi za mihogo na %s %s zaidi ya mapato baada ya gharama ya mbolea."),
+  based_on            = c(en = "What this advice is based on",      sw = "Ushauri huu unategemea nini"),
+  risk_attitude       = c(en = "Your attitude to risk",             sw = "Mtazamo wako kuhusu hatari"),
+  risk_careful        = c(en = "Careful: a change is advised only when the extra income is well above its cost",
+                           sw = "Mwangalifu: mabadiliko yanashauriwa tu pale mapato ya ziada yanapozidi sana gharama yake"),
+  risk_balanced       = c(en = "Balanced: a change is advised when the extra income covers its cost",
+                           sw = "Wastani: mabadiliko yanashauriwa pale mapato ya ziada yanapolipia gharama yake"),
+  risk_taking         = c(en = "Risk-taking: a change is advised even when the extra income is only a little above its cost",
+                           sw = "Mjasiri: mabadiliko yanashauriwa hata pale mapato ya ziada yanapozidi gharama kidogo tu"),
+  roots_sold          = c(en = "Where the roots are sold",          sw = "Mahali mihogo inapouzwa"),
+  sold_open_market    = c(en = "Open market, at the cassava price shown",
+                           sw = "Soko huria, kwa bei ya muhogo iliyoonyeshwa"),
+  sold_to_factory_fmt = c(en = "Starch factory %s, at its best price for high-starch roots",
+                           sw = "Kiwanda cha wanga %s, kwa bei yake ya juu kwa mihogo yenye wanga mwingi"),
+  prices_used         = c(en = "Prices",                            sw = "Bei"),
+  prices_used_text    = c(en = "The prices you gave; AKILIMO's typical prices for your country where you gave none",
+                           sw = "Bei ulizotoa; bei za kawaida za AKILIMO kwa nchi yako pale ambapo hukutoa bei"),
+  estimate_note       = c(en = "Yields and incomes are estimates from AKILIMO's models for your location and season, not a guarantee.",
+                           sw = "Mavuno na mapato ni makadirio ya modeli za AKILIMO kwa eneo lako na msimu, si uhakika."),
 
   # ── Location / map ───────────────────────────────────────────────────────
   your_location       = c(en = "Your location",                     sw = "Eneo lilipo shamba lako"),
 
   # ── Expected gain ────────────────────────────────────────────────────────
   expected_gain       = c(en = "Expected gain in total production", sw = "Matarajio ya kupata katika mavuno ya jumla"),
-  # sprintf args: (bags_total, bags_total100)
-  expected_gain_fmt   = c(en = "%s tonnes of cassava roots: ~ <strong>%s bags of 100 kg roots</strong>",
-                           sw = "Tani <strong>%s</strong> ya mihogo: ~ Mifuko <strong>%s</strong> ya kilo mia moja ya mihogo"),
+  # sprintf args: (extra tonnes, extra 100 kg bags): the extra roots on the whole field with the advice
+  expected_gain_fmt   = c(en = "%s tonnes more cassava roots: ~ <strong>%s bags of 100 kg roots</strong>",
+                           sw = "Tani <strong>%s</strong> zaidi za mihogo: ~ Mifuko <strong>%s</strong> ya kilo mia moja ya mihogo"),
+  # sprintf args: (total tonnes): everything expected from the whole field with the advice
+  expected_total_fmt  = c(en = "%s tonnes in total from your field",
+                           sw = "Jumla ya tani %s kutoka shambani kwako"),
 
   # ── Fertilizer prices ────────────────────────────────────────────────────
   fertilizer_prices   = c(en = "Fertilizer prices",                 sw = "Bei ya mbolea"),
+  prices_heading      = c(en = "Prices",                            sw = "Bei"),
+  month_label         = c(en = "month",                             sw = "mwezi"),
   bag_unit            = c(en = "%skg bag",                          sw = "mfuko wa kilo %s"),
   per_bag             = c(en = "per",                               sw = "kwa"),
   cassava_price       = c(en = "Cassava sold",                      sw = "Bei ya Muhogo"),
   per_tonne           = c(en = "per tonne of",                      sw = "kwa kila tani ya"),
   per_weight          = c(en = "per %s kg of",                      sw = "kwa kilo %s ya"),
+  roots               = c(en = "roots",                             sw = "mihogo"),
+  no_limit            = c(en = "No limit",                          sw = "Hakuna kikomo"),
   max_investment      = c(en = "Maximal investment",                sw = "Kiwango cha juu cha kuwekeza"),
   for_area            = c(en = "for",                               sw = "kwa"),
   no_fert_rec         = c(en = "No fertilizer recommendation for this location.",
                            sw = "Hakuna mapendekezo ya mbolea kwa eneo hili."),
 
   # ── Fertilizer recommendation rows ───────────────────────────────────────
-  # sprintf args: (label, kgs, area_fmt, bags, bw, currency, cost_f)
-  fert_row_fmt        = c(en = "%s: %s kg for %sha (~%s bags of %skg) = %s %s",
-                           sw = "%s: kilo %s kwa %sha (~mifuko %s ya kilo %s) = %s %s"),
+  # sprintf args: (label, kgs, area_fmt, area unit, bags, bw, currency, cost_f); the kg are for the whole field
+  fert_row_fmt        = c(en = "%s: %s kg for %s %s (~%s bags of %skg) = %s %s",
+                           sw = "%s: kilo %s kwa %s %s (~mifuko %s ya kilo %s) = %s %s"),
 
   # ── Cost-benefit ─────────────────────────────────────────────────────────
   cost_benefit        = c(en = "Cost benefit analysis",             sw = "Mchanganuo wa gharama na faida"),
@@ -142,6 +180,32 @@
                            sw = "Hakuna data ya ratiba ya kupanda kwa eneo hili.")
 )
 
+#' The field's area unit as shown in a report (ha, acre, are, m²), in the report's language.
+area_unit_label <- function(areaUnits, lang = "en") {
+  key <- switch(as.character(areaUnits), ha = "area_unit_ha", acre = "area_unit_acre",
+                are = "area_unit_are", m2 = "area_unit_m2", NULL)
+  if (is.null(key)) as.character(areaUnits) else html_label(key, lang)
+}
+
+#' A value the caller did not really give: missing, empty, the "NA" placeholder of from_json(), or the
+#' MCP agent's anonymous profile name. Such rows are left out of the report instead of printing "NA".
+is_blank_value <- function(x) {
+  if (is.null(x) || length(x) == 0) return(TRUE)
+  x <- trimws(as.character(x[[1]]))
+  is.na(x) || x == "" || toupper(x) == "NA" || x == "akilimo-mcp"
+}
+
+#' The yield class the farmer reported (FCY: the middle of a 7.5 t/ha band) as the band, e.g. 11.25 -> "7.5 - 15".
+reported_yield_band <- function(FCY) {
+  v <- suppressWarnings(as.numeric(FCY))
+  if (length(v) == 0 || is.na(v) || v <= 0) return(NULL)
+  lo <- max(0, v - 3.75)
+  hi <- v + 3.75
+  if (lo == 0) return(sprintf("< %s", format(hi)))
+  if (v >= 33.75) return(sprintf("> %s", format(lo)))
+  sprintf("%s - %s", format(lo), format(hi))
+}
+
 #' Look up a PDF UI label in English or Swahili.
 html_label <- function(key, lang = "en") {
   entry <- .PDF_LABELS[[key]]
@@ -209,10 +273,107 @@ html_open <- function(title, banner_path = NULL,
     )
   }
 
-  sprintf(
-    '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n<title>%s</title>\n<style>\n%s\n</style>\n</head>\n<body>\n%s',
-    htmlEscape(title), css, banner_html
+  ctx  <- report_context()
+  lang <- ctx$lang %||% "en"
+  generated <- ctx$generated %||% Sys.time()
+
+  # Document properties (WeasyPrint copies title, author, description, keywords and the date into the PDF)
+  meta <- sprintf(paste0(
+    '<meta name="author" content="AKILIMO (IITA)">\n',
+    '<meta name="description" content="%s">\n',
+    '<meta name="keywords" content="AKILIMO, cassava, %s">\n',
+    '<meta name="generator" content="AKILIMO compute service %s">\n',
+    '<meta name="dcterms.created" content="%s">'),
+    htmlEscape(title), htmlEscape(ctx$country %||% ""), AKI_VERSION,
+    format(generated, "%Y-%m-%dT%H:%M:%S"))
+
+  # Footer on every page: date, reference id (when the caller sent one), model version, page numbers
+  footer_parts <- c(
+    "AKILIMO",
+    format(as.Date(generated), "%d %b %Y"),
+    if (!is.na(ctx$request_id %||% NA)) paste(html_label("reference", lang), ctx$request_id),
+    paste(html_label("model_version", lang), AKI_VERSION)
   )
+  footer_css <- sprintf(paste0(
+    '@page { @bottom-left { content: "%s"; font-size: 7pt; color: #777; }\n',
+    '        @bottom-center { content: element(refqr); vertical-align: middle; }\n',
+    '        @bottom-right { content: counter(page) " / " counter(pages); font-size: 7pt; color: #777; } }'),
+    gsub('["\\\\]', "", paste(footer_parts, collapse = "  ·  ")))
+
+  # The reference QR code comes first in the body so the footer shows it from the first page on
+  sprintf(
+    '<!DOCTYPE html>\n<html lang="%s">\n<head>\n<meta charset="UTF-8">\n<title>%s</title>\n%s\n<style>\n%s\n%s\n</style>\n</head>\n<body>\n%s%s',
+    htmlEscape(lang), htmlEscape(title), meta, css, footer_css, html_reference_qr(lang), banner_html
+  )
+}
+
+#' "What this advice is based on": the assumptions a farmer or extension officer needs to judge the advice.
+#' Reads the request context (risk attitude, where the roots are sold); the prices and yield are shown elsewhere.
+#' Kept to two short lines of small text so a one-page report stays on one page.
+#' @return character(1)
+html_basis <- function(lang = "en") {
+  ctx <- report_context()
+  risk_key <- switch(as.character(ctx$riskAtt %||% ""), "0" = "risk_careful", "1" = "risk_balanced",
+                     "2" = "risk_taking", NULL)
+  sold <- if (isTRUE(ctx$saleSF) && !is_blank_value(ctx$nameSF)) {
+    sprintf(html_label("sold_to_factory_fmt", lang), as.character(ctx$nameSF))
+  } else {
+    html_label("sold_open_market", lang)
+  }
+  items <- c(
+    if (!is.null(risk_key)) paste0(html_label("risk_attitude", lang), ": ", html_label(risk_key, lang)),
+    paste0(html_label("roots_sold", lang), ": ", sold),
+    paste0(html_label("prices_used", lang), ": ", html_label("prices_used_text", lang))
+  )
+  note <- sprintf('<div><strong>%s.</strong> %s. %s</div>',
+                  htmlEscape(html_label("based_on", lang)),
+                  htmlEscape(paste(items, collapse = ". ")),
+                  htmlEscape(html_label("estimate_note", lang)))
+  sprintf('<div class="basis-note avoid-break">%s</div>', note)
+}
+
+#' The report's reference (the caller's request id) as a small QR code with the id under it, so support can
+#' find the request from a printed or photographed report. Only the id is encoded, nothing personal.
+#' Empty when there is no reference or the qrcode package is not installed.
+#' @return character(1)
+html_reference_qr <- function(lang = "en") {
+  id <- report_context()$request_id %||% NA_character_
+  if (is.na(id) || !requireNamespace("qrcode", quietly = TRUE)) return("")
+  png_path <- tp("reference_qr.png")
+  ok <- tryCatch({
+    dev <- if (requireNamespace("ragg", quietly = TRUE)) ragg::agg_png else grDevices::png
+    dev(png_path, width = 160, height = 160)
+    # the PNG is only written when the device closes, so close it before the file is read
+    tryCatch({
+      graphics::par(mar = c(0, 0, 0, 0))
+      plot(qrcode::qr_code(id, ecl = "M"))
+    }, finally = grDevices::dev.off())
+    TRUE
+  }, error = function(e) {
+    log_write("WARN", "html_reference_qr: QR code not made:", conditionMessage(e))
+    FALSE
+  })
+  if (!isTRUE(ok) || !file.exists(png_path)) return("")
+  # A running element: the page footer shows it (@bottom-center), so it takes no room in the page body
+  sprintf('<div class="reference-qr">%s</div>', img_base64(png_path, alt = paste(html_label("reference", lang), id)))
+}
+
+#' The one-line answer at the top of a fertilizer report: what to buy, what it costs, what it brings.
+#' @param fr Data frame from calc_fertilizer_recom() (type, bags, bagWeight, cost).
+#' @return character(1), "" when nothing is to be bought
+html_buy_summary <- function(fr, area_fmt, area_unit, total_cost, extra_t, net_gain, currency, lang = "en") {
+  if (is.null(fr) || nrow(fr) == 0) return("")
+  items <- vapply(seq_len(nrow(fr)), function(i) {
+    label <- if (fr$type[i] %in% names(FERT_LABEL)) FERT_LABEL[[fr$type[i]]] else fr$type[i]
+    sprintf(html_label("buy_item_fmt", lang), format(fr$bags[i]), fr$bagWeight[i], label)
+  }, character(1))
+  money <- function(x) formatC(as.numeric(x), format = "f", big.mark = ",", digits = 0)
+  text <- sprintf(html_label("buy_summary_fmt", lang),
+                  paste(items, collapse = ", "), area_fmt, area_unit,
+                  currency, money(total_cost),
+                  formatC(as.numeric(extra_t), format = "f", digits = 1), currency, money(net_gain))
+  sprintf('<div class="buy-summary avoid-break"><strong>%s</strong> %s</div>',
+          htmlEscape(html_label("in_short", lang)), htmlEscape(text))
 }
 
 #' Close the HTML document.
@@ -271,34 +432,45 @@ mask_email <- function(x) {
 #' @param areaUnits    Unit string.
 #' @param PD           Planting date (Date or character).
 #' @param HD           Harvest date.
-#' @param current_yield Numeric or NULL.
+#' @param current_yield The model's estimate of the current yield in t/ha (CurrentY divided by the area in ha), or NULL.
+#' @param reported_yield The yield class the farmer reported (FCY, t/ha), shown as its band, or NULL.
 #' @param lang         Language code.
 #' @return character(1)
 html_personal_info <- function(user, userField, area, areaUnits,
-                               PD, HD, current_yield = NULL, lang = "en") {
+                               PD, HD, current_yield = NULL, reported_yield = NULL, lang = "en") {
   fmt_date <- function(d) {
     tryCatch(format(as.Date(d), "%d-%b-%Y"), error = function(e) as.character(d))
   }
-  unit_key      <- switch(areaUnits, ha = "area_unit_ha", acre = "area_unit_acre", NULL)
-  display_units <- if (!is.null(unit_key)) html_label(unit_key, lang) else areaUnits
+  display_units <- area_unit_label(areaUnits, lang)
 
   # Area: show as integer if whole number, otherwise 1 decimal place
   area_fmt <- if (area == round(area)) sprintf("%.0f %s", area, display_units) else sprintf("%.1f %s", area, display_units)
 
+  # Name, email and field name are optional: a value the caller did not give is left out, never printed as "NA"
+  email <- as.character(user$Email %||% "")
   rows <- list(
-    list(label = html_label("your_name",     lang), value = user$Name %||% ""),
-    list(label = html_label("email_address", lang), value = mask_email(user$Email)),
-    list(label = html_label("field_name",    lang), value = userField),
+    if (!is_blank_value(user$Name)) list(label = html_label("your_name", lang), value = user$Name),
+    if (!is_blank_value(email) && grepl("@", email, fixed = TRUE)) list(label = html_label("email_address", lang), value = mask_email(email)),
+    if (!is_blank_value(userField)) list(label = html_label("field_name", lang), value = userField),
     list(label = html_label("field_area",    lang), value = area_fmt),
     list(label = html_label("planting_date", lang), value = fmt_date(PD)),
     list(label = html_label("harvest_date",  lang), value = fmt_date(HD))
   )
+  rows <- Filter(Negate(is.null), rows)
 
-  if (!is.null(current_yield)) {
+  band <- reported_yield_band(reported_yield)
+  if (!is.null(band)) {
+    rows <- c(rows, list(list(
+      label = html_label("reported_yield", lang),
+      value = sprintf("%s %s", band, html_label("current_yield_unit", lang))
+    )))
+  }
+
+  if (!is.null(current_yield) && is.finite(as.numeric(current_yield))) {
     rows <- c(rows, list(list(
       label = html_label("current_yield", lang),
       value = sprintf("%s %s",
-                      formatC(as.numeric(current_yield), format = "f", big.mark = ",", digits = 0),
+                      formatC(as.numeric(current_yield), format = "f", big.mark = ",", digits = 1),
                       html_label("current_yield_unit", lang))
     )))
   }
@@ -336,7 +508,11 @@ html_location_map <- function(lat, lon, height_px = 300, lang = "en") {
     ok <- tryCatch({
       resp <- httr::GET(url, httr::timeout(10),
                         httr::write_disk(map_png, overwrite = TRUE))
-      httr::status_code(resp) == 200L && file.exists(map_png) && file.size(map_png) > 0
+      status <- httr::status_code(resp)
+      # e.g. 401 from Mapbox: the token is wrong or was deleted; say so instead of silently showing coordinates
+      if (status != 200L) log_write("WARN", "html_location_map: map service answered HTTP", status,
+                                    "- showing coordinates instead (check MAPBOX_TOKEN / MAP_API_URL)")
+      status == 200L && file.exists(map_png) && file.size(map_png) > 0
     }, error = function(e) {
       log_write("WARN", "html_location_map: map fetch failed:", conditionMessage(e))
       FALSE
@@ -426,35 +602,28 @@ html_fertilizer_table <- function(fr, area, areaUnits, currency,
     parts <- c(parts, sprintf('<p><em>%s</em></p>', html_label("no_fert_rec", lang)))
   }
 
-  # 2. Cassava price — "Cassava sold @ TZS 180,000 per tonne of roots"
+  # 2. Cassava price — "Cassava sold @ TZS 180,000 per tonne of roots". rootUP is already the price per tonne
+  # of fresh roots (parse_request converts the farmer's unit and product), so the label never uses cassUW/cassPD.
   rootUP_fmt <- formatC(signif(as.numeric(rootUP), digits = 4),
                         format = "f", big.mark = ",", digits = 0)
-  if (as.numeric(cassUW) == 1000) {
-    unit_str <- paste(html_label("per_tonne", lang), htmlEscape(cassPD))
-  } else {
-    cw_fmt <- formatC(as.numeric(cassUW), format = "f", big.mark = ",", digits = 0)
-    unit_str <- paste(sprintf(html_label("per_weight", lang), cw_fmt), htmlEscape(cassPD))
-  }
+  unit_str <- paste(html_label("per_tonne", lang), html_label("roots", lang))
   cassava_line <- sprintf('<p>%s: <strong>%s %s</strong> %s</p>',
                           html_label("cassava_price", lang),
                           htmlEscape(currency), htmlEscape(rootUP_fmt), unit_str)
   parts <- c(parts, cassava_line)
 
-  # 3. Max investment — always shown; "NA" when zero or missing
-  unit_key2     <- switch(areaUnits, ha = "area_unit_ha", acre = "area_unit_acre", NULL)
-  display_units <- if (!is.null(unit_key2)) html_label(unit_key2, lang) else areaUnits
+  # 3. Max investment — always shown; "No limit" when zero or missing
+  display_units <- area_unit_label(areaUnits, lang)
   area_fmt <- if (area == round(area)) sprintf("%.0f", area) else sprintf("%.1f", area)
   has_inv <- !is.na(maxInv) && as.numeric(maxInv) > 0
-  inv_value <- if (has_inv) {
-    sprintf("%s %s", htmlEscape(currency),
-            htmlEscape(formatC(as.numeric(maxInv), format = "f", big.mark = ",", digits = 0)))
+  inv_line <- if (has_inv) {
+    sprintf('<p>%s: <strong>%s %s</strong> %s <strong>%s %s</strong></p>',
+            html_label("max_investment", lang), htmlEscape(currency),
+            htmlEscape(formatC(as.numeric(maxInv), format = "f", big.mark = ",", digits = 0)),
+            html_label("for_area", lang), area_fmt, htmlEscape(display_units))
   } else {
-    "NA"
+    sprintf('<p>%s: <strong>%s</strong></p>', html_label("max_investment", lang), html_label("no_limit", lang))
   }
-  inv_line <- sprintf('<p>%s: <strong>%s</strong> %s <strong>%s %s</strong></p>',
-                      html_label("max_investment", lang), inv_value,
-                      html_label("for_area", lang),
-                      area_fmt, htmlEscape(display_units))
   parts <- c(parts, inv_line)
 
   html_section(html_label("fertilizer_prices", lang), paste(parts, collapse = "\n"))
@@ -516,9 +685,10 @@ html_cost_benefit <- function(sum_total, totalSale, netRevenue, currency, lang =
 #' @param lang    Language code.
 #' @return character(1)
 html_recommendation <- function(recText, lang = "en") {
-  # Collapse newlines into spaces so the text flows as a single paragraph
-  flat_text <- gsub("\\s*\n\\s*", " ", trimws(as.character(recText)))
-  body_html <- sprintf('<p class="recommendation-text">%s</p>', htmlEscape(flat_text))
+  # Each line of the text (the prefix, one line per fertilizer, cost, impact) on its own line
+  lines <- trimws(strsplit(trimws(as.character(recText)), "\\s*\n\\s*")[[1]])
+  lines <- lines[nzchar(lines)]
+  body_html <- sprintf('<p class="recommendation-text">%s</p>', paste(vapply(lines, htmlEscape, character(1)), collapse = "<br>\n"))
   html_section(NULL, body_html)
 }
 

@@ -72,6 +72,17 @@ tr <- function(key, lang, ...) {
 }
 
 
+# One "{rate} kg of {fertilizer}" line per fertilizer, joined with newlines. tr() fills a placeholder with
+# gsub(), which only uses the first value of a vector, so each line must be translated on its own.
+# The fertilizer is named as farmers read it (FERT_LABEL: "NPK15:15:15", not the type key "NPK15_15_15").
+fert_rate_lines <- function(rates, types, lang) {
+    label <- function(t) if (exists("FERT_LABEL") && t %in% names(FERT_LABEL)) FERT_LABEL[[t]] else t
+    paste0(vapply(seq_along(rates), function(i)
+        tr("fert_rate_line", lang, rate = rates[[i]], fertilizer = label(types[[i]])), character(1)),
+        collapse = "\n")
+}
+
+
 # Convert x to numeric, stopping with a clear message if coercion fails.
 # Use in parse_request() for all fields that must be numeric. When the field is
 # absent from the JSON body, from_json() already returns the default_value, so

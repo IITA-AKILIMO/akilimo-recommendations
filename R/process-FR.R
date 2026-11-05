@@ -36,10 +36,7 @@ getFRrecText <- function(ds, country, lang) {
                tr("fr_impact", lang, dy = DY, currency = currency, nr = NR))
 			}
 
-		rate_lines <- paste0(
-			tr("fert_rate_line", lang, rate = frate$rate_fmt, fertilizer = frate$type),
-			collapse = "\n"
-		)
+		rate_lines <- fert_rate_lines(frate$rate_fmt, frate$type, lang)
 		recText <- add_more(paste0(tr("fr_apply_prefix", lang), "\n", rate_lines))
 		
       # NOTE: recommendation text is minimal. Future enhancements could include:

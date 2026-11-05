@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Added
+- `returnPdf` request field: a successful `/compute` answer then carries the generated PDFs as `reports` (name, content type, base64), so the AKILIMO API can store them and give its callers a download link
+- `requestId` request field: printed in every page's footer as the report's reference, next to the date, the model version and page numbers, and as a small QR code in the footer (only the id is encoded; new dependency `qrcode`, left out when the package is missing)
+- PDFs: an "In short" line at the top of the fertilizer report (bags to buy, cost, expected gain) and a short "What this advice is based on" note (risk attitude, where the roots are sold, which prices) on every report
+- PDFs: document properties (title, author, language, description, creation date) and accessible tagged PDFs (WeasyPrint `--pdf-variant=pdf/ua-1`, with a plain PDF as fallback)
+- `tests/test_pdf_template.R` (tinytest, run in CI): labels, units and the rows shown or left out
+
+### Fixed
+- FR/IC recommendation text named only the first fertilizer ("82 kg of Urea") when several were recommended: `tr()` fills a placeholder with `gsub()`, which uses only the first value of a vector; each line is now translated on its own (`fert_rate_lines()`), with farmer-readable names ("NPK15:15:15")
+- PP advice failed with "Missing translation key 'decr'" whenever only the cost changed: the `incr`/`decr` keys were never added (they come from the AKILIMO API's translations table, which now has them)
+- PDFs: the recommendation text keeps its line breaks; the PP cost table shows whole amounts with the currency and "–" instead of "NA"; PP/SP put the cassava price under "Prices", not "Fertilizer prices"; SP says "1 month"
+- FR/IC PDF: fertilizer amounts said "for 1ha" while they are for the whole field in the farmer's unit; they now name the unit ("for 1 acre")
+- FR PDF: "Current yield" was the field total in tonnes labelled "per ha"; it is now the model's estimate per hectare ("Estimated current yield"), shown next to the yield band the farmer reported
+- FR PDF: "Expected gain in total production" showed the total target production; it now shows the extra production (as in the recommendation text) and the total on a second line
+- FR/IC/PP PDF: the cassava price is per tonne of fresh roots, so it is always labelled "per tonne of roots" instead of the farmer's unit or product; SP labels its (unconverted) price with the farmer's unit
+- PDFs: "Maximal investment: NA" now reads "No limit"; name, email and field rows the caller did not give (missing, empty, "NA", or the MCP agent's anonymous "akilimo-mcp") are left out instead of printing "NA" or "***"
+
+---
+
 ## [1.8.4] - 2026-04-03
 
 ### Fixed

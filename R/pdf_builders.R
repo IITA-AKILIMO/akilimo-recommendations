@@ -26,13 +26,18 @@ render_pdf <- function(html, path) {
   writeLines(html, html_tmp, useBytes = TRUE)
   log_write("DEBUG", "render_pdf: HTML written to", html_tmp, "— rendering to", path)
 
+  # A tagged, accessible PDF (PDF/UA-1) for screen readers; a WeasyPrint that cannot make one gets a plain PDF
+  run <- function(extra) system2("weasyprint", args = c(extra, shQuote(html_tmp), shQuote(path)),
+                                 stdout = TRUE, stderr = TRUE)
   result <- tryCatch(
-    system2(
-      "weasyprint",
-      args   = c(shQuote(html_tmp), shQuote(path)),
-      stdout = TRUE,
-      stderr = TRUE
-    ),
+    {
+      out <- run("--pdf-variant=pdf/ua-1")
+      if (!identical(attr(out, "status") %||% 0L, 0L) || !file.exists(path) || file.size(path) == 0) {
+        log_write("WARN", "render_pdf: PDF/UA rendering failed, retrying as a plain PDF:", paste(out, collapse = " "))
+        out <- run(character(0))
+      }
+      out
+    },
     error = function(e) {
       log_write("ERROR", "render_pdf: system2 threw — HTML preserved at:", html_tmp)
       log_write("ERROR", "system2 error:", conditionMessage(e))
@@ -76,13 +81,15 @@ render_pdf <- function(html, path) {
 #' @param currency    Currency string.
 #' @param lang        Language code ("en" or "sw").
 #' @param out_path    Absolute output path for PDF.
+#' @param areaHa      The field in hectares (CurrentY/TargetY are tonnes for the whole field).
+#' @param FCY         The yield class the farmer reported (t/ha).
 #' @return Invisibly returns `out_path`.
 build_fr_pdf <- function(rr, fertilizers, user, country,
                          userField, area, areaUnits,
                          PD, HD, lat, lon,
                          rootUP, cassPD, cassUW, maxInv,
                          recText, currency,
-                         lang = "en", out_path) {
+                         lang = "en", out_path, areaHa = NA, FCY = NA) {
 
   # 1. Fertilizer recommendation rows
   fr <- calc_fertilizer_recom(fertilizers, rr)
@@ -92,18 +99,25 @@ build_fr_pdf <- function(rr, fertilizers, user, country,
   totalSale  <- as.numeric(rr$data$TC) + as.numeric(rr$data$NR)
   netRevenue <- totalSale - sum_total
 
-  # 3. Expected production
-  bags_total    <- round(as.numeric(rr$data$TargetY), digits = 1)
+  # 3. Expected production: CurrentY and TargetY are tonnes of fresh roots for the whole field, so the gain
+  # (the heading) is their difference, the same figure as the recommendation text's "extra production"
+  target_t      <- as.numeric(rr$data$TargetY)
+  current_t     <- as.numeric(rr$data$CurrentY)
+  bags_total    <- round(max(0, target_t - current_t), digits = 1)
   bags_total100 <- round(bags_total * 10, digits = 0)
   bags_total_fmt    <- formatC(bags_total,    format = "f", big.mark = ",", digits = 1)
   bags_total100_fmt <- formatC(bags_total100, format = "f", big.mark = ",", digits = 0)
+  total_fmt     <- formatC(round(target_t, digits = 1), format = "f", big.mark = ",", digits = 1)
+  # The model's current yield per hectare (only when the area in ha is known)
+  current_per_ha <- if (isTRUE(as.numeric(areaHa) > 0)) round(current_t / as.numeric(areaHa), digits = 1) else NULL
 
   # 4. Banner path (Swahili uses a different banner)
   banner_file <- if (lang == "sw") "Akilimo_Dashboard_FR_swa.png" else "Akilimo_Dashboard_FR.png"
   banner_path <- file.path(akpath, "net", banner_file)
 
-  # 5. Fertilizer recommendation rows (go in left column below prices)
+  # 5. Fertilizer recommendation rows (go in left column below prices); the kg are for the whole field
   area_fmt <- if (area == round(area)) sprintf("%.0f", area) else sprintf("%.1f", area)
+  area_unit <- area_unit_label(areaUnits, lang)
 
   if (nrow(fr) > 0) {
     rec_heading <- paste(
@@ -119,7 +133,7 @@ build_fr_pdf <- function(rr, fertilizers, user, country,
       cost_f <- formatC(as.numeric(fr$cost[i]), format = "f", big.mark = ",", digits = 0)
 
       title_str <- sprintf(html_label("fert_row_fmt", lang),
-                           label, kgs, area_fmt, bags, bw, currency, cost_f)
+                           label, kgs, area_fmt, area_unit, bags, bw, currency, cost_f)
 
       bag_img <- img_bag(ftype, bags)
       sprintf(
@@ -136,7 +150,7 @@ build_fr_pdf <- function(rr, fertilizers, user, country,
   left_col <- paste(
     html_personal_info(user = user, userField = userField, area = area, areaUnits = areaUnits,
                        PD = PD, HD = HD,
-                       current_yield = round(as.numeric(rr$data$CurrentY), digits = 0),
+                       current_yield = current_per_ha, reported_yield = FCY,
                        lang = lang),
     html_fertilizer_table(fr = fr, area = area, areaUnits = areaUnits, currency = currency,
                           rootUP = rootUP, cassPD = cassPD, cassUW = cassUW,
@@ -147,21 +161,28 @@ build_fr_pdf <- function(rr, fertilizers, user, country,
 
   # 7. Right column: map + expected gain + cost-benefit
   expected_gain_text <- sprintf(html_label("expected_gain_fmt", lang), bags_total_fmt, bags_total100_fmt)
+  expected_total_text <- sprintf(html_label("expected_total_fmt", lang), total_fmt)
   right_col <- paste(
     html_location_map(lat = lat, lon = lon, lang = lang),
-    html_section(html_label("expected_gain", lang), sprintf("<p>%s</p>", expected_gain_text)),
+    html_section(html_label("expected_gain", lang),
+                 sprintf("<p>%s</p>\n<p>%s</p>", expected_gain_text, htmlEscape(expected_total_text))),
     html_cost_benefit(sum_total = sum_total, totalSale = totalSale,
                       netRevenue = netRevenue, currency = currency, lang = lang),
     sep = "\n"
   )
 
-  # 8. Assemble full document — wide-right two-column layout
+  # 8. Assemble full document — the one-line answer first, then the wide-right two-column layout
+  buy_summary <- html_buy_summary(fr, area_fmt = area_fmt, area_unit = area_unit, total_cost = sum_total,
+                                  extra_t = bags_total, net_gain = as.numeric(rr$data$NR),
+                                  currency = currency, lang = lang)
   html <- paste(
     html_open(html_label("fr_title", lang), banner_path),
+    buy_summary,
     sprintf('<div class="two-col-wide-right">\n<div>%s</div>\n<div>%s</div>\n</div>\n',
             left_col, right_col),
     '<hr style="margin: 4px 0;">',
     html_recommendation(recText, lang),
+    html_basis(lang),
     html_close(),
     sep = "\n"
   )
@@ -279,7 +300,8 @@ build_ic_pdf <- function(rr, user, country,
       bags   <- fr$bags[i]
       bw     <- fr$bagWeight[i]
       cost_f <- formatC(as.numeric(fr$cost[i]), format = "f", big.mark = ",", digits = 0)
-      title_str <- sprintf(html_label("fert_row_fmt", lang), label, kgs, area_fmt, bags, bw, currency, cost_f)
+      title_str <- sprintf(html_label("fert_row_fmt", lang), label, kgs, area_fmt, area_unit_label(areaUnits, lang),
+                           bags, bw, currency, cost_f)
       bag_img <- img_bag(ftype, bags)
       sprintf('<div class="fert-entry avoid-break">\n<p>%s</p>\n<div class="bags">%s</div>\n</div>',
               htmlEscape(title_str), bag_img)
@@ -328,6 +350,7 @@ build_ic_pdf <- function(rr, user, country,
             left_col, right_col),
     '<hr style="margin: 4px 0;">',
     html_recommendation(recText, lang),
+    html_basis(lang),
     html_close(),
     sep = "\n"
   )
@@ -458,28 +481,42 @@ build_pp_pdf <- function(rr, user, country,
   )
 
   # Cassava price + max investment (reuse cassava_price / max_investment labels)
+  # rootUP is the price per tonne of fresh roots, whatever unit and product the farmer quoted
   rootUP_fmt <- formatC(signif(as.numeric(rootUP), digits = 4), format = "f", big.mark = ",", digits = 0)
-  unit_key2  <- switch(areaUnits, ha = "area_unit_ha", acre = "area_unit_acre", NULL)
-  disp_units <- if (!is.null(unit_key2)) html_label(unit_key2, lang) else areaUnits
+  disp_units <- area_unit_label(areaUnits, lang)
   area_fmt   <- if (area == round(area)) sprintf("%.0f", area) else sprintf("%.1f", area)
   has_inv    <- !is.na(maxInv) && as.numeric(maxInv) > 0
-  inv_value  <- if (has_inv) sprintf("%s %s", htmlEscape(currency),
-                  htmlEscape(formatC(as.numeric(maxInv), format = "f", big.mark = ",", digits = 0))) else "NA"
-  price_html <- html_section(
-    html_label("fertilizer_prices", lang),
-    sprintf('<p>%s: <strong>%s %s</strong> %s %s</p><p>%s: <strong>%s</strong> %s <strong>%s %s</strong></p>',
-            html_label("cassava_price", lang), htmlEscape(currency), rootUP_fmt,
-            html_label("per_tonne", lang), htmlEscape(cassPD),
-            html_label("max_investment", lang), inv_value,
+  inv_html   <- if (has_inv) {
+    sprintf('<p>%s: <strong>%s %s</strong> %s <strong>%s %s</strong></p>',
+            html_label("max_investment", lang), htmlEscape(currency),
+            htmlEscape(formatC(as.numeric(maxInv), format = "f", big.mark = ",", digits = 0)),
             html_label("for_area", lang), area_fmt, htmlEscape(disp_units))
+  } else {
+    sprintf('<p>%s: <strong>%s</strong></p>', html_label("max_investment", lang), html_label("no_limit", lang))
+  }
+  price_html <- html_section(
+    html_label("prices_heading", lang),
+    paste0(sprintf('<p>%s: <strong>%s %s</strong> %s %s</p>',
+                   html_label("cassava_price", lang), htmlEscape(currency), rootUP_fmt,
+                   html_label("per_tonne", lang), html_label("roots", lang)),
+           inv_html)
   )
 
   # ── LMO cost table ───────────────────────────────────────────────────────────
   lmo_cols <- c("operation", "method", "costHa")
   lmo_names <- c(html_label("lmo_col_operation", lang), html_label("lmo_col_method", lang), html_label("lmo_col_cost", lang))
+  lmo_df <- costLMO[, intersect(lmo_cols, colnames(costLMO)), drop = FALSE]
+  # Readable cells: capitalised words, "–" for a missing value, costs as whole amounts with separators
+  tidy_word <- function(x) ifelse(is.na(x) | x %in% c("NA", ""), "–",
+                                  paste0(toupper(substr(x, 1, 1)), substr(x, 2, nchar(x))))
+  for (col in intersect(c("operation", "method"), colnames(lmo_df))) lmo_df[[col]] <- tidy_word(as.character(lmo_df[[col]]))
+  if ("costHa" %in% colnames(lmo_df)) {
+    cost <- suppressWarnings(as.numeric(lmo_df$costHa))
+    lmo_df$costHa <- ifelse(is.na(cost), "–", paste(currency, formatC(round(cost), format = "f", big.mark = ",", digits = 0)))
+  }
   lmo_html  <- html_section(
     html_label("lmo_table_heading", lang),
-    html_table(costLMO[, intersect(lmo_cols, colnames(costLMO))], lmo_names[seq_len(length(intersect(lmo_cols, colnames(costLMO))))])
+    html_table(lmo_df, lmo_names[seq_len(ncol(lmo_df))])
   )
 
   # ── Assemble layout ──────────────────────────────────────────────────────────
@@ -501,6 +538,7 @@ build_pp_pdf <- function(rr, user, country,
     top_row, bot_row,
     '<hr style="margin: 4px 0;">',
     html_recommendation(recText, lang),
+    html_basis(lang),
     html_close(),
     sep = "\n"
   )
@@ -602,9 +640,11 @@ build_sp_pdf <- function(rr, user, country,
       <tr><td class="label">%s:</td><td class="value">%s %s</td></tr>
     </table>',
       htmlEscape(html_label("planting_date", lang)), htmlEscape(pd_str),
-      htmlEscape(html_label("planting_window", lang)), PD_window, htmlEscape(html_label("months_label", lang)),
+      htmlEscape(html_label("planting_window", lang)), PD_window,
+      htmlEscape(html_label(if (isTRUE(as.numeric(PD_window) == 1)) "month_label" else "months_label", lang)),
       htmlEscape(html_label("harvest_date",  lang)), htmlEscape(hd_str),
-      htmlEscape(html_label("harvest_window", lang)), HD_window, htmlEscape(html_label("months_label", lang)))
+      htmlEscape(html_label("harvest_window", lang)), HD_window,
+      htmlEscape(html_label(if (isTRUE(as.numeric(HD_window) == 1)) "month_label" else "months_label", lang)))
   )
 
   # Col 3: price / factory info
@@ -615,12 +655,18 @@ build_sp_pdf <- function(rr, user, country,
                              htmlEscape(html_label("cassava_price", lang)),
                              htmlEscape(currency), htmlEscape(cassUP_fmt))
   } else {
+    # cassUP is in the farmer's own unit (cassUW kg of cassPD), so the label must say which
+    unit_str <- if (isTRUE(as.numeric(cassUW) == 1000)) {
+      html_label("per_tonne", lang)
+    } else {
+      sprintf(html_label("per_weight", lang), formatC(as.numeric(cassUW), format = "f", big.mark = ",", digits = 0))
+    }
     price_content <- sprintf('<p>%s: <strong>%s %s</strong> %s %s</p>',
                              htmlEscape(html_label("cassava_price", lang)),
                              htmlEscape(currency), htmlEscape(cassUP_fmt),
-                             html_label("per_tonne", lang), htmlEscape(cassPD))
+                             unit_str, htmlEscape(cassPD))
   }
-  col3 <- html_section(html_label("fertilizer_prices", lang), price_content)
+  col3 <- html_section(html_label("prices_heading", lang), price_content)
 
   top_row <- html_three_col(col1, col2, col3)
 
@@ -644,6 +690,7 @@ build_sp_pdf <- function(rr, user, country,
     top_row, bot_row,
     '<hr style="margin: 4px 0;">',
     html_recommendation(recText, lang),
+    html_basis(lang),
     html_close(),
     sep = "\n"
   )

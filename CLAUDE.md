@@ -91,6 +91,7 @@ Rscript tests/test_weasyprint_smoke.R
 # What CI runs (no data files needed)
 Rscript tests/check_parse.R
 Rscript tests/test_akilimo_db.R
+Rscript -e 'tinytest::run_test_file("tests/test_pdf_template.R")'   # PDF template labels and rows
 ```
 
 ### Single test via curl

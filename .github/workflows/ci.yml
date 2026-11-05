@@ -61,3 +61,13 @@ jobs:
             print(summary(r))
             quit(status = if (all(as.logical(r))) 0 else 1)
           '
+
+      - name: PDF template tests (no data files needed)
+        env:
+          AKILIMO_ROOT: ${{ github.workspace }}
+        run: |
+          Rscript -e '
+            r <- tinytest::run_test_file("tests/test_pdf_template.R", verbose = 1)
+            print(summary(r))
+            quit(status = if (all(as.logical(r))) 0 else 1)
+          '

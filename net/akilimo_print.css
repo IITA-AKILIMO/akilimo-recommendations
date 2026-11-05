@@ -278,3 +278,39 @@ hr + .section {
 .avoid-break {
   break-inside: avoid;
 }
+
+/* ── "In short" summary and notes ───────────────────────────────────── */
+
+.buy-summary {
+  border: 1px solid #2e7d32;
+  border-left: 4px solid #2e7d32;
+  background-color: #f1f8f1;
+  padding: 6px 10px;
+  margin: 4px 0 10px 0;
+  font-size: 10pt;
+  color: #1b3d1c;
+}
+
+.small-note {
+  font-size: 8pt;
+  color: #555555;
+  margin-top: 4px;
+}
+
+.basis-note {
+  font-size: 7.5pt;
+  color: #555555;
+  margin-top: 2px;
+  line-height: 1.3;
+}
+
+
+/* The report's reference as a QR code in the page footer (a WeasyPrint running element, see html_open) */
+.reference-qr {
+  position: running(refqr);
+}
+
+.reference-qr img {
+  width: 9mm;
+  height: 9mm;
+}

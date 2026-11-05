@@ -399,6 +399,16 @@ run_akilimo <- function(json) {
 
   result <- dispatch_recommendations(params, body)
 
+  # Shown on every page of the reports: the caller's reference (the AKILIMO API sends its request_id) and
+  # the assumptions behind the advice
+  request_id <- as.character(from_json("requestId", body, default_value = NA))
+  set_report_context(list(
+    request_id = if (isTRUE(grepl("^[0-9a-fA-F-]{36}$", request_id))) request_id else NA_character_,
+    lang = params$lang, country = params$country, riskAtt = params$riskAtt,
+    saleSF = isTRUE(params$saleSF), nameSF = params$nameSF,
+    generated = Sys.time()
+  ))
+
   PDFs <- tryCatch(
     generate_pdfs(
       user = params$user,
@@ -427,7 +437,36 @@ run_akilimo <- function(json) {
     }
   }
 
-  build_response(result)
+  response <- build_response(result)
+
+  # returnPdf = true: the caller (the AKILIMO API) stores the reports and serves them as a
+  # download link; without it the response is unchanged
+  if (isTRUE(as.logical(from_json("returnPdf", body, default_value = FALSE))) &&
+      identical(as.character(response$status), "success")) {
+    response$reports <- pdf_reports(PDFs)
+  }
+
+  response
+}
+
+
+#' The generated PDFs as response entries: file name, media type and base64 content.
+#' A file that cannot be read is skipped (the recommendation is never held back by a PDF).
+pdf_reports <- function(PDFs) {
+  reports <- lapply(PDFs, function(f) {
+    tryCatch(
+      list(
+        name         = jsonlite::unbox(basename(f)),
+        content_type = jsonlite::unbox("application/pdf"),
+        content      = jsonlite::unbox(base64enc::base64encode(f))
+      ),
+      error = function(e) {
+        log_write("WARN", "Could not attach PDF", basename(f), ":", conditionMessage(e))
+        NULL
+      }
+    )
+  })
+  Filter(Negate(is.null), reports)
 }
 
 

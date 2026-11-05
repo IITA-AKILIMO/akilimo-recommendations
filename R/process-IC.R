@@ -129,10 +129,7 @@ getICrecText <- function(x, maizePD, lang, country) {
         dMP <- signif(ds$dMP, digits = 2)
         fs$rate_fmt <- formatC(round(fs$rate), format = "f", big.mark = ",", digits = 0)
 
-        rate_lines <- paste0(
-            tr("fert_rate_line", lang, rate = fs$rate_fmt, fertilizer = fs$type),
-            collapse = "\n"
-        )
+        rate_lines <- fert_rate_lines(fs$rate_fmt, fs$type, lang)
         if (maizePD == "grain") {
             dMP_fmt <- formatC(round(dMP / MAIZE_COBS_PER_KG_GRAIN, digits = 0), format = "f", big.mark = ",", digits = 0)
             recF <- paste0(
@@ -331,10 +328,7 @@ getCISrecText <- function(d, country, lang) {
       currency <- get_currency(country)
       fs       <- d[["fertilizer_rates"]]
       fs$rate_fmt <- formatC(round(fs$rate), format = "f", big.mark = ",", digits = 0)
-      rate_lines <- paste0(
-          tr("fert_rate_line", lang, rate = fs$rate_fmt, fertilizer = fs$type),
-          collapse = "\n"
-      )
+      rate_lines <- fert_rate_lines(fs$rate_fmt, fs$type, lang)
       recF <- paste0(tr("ic_sp_fert_apply_prefix", lang), "\n",
                      rate_lines, "\n",
                      tr("ic_sp_fert_field_area", lang), "\n",

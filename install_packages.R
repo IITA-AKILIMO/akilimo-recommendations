@@ -24,6 +24,7 @@ pkgs <- c(
 
   # Report generation (WeasyPrint — HTML/CSS → PDF via Python CLI)
   "base64enc",
+  "qrcode",      # the report's reference as a QR code (left out when the package is missing)
 
   # Data wrangling
   "jsonlite",
