@@ -3,8 +3,8 @@ name: Build and deploy
 # One pipeline for every branch, with one job per stage:
 #
 #   Plan -> Wait for more pushes -> Check R syntax ---------------------------+
-#                                -> Install R packages -> Test price database -+-> Pull runtime data (optional)
-#                                                      -> Test PDF templates --+   -> Update code and packages
+#                                -> Install R packages -> Test price database -+-> Update code and packages
+#                                                      -> Test PDF templates --+   -> Pull runtime data (optional)
 #                                                                                  -> Restart service -> Check health
 #                                                                                  -> Tag release (production only)
 #
@@ -223,48 +223,15 @@ jobs:
   # Deploy: one job per server step, strictly in order. Server jobs share a
   # per-target lock so two runs never work on the same server at once.
   # ---------------------------------------------------------------------------
-  setup-data:
-    name: Pull runtime data (${{ needs.plan.outputs.target }})
+  update:
+    name: Update code and packages (${{ needs.plan.outputs.target }})
     needs: [ plan, syntax, db-tests, pdf-tests ]
     if: >-
       !cancelled() &&
       needs.plan.outputs.deploy == 'true' &&
-      github.event_name == 'workflow_dispatch' && inputs.setup_data &&
       needs.syntax.result == 'success' &&
       needs.db-tests.result == 'success' &&
       needs.pdf-tests.result == 'success'
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    concurrency:
-      group: server-${{ needs.plan.outputs.target }}
-      cancel-in-progress: false
-    steps:
-      - name: Check out actions
-        uses: actions/checkout@v4
-        with:
-          sparse-checkout: .github
-
-      - name: Download data on the server
-        uses: ./.github/actions/pull-data
-        with:
-          host: ${{ vars.SERVER_HOST }}
-          username: ${{ vars.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          app_dir: ${{ needs.plan.outputs.app_dir }}
-          source: ${{ inputs.data_source }}
-          zenodo_record_id: ${{ secrets.ZENODO_RECORD_ID }}
-          osf_node_id: ${{ secrets.OSF_NODE_ID }}
-
-  update:
-    name: Update code and packages (${{ needs.plan.outputs.target }})
-    needs: [ plan, syntax, db-tests, pdf-tests, setup-data ]
-    if: >-
-      !cancelled() &&
-      needs.plan.outputs.deploy == 'true' &&
-      needs.syntax.result == 'success' &&
-      needs.db-tests.result == 'success' &&
-      needs.pdf-tests.result == 'success' &&
-      (needs.setup-data.result == 'success' || needs.setup-data.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 40
     concurrency:
@@ -301,9 +268,45 @@ jobs:
             echo "Installing R packages..."
             sudo Rscript install_packages.R
 
+  # Optional, manual runs only. Runs after the code update so it uses the
+  # latest scripts/, and before the restart so the API loads the new data.
+  setup-data:
+    name: Pull runtime data (${{ needs.plan.outputs.target }})
+    needs: [ plan, update ]
+    if: >-
+      !cancelled() &&
+      needs.update.result == 'success' &&
+      github.event_name == 'workflow_dispatch' && inputs.setup_data
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    concurrency:
+      group: server-${{ needs.plan.outputs.target }}
+      cancel-in-progress: false
+    steps:
+      - name: Check out actions
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github
+
+      - name: Download data on the server
+        uses: ./.github/actions/pull-data
+        with:
+          host: ${{ vars.SERVER_HOST }}
+          username: ${{ vars.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          app_dir: ${{ needs.plan.outputs.app_dir }}
+          source: ${{ inputs.data_source }}
+          zenodo_record_id: ${{ secrets.ZENODO_RECORD_ID }}
+          osf_node_id: ${{ secrets.OSF_NODE_ID }}
+
   restart:
     name: Restart service (${{ needs.plan.outputs.target }})
-    needs: [ plan, update ]
+    needs: [ plan, update, setup-data ]
+    # Data pull is optional: restart when it passed or was not requested
+    if: >-
+      !cancelled() &&
+      needs.update.result == 'success' &&
+      (needs.setup-data.result == 'success' || needs.setup-data.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     concurrency:

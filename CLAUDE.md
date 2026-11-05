@@ -206,7 +206,7 @@ A single workflow, `pipeline.yml` ("Build and deploy"), runs on every push and p
 ```
 Plan → Wait for more pushes → Check R syntax
                             → Install R packages → Test price database / Test PDF templates
-     → Pull runtime data (manual runs, optional) → Update code and packages → Restart service
+     → Update code and packages → Pull runtime data (manual runs, optional) → Restart service
      → Check health → Tag release (production only)
 ```
 
