@@ -1,15 +1,23 @@
 name: Set up R environment
 description: >
-  Install R and get the API's R packages. "install" mode installs the system
-  libraries and packages (install_packages.R) and caches the library; it runs
-  once per pipeline run. "restore" mode only restores that cached library and
-  fails if it is missing. "none" installs R only.
+  Install R and get the API's R packages. The package library is cached under
+  a key made from install_packages.R, so it is rebuilt only when that file
+  changes (or no cache exists yet).
+    install  - restore the cache; on a miss, install system libraries and
+               packages, then save the cache. Run once per pipeline run.
+    restore  - restore the cache only; fail if it is missing.
+    none     - install R only.
 
 inputs:
   packages:
     description: "install | restore | none"
     required: false
     default: "install"
+
+outputs:
+  cache-hit:
+    description: "'true' when the package library came from the cache unchanged"
+    value: ${{ steps.restore.outputs.cache-hit }}
 
 runs:
   using: composite
@@ -20,9 +28,25 @@ runs:
         r-version: release
         use-public-rspm: true   # prebuilt Linux binaries, much faster installs
 
-    # --- install: the one job that builds the package library ---------------
+    # Exact key only: a change to install_packages.R is a cache miss, so the
+    # packages are installed afresh rather than layered on an old library
+    - name: Restore cached R packages
+      id: restore
+      if: inputs.packages != 'none'
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ env.R_LIBS_USER }}
+        key: r-pkgs-${{ runner.os }}-${{ hashFiles('install_packages.R') }}
+        fail-on-cache-miss: ${{ inputs.packages == 'restore' }}
+
+    - name: Use cached R packages (install_packages.R unchanged)
+      if: inputs.packages == 'install' && steps.restore.outputs.cache-hit == 'true'
+      shell: bash
+      run: echo "Cache hit for install_packages.R, skipping package installation."
+
+    # --- only on a cache miss -------------------------------------------------
     - name: Install system libraries (GDAL, NetCDF, SQLite)
-      if: inputs.packages == 'install'
+      if: inputs.packages == 'install' && steps.restore.outputs.cache-hit != 'true'
       shell: bash
       run: |
         sudo apt-get update
@@ -30,24 +54,14 @@ runs:
           libgdal-dev libgeos-dev libproj-dev libudunits2-dev \
           libnetcdf-dev libsqlite3-dev libcurl4-openssl-dev
 
-    - name: Restore cached R packages
-      if: inputs.packages == 'install'
-      uses: actions/cache@v4
-      with:
-        path: ${{ env.R_LIBS_USER }}
-        key: r-pkgs-${{ runner.os }}-${{ hashFiles('install_packages.R') }}
-        restore-keys: r-pkgs-${{ runner.os }}-
-
-    - name: Install missing R packages
-      if: inputs.packages == 'install'
+    - name: Install R packages
+      if: inputs.packages == 'install' && steps.restore.outputs.cache-hit != 'true'
       shell: bash
       run: Rscript install_packages.R
 
-    # --- restore: every other job reuses that library ------------------------
-    - name: Restore R packages from the install job
-      if: inputs.packages == 'restore'
-      uses: actions/cache/restore@v4
+    - name: Save R packages to the cache
+      if: inputs.packages == 'install' && steps.restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
       with:
         path: ${{ env.R_LIBS_USER }}
         key: r-pkgs-${{ runner.os }}-${{ hashFiles('install_packages.R') }}
-        fail-on-cache-miss: true

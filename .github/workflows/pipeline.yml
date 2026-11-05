@@ -8,8 +8,9 @@ name: Build and deploy
 #                                                                                  -> Restart service -> Check health
 #                                                                                  -> Tag release (production only)
 #
-# R packages are installed once, by "Install R packages", and cached; the test
-# jobs only restore that cache.
+# R packages are installed once, by "Install R packages", and cached under a
+# key made from install_packages.R. While that file is unchanged the job just
+# finds the cache and installs nothing; the test jobs only restore it.
 #
 # Pull requests and feature branches stop after the checks. Pushes to a branch
 # listed in .github/deploy-targets.json (main -> production, experimental ->

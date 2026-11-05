@@ -210,7 +210,7 @@ Plan → Wait for more pushes → Check R syntax
      → Check health → Tag release (production only)
 ```
 
-`Plan` matches the branch to a target in `deploy-targets.json`; any other branch or a pull request stops after the checks. Server jobs run over SSH using the repo variables `SERVER_HOST`, `SERVER_USER` and the secret `SERVER_SSH_KEY`, only after every check passes, and share a per-target lock. `Check health` fails if `GET /health` does not respond within 180s. R packages are installed once per run by `Install R packages` and cached; the test jobs only restore that cache. Shared steps live in composite actions under `.github/actions/` (`resolve-target`, `setup-r-env`, `pull-data`).
+`Plan` matches the branch to a target in `deploy-targets.json`; any other branch or a pull request stops after the checks. Server jobs run over SSH using the repo variables `SERVER_HOST`, `SERVER_USER` and the secret `SERVER_SSH_KEY`, only after every check passes, and share a per-target lock. `Check health` fails if `GET /health` does not respond within 180s. R packages are cached under a key made from `install_packages.R`: `Install R packages` installs them only when that file changes or no cache exists, otherwise it just finds the cache; the test jobs only restore it. Shared steps live in composite actions under `.github/actions/` (`resolve-target`, `setup-r-env`, `pull-data`).
 
 Runtime data (OSF/Zenodo) is pulled by the `Pull runtime data` job when "Build and deploy" is run by hand with `setup_data` ticked, or on its own by `setup-zenodo-data.yml` ("Data setup") with a `target` of `production` or `beta`. Both targets share the `ZENODO_RECORD_ID` / `OSF_NODE_ID` secrets.
 
