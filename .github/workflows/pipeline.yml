@@ -2,10 +2,14 @@ name: Build and deploy
 
 # One pipeline for every branch, with one job per stage:
 #
-#   Plan -> Wait for more pushes -> Check R syntax  -+-> Pull runtime data (optional)
-#                                   Test price database  -> Update code and packages
-#                                   Test PDF templates  -+   -> Restart service -> Check health
-#                                                            -> Tag release (production only)
+#   Plan -> Wait for more pushes -> Check R syntax ---------------------------+
+#                                -> Install R packages -> Test price database -+-> Pull runtime data (optional)
+#                                                      -> Test PDF templates --+   -> Update code and packages
+#                                                                                  -> Restart service -> Check health
+#                                                                                  -> Tag release (production only)
+#
+# R packages are installed once, by "Install R packages", and cached; the test
+# jobs only restore that cache.
 #
 # Pull requests and feature branches stop after the checks. Pushes to a branch
 # listed in .github/deploy-targets.json (main -> production, experimental ->
@@ -144,13 +148,13 @@ jobs:
       - name: Set up R
         uses: ./.github/actions/setup-r-env
         with:
-          install-packages: "false"
+          packages: none
 
       - name: Parse every R file
         run: Rscript tests/check_parse.R
 
-  db-tests:
-    name: Test price database
+  packages:
+    name: Install R packages
     needs: [ plan, wait ]
     if: >-
       !cancelled() &&
@@ -161,8 +165,24 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4
 
-      - name: Set up R and packages
+      - name: Install and cache R packages
         uses: ./.github/actions/setup-r-env
+        with:
+          packages: install
+
+  db-tests:
+    name: Test price database
+    needs: [ packages ]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up R with cached packages
+        uses: ./.github/actions/setup-r-env
+        with:
+          packages: restore
 
       - name: Run tests/test_akilimo_db.R
         env:
@@ -176,18 +196,17 @@ jobs:
 
   pdf-tests:
     name: Test PDF templates
-    needs: [ plan, wait ]
-    if: >-
-      !cancelled() &&
-      (needs.wait.result == 'success' || needs.wait.result == 'skipped')
+    needs: [ packages ]
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 15
     steps:
       - name: Check out code
         uses: actions/checkout@v4
 
-      - name: Set up R and packages
+      - name: Set up R with cached packages
         uses: ./.github/actions/setup-r-env
+        with:
+          packages: restore
 
       - name: Run tests/test_pdf_template.R
         env:

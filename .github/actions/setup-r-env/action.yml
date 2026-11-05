@@ -1,13 +1,15 @@
 name: Set up R environment
 description: >
-  Install R and, optionally, the system libraries and R packages the API
-  needs (from install_packages.R), with the package library cached between runs.
+  Install R and get the API's R packages. "install" mode installs the system
+  libraries and packages (install_packages.R) and caches the library; it runs
+  once per pipeline run. "restore" mode only restores that cached library and
+  fails if it is missing. "none" installs R only.
 
 inputs:
-  install-packages:
-    description: "Install the API's R packages (not needed for the syntax check)"
+  packages:
+    description: "install | restore | none"
     required: false
-    default: "true"
+    default: "install"
 
 runs:
   using: composite
@@ -18,8 +20,9 @@ runs:
         r-version: release
         use-public-rspm: true   # prebuilt Linux binaries, much faster installs
 
+    # --- install: the one job that builds the package library ---------------
     - name: Install system libraries (GDAL, NetCDF, SQLite)
-      if: inputs.install-packages == 'true'
+      if: inputs.packages == 'install'
       shell: bash
       run: |
         sudo apt-get update
@@ -28,14 +31,23 @@ runs:
           libnetcdf-dev libsqlite3-dev libcurl4-openssl-dev
 
     - name: Restore cached R packages
-      if: inputs.install-packages == 'true'
+      if: inputs.packages == 'install'
       uses: actions/cache@v4
       with:
         path: ${{ env.R_LIBS_USER }}
         key: r-pkgs-${{ runner.os }}-${{ hashFiles('install_packages.R') }}
         restore-keys: r-pkgs-${{ runner.os }}-
 
-    - name: Install R packages
-      if: inputs.install-packages == 'true'
+    - name: Install missing R packages
+      if: inputs.packages == 'install'
       shell: bash
       run: Rscript install_packages.R
+
+    # --- restore: every other job reuses that library ------------------------
+    - name: Restore R packages from the install job
+      if: inputs.packages == 'restore'
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ env.R_LIBS_USER }}
+        key: r-pkgs-${{ runner.os }}-${{ hashFiles('install_packages.R') }}
+        fail-on-cache-miss: true
