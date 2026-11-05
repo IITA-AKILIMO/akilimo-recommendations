@@ -83,6 +83,19 @@ fert_rate_lines <- function(rates, types, lang) {
 }
 
 
+# A date as farmers read it, with the month named in the report's language: "05 November 2026" or
+# "05 Novemba 2026". format(x, "%B") follows the server's locale (English on our servers), so Kiswahili
+# month names are looked up here. `month_first = TRUE` gives the English style "November 05, 2026".
+MONTHS_SW <- c("Januari", "Februari", "Machi", "Aprili", "Mei", "Juni",
+               "Julai", "Agosti", "Septemba", "Oktoba", "Novemba", "Desemba")
+format_long_date <- function(d, lang = "en", month_first = FALSE) {
+    d <- as.Date(d)
+    month <- if (identical(lang, "sw")) MONTHS_SW[as.integer(format(d, "%m"))] else month.name[as.integer(format(d, "%m"))]
+    if (month_first) paste0(month, " ", format(d, "%d"), ", ", format(d, "%Y"))
+    else paste(format(d, "%d"), month, format(d, "%Y"))
+}
+
+
 # Convert x to numeric, stopping with a clear message if coercion fails.
 # Use in parse_request() for all fields that must be numeric. When the field is
 # absent from the JSON body, from_json() already returns the default_value, so

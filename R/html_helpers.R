@@ -290,7 +290,7 @@ html_open <- function(title, banner_path = NULL,
   # Footer on every page: date, reference id (when the caller sent one), model version, page numbers
   footer_parts <- c(
     "AKILIMO",
-    format(as.Date(generated), "%d %b %Y"),
+    format_long_date(as.Date(generated), lang),
     if (!is.na(ctx$request_id %||% NA)) paste(html_label("reference", lang), ctx$request_id),
     paste(html_label("model_version", lang), AKI_VERSION)
   )

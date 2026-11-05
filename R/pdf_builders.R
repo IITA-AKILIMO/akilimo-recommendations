@@ -122,7 +122,7 @@ build_fr_pdf <- function(rr, fertilizers, user, country,
   if (nrow(fr) > 0) {
     rec_heading <- paste(
       html_label("rec_generated_on", lang),
-      format(Sys.Date(), if (lang == "sw") "%d %B, %Y" else "%B %d, %Y")
+      format_long_date(Sys.Date(), lang, month_first = lang != "sw")
     )
     fert_rows_html <- vapply(seq_len(nrow(fr)), function(i) {
       ftype  <- fr$type[i]
@@ -292,7 +292,7 @@ build_ic_pdf <- function(rr, user, country,
   # Fertilizer recommendation rows
   if (nrow(fr) > 0) {
     rec_heading <- paste(html_label("rec_generated_on", lang),
-                         format(Sys.Date(), if (lang == "sw") "%d %B, %Y" else "%B %d, %Y"))
+                         format_long_date(Sys.Date(), lang, month_first = lang != "sw"))
     fert_rows_html <- vapply(seq_len(nrow(fr)), function(i) {
       ftype  <- fr$type[i]
       label  <- if (ftype %in% names(FERT_LABEL)) FERT_LABEL[[ftype]] else ftype

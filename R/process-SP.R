@@ -16,8 +16,8 @@ getSPrecText <- function(ds, country, lang, PD, HD) {
     rec <- tr("sp_no_recommendation", lang)
   } else {
     if (ds[1,]$CP) {
-        rec <- paste0(tr("sp_proposed_planting_prefix", lang, pd_date = format(ds[1,]$PD, "%d %B %Y")),
-                      tr("sp_proposed_harvest_suffix", lang, hd_date = format(ds[1,]$HD, "%d %B %Y")),
+        rec <- paste0(tr("sp_proposed_planting_prefix", lang, pd_date = format_long_date(ds[1,]$PD, lang)),
+                      tr("sp_proposed_harvest_suffix", lang, hd_date = format_long_date(ds[1,]$HD, lang)),
                       tr("sp_no_change", lang))
 
       # NOTE: "no change" text gives no reason. Possible causes: unfavourable prices at
@@ -29,21 +29,21 @@ getSPrecText <- function(ds, country, lang, PD, HD) {
 
       if (ds[1,]$PD != ds[which(ds$CP)[1],]$PD) {
         recP <- paste0(tr("sp_rec_plant_date", lang,
-                          date      = format(ds[1,]$PD, "%d %B %Y"),
+                          date      = format_long_date(ds[1,]$PD, lang),
                           weeks     = abs(ds[1,]$rPWnr),
                           direction = ifelse(ds[1,]$rPWnr < 0, tr("dir_earlier", lang), tr("dir_later", lang))), "\n")
       } else {
-        recP <- tr("sp_planting_optimal", lang, date = format(ds[1,]$PD, "%d %B %Y"))
+        recP <- tr("sp_planting_optimal", lang, date = format_long_date(ds[1,]$PD, lang))
       }
 
 
       if (ds[1,]$HD != ds[which(ds$CP)[1],]$HD) {
         recH <- paste0(tr("sp_rec_harvest_date", lang,
-                          date      = format(ds[1,]$HD, "%d %B %Y"),
+                          date      = format_long_date(ds[1,]$HD, lang),
                           weeks     = abs(ds[1,]$rHWnr),
                           direction = ifelse(ds[1,]$rHWnr < 0, tr("dir_earlier", lang), tr("dir_later", lang))), "\n")
       } else {
-        recH <- tr("sp_harvest_optimal", lang, date = format(ds[1,]$HD, "%d %B %Y"))
+        recH <- tr("sp_harvest_optimal", lang, date = format_long_date(ds[1,]$HD, lang))
       }
 
       DP <- signif(ds[1,]$RP - ds[which(ds$CP)[1],]$RP, digits = 2)

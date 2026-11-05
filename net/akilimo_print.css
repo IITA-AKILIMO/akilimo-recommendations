@@ -63,6 +63,10 @@ h3 {
 .banner img {
   width: 100%;
   display: block;
+  /* The Kiswahili banner's title runs over two lines; cap its height so the report stays on one page */
+  max-height: 22mm;
+  object-fit: contain;
+  object-position: left center;
 }
 
 /* ── Two-column layout ──────────────────────────────────────────────── */

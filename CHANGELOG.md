@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - FR PDF: "Expected gain in total production" showed the total target production; it now shows the extra production (as in the recommendation text) and the total on a second line
 - FR/IC/PP PDF: the cassava price is per tonne of fresh roots, so it is always labelled "per tonne of roots" instead of the farmer's unit or product; SP labels its (unconverted) price with the farmer's unit
 - PDFs: "Maximal investment: NA" now reads "No limit"; name, email and field rows the caller did not give (missing, empty, "NA", or the MCP agent's anonymous "akilimo-mcp") are left out instead of printing "NA" or "***"
+- Kiswahili: dates in the planting-dates advice, the PDF headings and the footer named the month in English (`format(..., "%B")` follows the server's locale); `format_long_date()` uses Kiswahili month names
+- Kiswahili fertilizer report spilled onto a second page because its banner title runs over two lines; the banner height is capped
 
 ---
 

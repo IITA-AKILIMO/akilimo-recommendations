@@ -21,6 +21,11 @@ expect_equal(area_unit_label("ha", "sw"), "hekta")
 expect_equal(area_unit_label("m2"), "m²")
 expect_equal(area_unit_label("are"), "are")
 
+# Dates name the month in the report's language
+expect_equal(format_long_date(as.Date("2026-11-05"), "sw"), "05 Novemba 2026")
+expect_equal(format_long_date(as.Date("2026-11-05"), "en"), "05 November 2026")
+expect_equal(format_long_date(as.Date("2026-11-05"), "en", month_first = TRUE), "November 05, 2026")
+
 # Placeholders count as not given
 for (x in list(NULL, NA, "", " ", "NA", "na", "akilimo-mcp")) expect_true(is_blank_value(x))
 expect_false(is_blank_value("Riverside plot"))
