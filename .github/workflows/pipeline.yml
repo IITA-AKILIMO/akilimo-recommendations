@@ -2,15 +2,13 @@ name: Build and deploy
 
 # One pipeline for every branch, with one job per stage:
 #
-#   Plan -> Wait for more pushes -> Check R syntax ---------------------------+
-#                                -> Install R packages -> Test price database -+-> Update code and packages
-#                                                      -> Test PDF templates --+   -> Pull runtime data (optional)
-#                                                                                  -> Restart service -> Check health
-#                                                                                  -> Tag release (production only)
+#   Plan -> Wait for more pushes -> R checks -> Update code and packages
+#        -> Pull runtime data (optional) -> Restart service -> Check health
+#        -> Tag release (production only)
 #
-# R packages are installed once, by "Install R packages", and cached under a
-# key made from install_packages.R. While that file is unchanged the job just
-# finds the cache and installs nothing; the test jobs only restore it.
+# "R checks" sets up R once and runs every R check as its own step. Its R
+# packages are cached under a key made from install_packages.R: while that
+# file is unchanged they come from the cache and nothing is installed.
 #
 # Pull requests and feature branches stop after the checks. Pushes to a branch
 # listed in .github/deploy-targets.json (main -> production, experimental ->
@@ -132,62 +130,32 @@ jobs:
           fi
 
   # ---------------------------------------------------------------------------
-  # Checks: run side by side; every one must pass before anything deploys
+  # Checks: one job, R set up once; every check must pass before anything
+  # deploys. Each check still runs (and reports) if an earlier one failed.
   # ---------------------------------------------------------------------------
-  syntax:
-    name: Check R syntax
-    needs: [ plan, wait ]
-    if: >-
-      !cancelled() &&
-      (needs.wait.result == 'success' || needs.wait.result == 'skipped')
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-
-      - name: Set up R
-        uses: ./.github/actions/setup-r-env
-        with:
-          packages: none
-
-      - name: Parse every R file
-        run: Rscript tests/check_parse.R
-
-  packages:
-    name: Install R packages
+  checks:
+    name: R checks
     needs: [ plan, wait ]
     if: >-
       !cancelled() &&
       (needs.wait.result == 'success' || needs.wait.result == 'skipped')
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    env:
+      AKILIMO_ROOT: ${{ github.workspace }}
     steps:
       - name: Check out code
         uses: actions/checkout@v4
 
-      - name: Install and cache R packages
+      - name: Set up R and packages (cached)
+        id: r
         uses: ./.github/actions/setup-r-env
-        with:
-          packages: install
 
-  db-tests:
-    name: Test price database
-    needs: [ packages ]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4
+      - name: Check R syntax
+        run: Rscript tests/check_parse.R
 
-      - name: Set up R with cached packages
-        uses: ./.github/actions/setup-r-env
-        with:
-          packages: restore
-
-      - name: Run tests/test_akilimo_db.R
-        env:
-          AKILIMO_ROOT: ${{ github.workspace }}
+      - name: Test price database
+        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
         run: |
           Rscript -e '
             r <- tinytest::run_test_file("tests/test_akilimo_db.R", verbose = 1)
@@ -195,23 +163,8 @@ jobs:
             quit(status = if (all(as.logical(r))) 0 else 1)
           '
 
-  pdf-tests:
-    name: Test PDF templates
-    needs: [ packages ]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4
-
-      - name: Set up R with cached packages
-        uses: ./.github/actions/setup-r-env
-        with:
-          packages: restore
-
-      - name: Run tests/test_pdf_template.R
-        env:
-          AKILIMO_ROOT: ${{ github.workspace }}
+      - name: Test PDF templates
+        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
         run: |
           Rscript -e '
             r <- tinytest::run_test_file("tests/test_pdf_template.R", verbose = 1)
@@ -225,13 +178,11 @@ jobs:
   # ---------------------------------------------------------------------------
   update:
     name: Update code and packages (${{ needs.plan.outputs.target }})
-    needs: [ plan, syntax, db-tests, pdf-tests ]
+    needs: [ plan, checks ]
     if: >-
       !cancelled() &&
       needs.plan.outputs.deploy == 'true' &&
-      needs.syntax.result == 'success' &&
-      needs.db-tests.result == 'success' &&
-      needs.pdf-tests.result == 'success'
+      needs.checks.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     concurrency:
