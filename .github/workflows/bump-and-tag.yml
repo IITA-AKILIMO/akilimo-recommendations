@@ -1,15 +1,10 @@
-
 name: BumpVersion
+
+# Tags and releases a new version. Called by deploy-production.yml only after
+# the production deploy (and every check before it) has succeeded, so a
+# version is never tagged for code that failed to deploy.
 on:
-  push:
-    branches:
-      - 'main'
-    paths:
-      - 'R/**'
-      - 'api.R'
-      - 'tests/**'
-      - 'scripts/**'
-      - 'data/**'
+  workflow_call:
   workflow_dispatch:
 
 jobs:

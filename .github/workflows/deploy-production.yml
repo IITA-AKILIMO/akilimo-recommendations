@@ -40,3 +40,11 @@ jobs:
       setup_data: ${{ inputs.setup_data == true }}
       data_source: ${{ inputs.data_source || 'osf' }}
     secrets: inherit
+
+  # Tag a release only once the deploy has succeeded
+  tag:
+    needs: [ deploy ]
+    permissions:
+      contents: write
+    uses: ./.github/workflows/bump-and-tag.yml
+    secrets: inherit

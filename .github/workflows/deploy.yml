@@ -26,12 +26,13 @@ permissions:
 env:
   QUIET_PERIOD: "60" # seconds to wait after last commit
 
+# The jobs run one after another, never side by side:
+#   wait (debounce) -> ci (all checks) -> setup-data (optional) -> deploy
+# Nothing reaches the server until every check has passed.
 jobs:
-  ci:
-    uses: ./.github/workflows/ci.yml
-
-  # Debounce: a newer push cancels this wait, and with it this run's deploy.
-  # Kept separate from the deploy job so an in-progress deploy is never cancelled.
+  # Debounce: a newer push cancels this wait, and with it this run's CI and
+  # deploy. Kept separate from the deploy job so an in-progress deploy is never
+  # cancelled.
   wait:
     runs-on: ubuntu-latest
     concurrency:
@@ -56,9 +57,13 @@ jobs:
             echo "Last commit was ${elapsed}s ago — no wait needed."
           fi
 
+  ci:
+    needs: [ wait ]
+    uses: ./.github/workflows/ci.yml
+
   setup-data:
     if: inputs.setup_data
-    needs: [ ci, wait ]
+    needs: [ ci ]
     uses: ./.github/workflows/setup-zenodo-data.yml
     with:
       target: ${{ inputs.target }}
@@ -66,12 +71,13 @@ jobs:
     secrets: inherit
 
   deploy:
-    needs: [ ci, wait, setup-data ]
-    # Run when CI and the wait passed, and data setup passed or was not requested
+    needs: [ wait, ci, setup-data ]
+    # Run only when the wait and every CI check passed, and data setup passed
+    # or was not requested
     if: >-
       !cancelled() &&
-      needs.ci.result == 'success' &&
       needs.wait.result == 'success' &&
+      needs.ci.result == 'success' &&
       (needs.setup-data.result == 'success' || needs.setup-data.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 40
