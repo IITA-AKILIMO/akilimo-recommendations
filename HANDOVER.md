@@ -29,7 +29,7 @@ then [CLAUDE.md](CLAUDE.md), before changing anything.
 
 ## 2. Current state
 
-- Branch `experimental`. **Everything is pushed** (`eda0060` and earlier, as of 2026-11-08).
+- Branch `experimental`. Pushed up to `462c2ac`. The handover commits after it are local.
 - **Latest commits** (newest first):
 
 | Commit | What |
@@ -82,7 +82,15 @@ All of these are also in [docs/TECH-DEBT.md](docs/TECH-DEBT.md) ("Blocked on dat
 ## 4. Related work in other places
 
 - **new-akilimo-api** (Laravel price/translation service, `D:\Dev\php\new-akilimo-api`, branch `develop`, `http://127.0.0.1:9100/api/v1` locally). It has no handover of its own; this file covers it.
-  - **Latest commits there**, all pushed to `develop` (newest first):
+  - **`690ff69` (not pushed): price catalogue phase 1**, by another agent. Checked 2026-11-08:
+    - 250 tests pass and no migrations are pending.
+    - `GET /v1/prices?country=TZ` answers 200 with an `ETag`, `default_price_basis` and the new row fields.
+    - The ±30 % second review is in `app/Service/PriceCatalogueService.php`; its threshold and the units per item are in `config/price_catalogue.php`.
+    - Research labour estimates are imported as `draft` rows (migration `…000009`).
+    - Existing rows have no `min_price`/`max_price`/source yet; country teams fill those in through the admin.
+    - **Caveat, `phpstan.neon`:** the commit replaced the whole file. The old one never ran, because one `ignoreErrors` entry lacked regex delimiters (`#…#`). But the rewrite also dropped the custom `EnforceNamedArgumentsRule`, the Larastan options and every strict rule. Fixing the one bad line would have kept them. The new config still reports errors (e.g. `ApiKey::where()`, `PlaygroundController` return types). The owner should decide whether to restore it.
+    - Its commit message has literal `\n` and blank field names, so read the diff rather than the message.
+  - **Earlier commits there**, all pushed to `develop` (newest first):
     - `d6c1e00`: the owner's own navigation-param fix.
     - `179880f`, `1fa40a5`, `5e2bcc6`: price catalogue design doc with decisions.
     - `87721bc`: Tanzania fertiliser defaults set to TFRA Sep 2025.
@@ -122,7 +130,7 @@ All of these are also in [docs/TECH-DEBT.md](docs/TECH-DEBT.md) ("Blocked on dat
 
 1. Both repos were pushed on 2026-11-08. Check the "Build and deploy" run for `experimental`, especially the OSF data download and `test_small`.
 2. Refresh prices on beta (`Rscript refresh_prices.R --type all`) so it picks up the currencies, the Burundi fix and the TZ fertiliser prices.
-3. **Price catalogue phase 1** ([§8](#8-next-task-price-catalogue-phase-1-arch-1)), in new-akilimo-api.
+3. **Price catalogue phase 2** ([§8](#8-price-catalogue-arch-1-phase-1-done-phase-2-next)): the engine syncs `/v1/prices`. Phase 1 is done (new-akilimo-api `690ff69`). Country teams can now enter prices in the admin.
 4. Do DATA-1 ([§7](#7-next-task-sp-for-rw-and-bi-data-1)) once the owner picks the BI soil source. Hand DATA-2 / AGR-1 / AGR-2 to the IITA translation and agronomy owners.
 
 ## 7. Next task: SP for RW and BI (DATA-1)
@@ -187,11 +195,23 @@ Limits to tell the owner:
 - RW SP only works when PD ± `PD_window` falls in planting weeks 6–14 or 37–44. Other dates get the existing `SP_DATES_OUT_OF_RANGE` 400 ("Scheduled planting cannot be computed for PD=… and HD=…"). Full-year RW would need new LINTUL runs.
 - SP converts dry to fresh yield with the NG curve for every country (`R/process-SP.R`, the `getRFY(..., country = "NG")` loop).
 
-## 8. Next task: price catalogue phase 1 (ARCH-1)
+## 8. Price catalogue (ARCH-1): phase 1 done, phase 2 next
 
-**Read first:** new-akilimo-api `docs/PRICE_CATALOGUE_DESIGN.md`. It holds the design, the rollout phases and the owner's decisions D1–D6. Phase 1 is already implemented and API‑only.
+**Read first:** new-akilimo-api `docs/PRICE_CATALOGUE_DESIGN.md`. It holds the design, the rollout phases and the owner's decisions D1–D6.
 
-**Phase 1 scope** (new-akilimo-api, branch `develop`):
+**Phase 2, the next task (this repo):**
+1. `refresh_prices()` in `R/akilimo_db.R` reads `GET /v1/prices?country=CC[&updated_since=]` instead of `/default-prices`.
+   - Store `subsidised_price`, `unit`, `bag_kg`, `min_price`, `max_price` and `currency`: a schema bump, kept across deploys like v4.
+   - Keep the rule that a failed or empty refresh keeps the last good data.
+2. Replace the hardcoded defaults in `R/AkilimoMain.R` with DB lookups: `default_lmo_costs`, maize `50`/`230` and sweet potato `120000`/`384000`. Keep the hardcoded values only as a last resort, logged at WARN.
+3. Add the optional request field `subsidisedFertilizer` (D1). If absent, use the country's `default_price_basis` from the response. Prices the farmer typed always win.
+4. Out-of-range request prices: accept, log WARN, and add a response note with the range (D6). Never reject or clamp.
+5. Add a contract-test fixture of a `/v1/prices` response under `tests/`, and run the sync against it in `test_akilimo_db.R`.
+6. `test_small` must pass unchanged at today's values, then update `docs/API-REFERENCE.md`.
+
+Burundi FOMI rows are per 25 kg (`bag_kg = 25`), so use `bag_kg` from the API, not an assumed 50.
+
+**Phase 1, done** in new-akilimo-api `690ff69` (see §4 for checks and the `phpstan.neon` caveat). Its scope was:
 1. **Extend `default_prices`:** add `region` (nullable), `subsidised_price`, `bag_kg`, `min_price`, `max_price`, `status` (`draft` / `pending_second_review` / `active`), `source`, `source_date`, `confidence`, `effective_from` and `updated_by`. Correct `unit` (labour is `per_acre`, not `per_bag`; Burundi FOMI is `bag_kg = 25`). Add a `default_price_history` table.
 2. **Add `countries.default_price_basis`,** default `open_market`.
 3. **Add `GET /v1/prices?country=&updated_since=`:** active, national, effective rows only, with an `ETag`. Keep `/v1/default-prices` working for the engine.
@@ -200,9 +220,9 @@ Limits to tell the owner:
    - the per-country price basis;
    - reviewer assignment per country.
 5. **Import the research drafts** from `docs/data/*_candidates.csv` and `price-review-2026-11.md` as `draft` rows. Never as `active`: those prices are unconfirmed.
-6. **Tests** in the existing Pest style; the suite is at 241 passing.
+6. **Tests** in the existing Pest style; the suite is now at 250 passing.
 
-Then phase 2 (engine syncs `/v1/prices` and drops the hardcoded defaults in `R/AkilimoMain.R`) and phase 3 (choice lists generated at ±10 %/±30 %, which fixes the allowed ranges).
+After phase 2 comes phase 3, in new-akilimo-api: choice lists generated at ±10 %/±30 %, which fixes the allowed ranges.
 
 **Pitfalls learned the hard way:**
 - **Compare against the seed CSVs, not the local database.** Rows may be stale until re-seeded. The Tanzania weeding mix-up (`8dd1b29`, reverted in `d90f8b3`) came from reading a stale DB row (600,000) when the seed file and an owner commit (`b8db4fd`, 27 Oct) said 60,000.
