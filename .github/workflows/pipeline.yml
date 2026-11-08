@@ -181,6 +181,15 @@ jobs:
             quit(status = if (all(as.logical(r))) 0 else 1)
           '
 
+      - name: Test intercrop field-size scaling
+        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
+        run: |
+          Rscript -e '
+            r <- tinytest::run_test_file("tests/test_ic_units.R", verbose = 1)
+            print(summary(r))
+            quit(status = if (all(as.logical(r))) 0 else 1)
+          '
+
       # --- Recommendation tests: need the runtime data (about 560 MB, public on
       # OSF). It is cached under a key made from scripts/.env.example (which holds
       # the OSF/Zenodo IDs), so it is downloaded only when the data release changes.

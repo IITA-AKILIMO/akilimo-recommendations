@@ -123,13 +123,11 @@ getPPrecText <- function(ds, country, lang) {
     paste(c(parts, thank), collapse = " ")
   }
 
-  #TODO: This only provides the minimal information to return to the user. We may consider adding following information:
-  #1. Beware that planting on flat may not be advisable in your specific conditions. You should ridge if the land is sometimes very wet (water-logging problems), if controlling weed is very challenging, if the soil is very clayey, or if you plan to harvest during the dry season.
-  #2. We currently do not consider costs and benefits of harrowing - we have not investigated this.
-  #3. Explicit reasons underlying recommendations (driven by cost-saving or revenue increase).
-  #4. Our selection of the best option may differ from the one by the farmer. A farmer may be willing to choose an option that has a lower net revenue change than the recommended, but also a lower cost.
-  #5. Possible issues with the input data - especially if user provides unrealistic prices.
-  
+  # Only the tillage recommendation is returned. Further advice (flat-planting
+  # caution, harrowing not modelled, reasons, cheaper alternatives, input-price
+  # warnings) is tracked as AGR-1 in docs/TECH-DEBT.md and needs
+  # agronomist-approved wording before it is added.
+
 }
 
 

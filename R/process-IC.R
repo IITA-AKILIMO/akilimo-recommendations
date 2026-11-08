@@ -215,9 +215,14 @@ getCISrecommendations <- function(areaHa = 1, FCY = 11,
                                   tuberUP, rootUP, fertilizers, riskAtt = c(0, 1, 2)) {
 
   #calculating expected yield increase from fertilizer
-  FSY <- 0.7 * FCY #expected yield of a sweet potato monocrop
-  FSY <- FSY * areaHa #extra sweet potato production for the area of the field TODO check with Pieter
-  GR_MC <- FCY * rootUP #gross revenue of cassava monocrop
+  # Every revenue and cost below is for the whole field, as in
+  # getICrecommendations(): fertilizer rates (and so dTC) are scaled by areaHa,
+  # so cassava production must be too. Before, sweet potato was per field but
+  # cassava per hectare, which skewed both decisions for fields other than 1 ha.
+  # FCY stays per hectare where it picks the yield class (the 20 / 30 t/ha cut-offs).
+  FSY <- 0.7 * FCY * areaHa #sweet potato monocrop production for the area of the field
+  FCP <- FCY * areaHa       #cassava monocrop production for the area of the field
+  GR_MC <- FCP * rootUP #gross revenue of cassava monocrop
   # GR_IC <- GR_MC * 0.6 + 0.8 * FSY * tuberUP #gross revenue of cassava-sweet potato intercrop
   GR_IC <- GR_MC * 0.8 + 0.6 * FSY * tuberUP
   rec_IC <- GR_MC < GR_IC
@@ -242,8 +247,8 @@ getCISrecommendations <- function(areaHa = 1, FCY = 11,
 
     #gross revenue increase: 40% yield increase in cassava + 20% yield increase in sweet potato, but not in fields with yields above 20 t/ha in yield classes 1-3, 20% in cassava and 10% in sweet potato in yield class 4, and 0 in yield class 5
     # dGR <- ifelse(FCY > 30, 0, ifelse(FCY > 20, FCY * 0.6 * 0.2 * rootUP + FSY * 0.8 * 0.1 * tuberUP, FCY * 0.6 * 0.4 * rootUP + FSY * 0.8 * 0.2 * tuberUP))
-    dGR <- ifelse(FCY > 30, 0, ifelse(FCY > 20, FCY * 0.8 * 0.2 * rootUP + FSY * 0.6 * 0.1 * tuberUP, 
-				FCY * 0.8 * 0.4 * rootUP + FSY * 0.6 * 0.2 * tuberUP))  #NEW CALCULATION
+    dGR <- ifelse(FCY > 30, 0, ifelse(FCY > 20, FCP * 0.8 * 0.2 * rootUP + FSY * 0.6 * 0.1 * tuberUP,
+				FCP * 0.8 * 0.4 * rootUP + FSY * 0.6 * 0.2 * tuberUP))  #NEW CALCULATION
 
     #evaluating if a solution was found
     if (dTC == 0) {

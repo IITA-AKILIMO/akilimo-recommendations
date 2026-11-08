@@ -1,6 +1,6 @@
 # Technical Debt & Open Issues
 
-**Last reviewed:** 2026-04-05
+**Last reviewed:** 2026-11-08
 
 This file tracks only open and deferred items. Resolved items are removed — see git log for history.
 
@@ -26,6 +26,16 @@ This file tracks only open and deferred items. Resolved items are removed — se
 | PERF-4 | `AkilimoMain.R` | `setup_temp_dir` global temp deletion — concurrent requests can delete a live request's temp dir. *Partially improved (2026-04-04): NA mtime guard, `force=TRUE`, millisecond timestamp, `dir.create` failure check. Race window narrowed but not eliminated.* | Per-request scoped cleanup or explicit "done" signal needed |
 | MNT-6 | `misc.R` | `getRDY` defined but has no call sites in active code | Kept as inverse of `getRFY`; underlying bug (LOG-16) already fixed |
 
+## Blocked on data or expert input (no code fix possible yet)
+
+| ID | Area | Gap | What unblocks it |
+|----|------|-----|------------------|
+| DATA-1 | SP | No scheduled planting for RW and BI: no planting-window yield file (`{CC}_WLY_LINTUL_2020SP.nc`) for either, and `SoilData_4Country.RDS` has no BI points. Requests get a clear 400 and `GET /coverage?type=SP` is empty for both. | LINTUL planting-window runs for RW and BI (the script, `R/preprocess/WLY_LINTUL.R`, covers NG, TZ, GH only), plus BI soil data |
+| DATA-2 | Translations | The `rw` (Kinyarwanda) column of `data/input/translations.csv` is empty; `lang: "rw"` falls back to English key by key. | A Kinyarwanda translator filling in the column |
+| DATA-3 | Prices | The price service has no Burundi default prices; BI uses the seed rows from `Default_prices.csv`. | BI prices entered in the price service (new-akilimo-api) |
+| AGR-1 | `process-PP.R` | PP returns only the tillage recommendation. Candidate additions (from a former TODO): a caution that flat planting may not suit water-logged, weedy, very clayey or dry-season-harvest fields; that harrowing costs/benefits are not modelled; the reason behind the recommendation (cost saving vs revenue gain); that a farmer may prefer a cheaper option with a smaller gain; warnings about unrealistic input prices. | Agronomist-approved wording (en/sw/rw) for each message |
+| AGR-2 | `process-IC.R` | `getCISrecommendations()` now computes every revenue and cost for the whole field (cassava revenue used to stay per hectare while sweet potato and fertilizer cost were per field; 1 ha results are unchanged). The coefficients themselves (0.7 sweet potato yield ratio, 0.8 / 0.6 intercrop shares, 40 % / 20 % fertilizer gains) were flagged "check with Pieter". | Agronomist review of the coefficients |
+
 ---
 
 ## Architecture Notes
@@ -41,9 +51,13 @@ Managed by `R/akilimo_db.R`. Tables:
 | `translations` | `translations.csv` | `key` |
 | `price_refresh_log` | — | `id` (autoincrement) |
 
-Schema version tracked via `PRAGMA user_version` (current: 2). Migrations run
-automatically at startup via `migrate_akilimo_db()`. The original CSV files are
-kept in `data/input/` as the seed source and offline reference.
+Schema version tracked via `PRAGMA user_version` (current: 4; v4 adds
+`translations.source`). Migrations run automatically at startup via
+`migrate_akilimo_db()`. The CSV files in `data/input/` are the seed source: on
+every start `sync_seed_data()` adds rows missing from the database and updates
+rows whose `source` is still `seed`, but never touches rows refreshed from the
+API. So the database is kept across deploys and restarts (it used to be deleted
+on every deploy and dev start, losing refreshed prices).
 
 Refresh endpoints (all share `AKILIMO_API_URL` base URL):
 
