@@ -60,16 +60,27 @@ Intended for other services that need to know where AKILIMO can produce a recomm
 
 The footprint limits only the types that use location data: FR and SP requests for a point outside it get a `400`. IC and PP give the same advice anywhere in the country, so they are not limited to it. Inside the footprint, a type is still only available if it is listed in `rec_types` (see [Availability by country](#availability-by-country)). The footprint can also contain holes (interior rings) where the grid has no cells, so map clients must draw polygon holes rather than only the outer ring.
 
+**`?type=`** picks whose footprint is drawn. Each feature also carries a `type` property.
+
+| `type` | Footprint |
+|--------|-----------|
+| `FR` (default) | Where fertilizer advice is available: the yield grid `is_point_covered()` uses. |
+| `SP` | Where scheduled planting is available: the FR footprint, kept only where planting-window yield data and soil data both exist. Empty (`n_cells` 0, no coordinates) for RW and BI, and slightly smaller than FR in GH. |
+
+IC and PP do not depend on location, so they have no footprint; `?type=IC` or `?type=PP` returns `400`.
+
 ```bash
 curl http://localhost:8000/coverage
+curl "http://localhost:8000/coverage?type=SP"
 ```
 
 ### `GET /coverage/<country>`
 
-Same as above, scoped to a single country (`NG`, `TZ`, `RW`, `GH`, or `BI`, case-insensitive). Returns `400` for an unrecognised country code.
+Same as above, scoped to a single country (`NG`, `TZ`, `RW`, `GH`, or `BI`, case-insensitive), and accepts the same `?type=`. Returns `400` for an unrecognised country code or type.
 
 ```bash
 curl http://localhost:8000/coverage/RW
+curl "http://localhost:8000/coverage/GH?type=SP"
 ```
 
 ---

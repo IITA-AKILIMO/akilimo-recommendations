@@ -83,14 +83,15 @@ pr$handle(
 pr$handle(
   method = "GET",
   path = "/coverage",
-  handler = function(req, res) {
+  handler = function(req, res, type = "FR") {
     tryCatch({
       res$setHeader("Content-Type", "application/geo+json")
-      res$body <- get_coverage_geojson()
+      res$body <- get_coverage_geojson(type = type)
       res
     }, error = function(e) {
-      res$status <- 500L
-      log_write("ERROR", "GET /coverage failed:", e$message)
+      # An unknown ?type= is the caller's fault; anything else is ours
+      res$status <- if (startsWith(e$message, "Invalid type")) 400L else 500L
+      if (res$status == 500L) log_write("ERROR", "GET /coverage failed:", e$message)
       list(status = jsonlite::unbox("error"), data = list(message = jsonlite::unbox(e$message)))
     })
   }
@@ -99,15 +100,15 @@ pr$handle(
 pr$handle(
   method = "GET",
   path = "/coverage/<country>",
-  handler = function(req, res, country) {
+  handler = function(req, res, country, type = "FR") {
     tryCatch({
       res$setHeader("Content-Type", "application/geo+json")
-      res$body <- get_coverage_geojson(country)
+      res$body <- get_coverage_geojson(country, type = type)
       res
     }, error = function(e) {
-      # Unknown country code is the caller's fault; anything else (e.g. missing
-      # yield file) is ours
-      res$status <- if (startsWith(e$message, "Invalid country")) 400L else 500L
+      # Unknown country code or ?type= is the caller's fault; anything else
+      # (e.g. missing yield file) is ours
+      res$status <- if (grepl("^Invalid (country|type)", e$message)) 400L else 500L
       if (res$status == 500L) log_write("ERROR", "GET /coverage/", country, "failed:", e$message)
       list(status = jsonlite::unbox("error"), data = list(message = jsonlite::unbox(e$message)))
     })
