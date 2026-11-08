@@ -68,7 +68,7 @@ then [CLAUDE.md](CLAUDE.md), before changing anything.
 |----|-----|--------------------|
 | DATA-1 | No scheduled planting for RW and BI: no `{CC}_WLY_LINTUL_2020SP.nc`, and no BI points in `SoilData_4Country.RDS` | Blocked on LINTUL runs. The API returns a clear 400; `/coverage?type=SP` is empty |
 | DATA-2 | Kinyarwanda (`rw`) text empty | Needs a translator; fill the `rw` column of `translations.csv` |
-| DATA-3 | Burundi default prices missing in the price service: `database/seeders/data/default_prices.csv` has the 4 BI rows under `BU`, so `?country=BI` returns 0 | In new-akilimo-api, change `BU`→`BI` in the CSV and add a data migration updating the 4 rows. A fix was requested from its session; **check that it was committed**. Its price CSV also has no currency column (no currency for any country), and there are no starch prices for BI, RW or GH |
+| DATA-3 | Price service data gaps: no currency on any default price (its CSV has no currency column), and no starch prices for BI, RW or GH | Needs real data from IITA. (Burundi default prices are **fixed** in new-akilimo-api `3681ce2`: rows moved `BU`→`BI` by migration, `BU` accepted as an alias, 232 tests pass. A dry-run `refresh_prices.R --country BI` fetched 4 rows. Not pushed there either) |
 | AGR-1 | PP advice is minimal | Needs agronomist-approved wording; see `docs/TECH-DEBT.md` |
 | AGR-2 | Intercrop coefficients flagged "check with Pieter" | Agronomist review |
 | — | `main` far behind `experimental` | Owner's decision when to merge |
