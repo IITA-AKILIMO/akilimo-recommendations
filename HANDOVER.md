@@ -29,31 +29,31 @@ then [CLAUDE.md](CLAUDE.md), before changing anything.
 
 ## 2. Current state
 
-- Branch `experimental`, working tree clean once the handover commit lands.
-- **11 local commits are not pushed** (newest first):
+- Branch `experimental`, working tree clean once the handover commit lands. Earlier work up to `b37fe29` has been pushed.
+- **Local commits not pushed** (newest first):
 
 | Commit | What |
 |--------|------|
-| (handover) | `HANDOVER.md` and the CLAUDE.md updates |
-| `af1f57b` | Cassava–sweet potato intercrop revenue now per field (fixes area unit mix-up); `tests/test_ic_units.R` |
-| `505b3fe` | Actions moved to Node 24 releases (`checkout@v7`, `cache@v6`, `setup-python@v7`, `ssh-action@v1.2.5`, `release-action@v1.21.0`, `mathieudutour/github-tag-action@v7`); runners pinned to `ubuntu-24.04` |
-| `e11ae62` | Regression baseline `tests/test_small.rds` + CI downloads runtime data from OSF and runs recommendation tests; data bundles no longer ship/overwrite `translations.csv` or the SQLite DB |
-| `78b1ddc` | `data/input/translations.csv` tracked in git (with an empty `rw` column); `lang: "rw"` accepted (falls back to English) |
-| `6812c2f` | `GET /coverage?type=SP` footprints (empty for RW/BI) |
-| `c093251` | Price DB kept across deploys/restarts: schema v4, `sync_seed_data()` never overwrites API-refreshed rows; deploy and `dev.bat`/`dev.sh` no longer delete it |
-| `bae37fa`, `6da8279` | RW/BI fixes: clear 400s for SP/IC where unavailable, `ekari`/`hekta`/`string` area units, small-field crash, `rec_types` in `/coverage` |
-| `d82b906`, `eea4fa9` | CI: single "R checks" job; data pull after code update |
+| (handover) | This handover update |
+| `d90f8b3` | Reverts `8dd1b29`: Tanzania weeding defaults back to 60,000 / 45,000 TZS per acre (see the warning in §8) |
+| `2f9a168` | Tanzania `tractor_ridging` default 115,000 → 100,000 TZS per acre, matching the price service |
+| `8dd1b29` | Wrong change (weeding ×10), reverted by `d90f8b3`. Net effect of the two: none |
+| `0e20346` | Handover: DATA-1 needs no new LINTUL runs; build steps in §7 |
 
+- Also pushed in this round:
+  - `d95c46b`: the starch seed CSV reads an optional `currency` column.
+  - `b37fe29`: `docs/API-REFERENCE.md` starch feed notes (GH/RW estimates, BI none).
+- **Local data (gitignored) changed, not published:** `data/input/starchPrices.csv` gained a `currency` column and two estimated, inactive-in-API factories, `AyensuStarch` (GH) and `KinaziCassavaPlant` (RW). Servers only get it after the owner runs `bundle-assets` and uploads to OSF/Zenodo.
 - **Verified locally (Windows, R):**
 
 | Check | Result |
 |---|---|
 | Parse check | 33 files, 0 errors |
-| `test_akilimo_db` | 42/42 |
+| `test_akilimo_db` | 43/43 |
 | `test_validate_request` | 49/49 |
 | `test_pdf_template` | 48/48 |
 | `test_ic_units` | 12/12 |
-| `test_small` | 164/164 |
+| `test_small` | 164/164 (re-run after `d90f8b3`) |
 | `test_rw_regressions` | 8/8 |
 
   The translations sync was also dry-run against the local price service: 60 rows, no 401.
@@ -68,7 +68,10 @@ then [CLAUDE.md](CLAUDE.md), before changing anything.
 |----|-----|--------------------|
 | DATA-1 | No scheduled planting for RW and BI: no `{CC}_WLY_LINTUL_2020SP.nc`, and no BI points in `SoilData_4Country.RDS` | **Not blocked on LINTUL runs.** The `.nc` files can be built from the existing yield RDS; see [§7](#7-next-task-sp-for-rw-and-bi-data-1). Open: the BI soil source (owner's decision). The API returns a clear 400 until then; `/coverage?type=SP` is empty |
 | DATA-2 | Kinyarwanda (`rw`) text empty | Needs a translator; fill the `rw` column of `translations.csv` |
-| DATA-3 | Price service data gaps: no currency on any default price (its CSV has no currency column), and no starch prices for BI, RW or GH | Needs real data from IITA. (Burundi default prices are **fixed** in new-akilimo-api `3681ce2`: rows moved `BU`→`BI` by migration, `BU` accepted as an alias, 232 tests pass. A dry-run `refresh_prices.R --country BI` fetched 4 rows. Not pushed there either) |
+| DATA-3 | Price service data gaps | **Mostly done in new-akilimo-api:**<br>- Burundi `BU`→`BI` (`3681ce2`, pushed).<br>- Currency set on every default and starch price (`2bd8760`).<br>- GH/RW starch factories added **inactive** with estimated prices; inactive factories are hidden from `/starch-prices` (`d80ccf5`, pushed).<br>Left: confirm the GH/RW starch prices, then activate them in the admin. BI has no starch buyer |
+| DATA-4 | Default prices are stale (fertiliser 1.3–7× below market in all five countries; app price ranges reject real prices; Burundi FOMI is per 25 kg bag) | Reviewed with sources in new-akilimo-api `docs/data/price-review-2026-11.md`. Tanzania fertiliser updated to TFRA Sep 2025 (`87721bc`). The rest waits for the price catalogue (§8) and country-team review in the admin |
+| DATA-5 | No post-planting labour defaults for RW, GH, BI. The engine has them only for NG/TZ, hardcoded in `R/AkilimoMain.R` (`default_lmo_costs`) | Draft estimates in new-akilimo-api `docs/data/labour-costs-rw-gh-bi.md` (low confidence). They go in through the catalogue (§8) |
+| ARCH-1 | Prices live in three places that drift apart (API choice lists, API `default_prices`, hardcoded R values) | Design agreed: new-akilimo-api `docs/PRICE_CATALOGUE_DESIGN.md`. **Phase 1 not started**; see §8 |
 | AGR-1 | PP advice is minimal | Needs agronomist-approved wording; see `docs/TECH-DEBT.md` |
 | AGR-2 | Intercrop coefficients flagged "check with Pieter" | Agronomist review |
 | — | `main` far behind `experimental` | Owner's decision when to merge |
@@ -78,13 +81,24 @@ All of these are also in [docs/TECH-DEBT.md](docs/TECH-DEBT.md) ("Blocked on dat
 
 ## 4. Related work in other places
 
-- **new-akilimo-api** (Laravel price/translation service, `http://127.0.0.1:9100/api/v1` locally):
-  - The API key admin page and `php artisan api-key:generate` are committed there (`5543858`, `d652171`, `49631f7`; 227 tests pass).
-  - `ak_` keys now work as Bearer tokens on `/translations`. It is the only route that checks the key (ability `translations:read`); the price routes are unauthenticated.
-    - The old 401 was a token that matched no stored key.
-    - The current `.env` key works (200).
-    - A new key needs `translations:read` or wildcard: `php artisan api-key:generate --user=<user> --name="R recommendations" --ability=translations:read`.
-  - The Burundi `BU`→`BI` fix was requested but not confirmed.
+- **new-akilimo-api** (Laravel price/translation service, `D:\Dev\php\new-akilimo-api`, branch `develop`, `http://127.0.0.1:9100/api/v1` locally). It has no handover of its own; this file covers it.
+  - **Not pushed there** (newest first):
+    - `d6c1e00`: the owner's own navigation-param fix.
+    - `179880f`, `1fa40a5`, `5e2bcc6`: price catalogue design doc with decisions.
+    - `87721bc`: Tanzania fertiliser defaults set to TFRA Sep 2025.
+    - `dedf85c`: price review of every component.
+    - `4f553f5`, `32f8953`, `3707d75`, `3cb5f1a`: labour-cost notes.
+    - `2bd8760`: currencies.
+
+    241 tests pass. The local DB is migrated.
+  - **API keys:**
+    - Shipped: the admin create-key page shows the key once, and `php artisan api-key:generate` is interactive (`5543858`, `d652171`, `49631f7`).
+    - `ak_` keys work as Bearer tokens or `X-Api-Key` on `/translations`, the only route that checks a key (ability `translations:read`). The price routes are unauthenticated.
+    - The R `.env` key works (200).
+    - A new key: `php artisan api-key:generate --user=<user> --name="R recommendations" --ability=translations:read`.
+    - Not verified: the admin create-key page in a browser. The fix (encrypt history only over HTTPS) is unit-tested only.
+  - **Inactive starch factories** are left out of `GET /v1/starch-prices` and `/v1/starch-factories/country/{cc}`. `GET /v1/starch-factories` still lists all of them, with `factory_active`.
+  - **Research notes** (all marked IITA Internal Use) are in `docs/data/`: starch buyers, labour costs, and the full price review.
 - **Branch `claude/vigilant-mclean-c38063`** is fully merged into `experimental` (fast-forward) and can be deleted.
 
 ## 5. How to work here
@@ -106,9 +120,10 @@ All of these are also in [docs/TECH-DEBT.md](docs/TECH-DEBT.md) ("Blocked on dat
 
 ## 6. Suggested next steps
 
-1. The owner pushes `experimental`. Watch the first "Build and deploy" run, especially the OSF data download and `test_small`.
-2. Confirm the new-akilimo-api Burundi fix, then refresh prices on beta (`Rscript refresh_prices.R --type default`).
-3. Do DATA-1 ([§7](#7-next-task-sp-for-rw-and-bi-data-1)) once the owner picks the BI soil source. Hand DATA-2 / AGR-1 / AGR-2 to the IITA translation and agronomy owners.
+1. The owner pushes `experimental` and new-akilimo-api `develop`. Watch the first "Build and deploy" run, especially the OSF data download and `test_small`.
+2. Refresh prices on beta (`Rscript refresh_prices.R --type all`) so it picks up the currencies, the Burundi fix and the TZ fertiliser prices.
+3. **Price catalogue phase 1** ([§8](#8-next-task-price-catalogue-phase-1-arch-1)), in new-akilimo-api.
+4. Do DATA-1 ([§7](#7-next-task-sp-for-rw-and-bi-data-1)) once the owner picks the BI soil source. Hand DATA-2 / AGR-1 / AGR-2 to the IITA translation and agronomy owners.
 
 ## 7. Next task: SP for RW and BI (DATA-1)
 
@@ -171,3 +186,28 @@ Steps:
 Limits to tell the owner:
 - RW SP only works when PD ± `PD_window` falls in planting weeks 6–14 or 37–44. Other dates get the existing `SP_DATES_OUT_OF_RANGE` 400 ("Scheduled planting cannot be computed for PD=… and HD=…"). Full-year RW would need new LINTUL runs.
 - SP converts dry to fresh yield with the NG curve for every country (`R/process-SP.R`, the `getRFY(..., country = "NG")` loop).
+
+## 8. Next task: price catalogue phase 1 (ARCH-1)
+
+**Read first:** new-akilimo-api `docs/PRICE_CATALOGUE_DESIGN.md`. It holds the design, the rollout phases and the owner's decisions D1–D6. Nothing is built yet. Phase 1 is API-only and changes nothing for clients.
+
+**Phase 1 scope** (new-akilimo-api, branch `develop`):
+1. **Extend `default_prices`:** add `region` (nullable), `subsidised_price`, `bag_kg`, `min_price`, `max_price`, `status` (`draft` / `pending_second_review` / `active`), `source`, `source_date`, `confidence`, `effective_from` and `updated_by`. Correct `unit` (labour is `per_acre`, not `per_bag`; Burundi FOMI is `bag_kg = 25`). Add a `default_price_history` table.
+2. **Add `countries.default_price_basis`,** default `open_market`.
+3. **Add `GET /v1/prices?country=&updated_since=`:** active, national, effective rows only, with an `ETag`. Keep `/v1/default-prices` working for the engine.
+4. **Admin screens:**
+   - edit prices as drafts, then review and activate (a change over ±30 % needs a second admin, D4);
+   - the per-country price basis;
+   - reviewer assignment per country.
+5. **Import the research drafts** from `docs/data/*_candidates.csv` and `price-review-2026-11.md` as `draft` rows. Never as `active`: those prices are unconfirmed.
+6. **Tests** in the existing Pest style; the suite is at 241 passing.
+
+Then phase 2 (engine syncs `/v1/prices` and drops the hardcoded defaults in `R/AkilimoMain.R`) and phase 3 (choice lists generated at ±10 %/±30 %, which fixes the allowed ranges).
+
+**Pitfalls learned the hard way:**
+- **Compare against the seed CSVs, not the local database.** Rows may be stale until re-seeded. The Tanzania weeding mix-up (`8dd1b29`, reverted in `d90f8b3`) came from reading a stale DB row (600,000) when the seed file and an owner commit (`b8db4fd`, 27 Oct) said 60,000.
+- **Price "allowed ranges" are not a column.** They are the min and max of hand-made option rows in `fertilizer_prices` and similar tables, including a 0 "don't know" row and odd negative sentinel rows. Don't hand-edit ~190 rows; phase 3 generates them.
+- **The engine ignores the API for some defaults:** labour (`default_lmo_costs`, NG/TZ only), maize (50 per cob, 230 per kg) and sweet potato (120,000 / 384,000 per t) are hardcoded in `R/AkilimoMain.R`. It does read `default_prices` for missing fertiliser costs (`R/fertilizers.R`).
+- **Each data file has its own route to production:**
+  - The R repo's `data/input/*.csv` is gitignored runtime data, published only via `bundle-assets` and an OSF/Zenodo upload (owner only).
+  - The API's `database/seeders/data/*.csv` is in git, and seeders run only on demand. Ship data changes as an idempotent migration, as `2026_11_08_00000{1..4}` do.
