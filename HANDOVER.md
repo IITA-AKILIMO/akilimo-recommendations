@@ -91,7 +91,7 @@ All of these are also in [docs/TECH-DEBT.md](docs/TECH-DEBT.md) ("Blocked on dat
     - **`phpstan.neon`:** that commit had replaced the whole file. **Restored in `068b868` (not pushed)**, with the custom `EnforceNamedArgumentsRule`, the Larastan options and the strict rules back.
       - The old file never ran: one `ignoreErrors` entry lacked `#…#` delimiters, and its extensions weren't installed.
       - `068b868` fixes that entry, adds `phpstan/phpstan-strict-rules` as a dev dependency and `includes` both extensions explicitly.
-      - Run it with `vendor\bin\phpstan analyse --memory-limit=1G`. It reports **19 findings**, all in `app/Http/Controllers/Web`: 11 `namedArguments.required` (10 of them in `HealthCheckController`), 3 dynamic static calls, 4 non-boolean conditions and 1 `empty()`. They are not fixed yet.
+      - Run it with `vendor\bin\phpstan analyse --memory-limit=1G`. It found 19 issues in `app/Http/Controllers/Web`; **all were fixed in `512f373` (not pushed), and it now reports no errors.** Eloquent `exists()`/`orderBy()` false positives were added to the existing `selectRaw` ignore entry. It analyses only `app/Http/Controllers/Web` (the `paths` setting); widening that will surface more.
       - `composer require` also reported 8 security advisories affecting 5 existing packages (`composer audit`).
   - **Earlier commits there**, all pushed to `develop` (newest first):
     - `d6c1e00`: the owner's own navigation-param fix.
