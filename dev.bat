@@ -38,9 +38,9 @@ if defined WORKDIR (
     cd /d "%~dp0"
 )
 
-REM Delete any stale SQLite databases before starting
-del /q data\input\*.sqlite 2>nul
-del /q data\input\*.db 2>nul
+REM The price database is kept between runs: on start it is migrated and
+REM updated from the seed CSVs, keeping prices refreshed from the API.
+REM To start from a clean database, delete data\input\akilimo_compute.sqlite.
 
 echo Akilimo dev server - auto-restart enabled
 echo Root    : %CD%

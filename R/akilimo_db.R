@@ -23,7 +23,7 @@ VALID_UNITS     <- c("per_bag", "per_kg", "per_tonne", "per_acre", "per_ha")
 .akilimo_db_conn <- NULL
 
 # Current schema version — increment whenever DDL changes
-.DB_SCHEMA_VERSION <- 3L
+.DB_SCHEMA_VERSION <- 4L
 
 # ---------------------------------------------------------------------------
 # DDL helpers
@@ -76,7 +76,8 @@ VALID_UNITS     <- c("per_bag", "per_kg", "per_tonne", "per_acre", "per_ha")
             en         TEXT NOT NULL DEFAULT '',
             sw         TEXT NOT NULL DEFAULT '',
             rw         TEXT NOT NULL DEFAULT '',
-            updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+            updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
+            source     TEXT NOT NULL DEFAULT 'seed'
         );
     ")
     DBI::dbExecute(conn,
@@ -93,7 +94,8 @@ migrate_akilimo_db <- function(conn, current_version) {
     migrations <- list(
         # version 1 — initial schema; handled by .create_tables above
         "1" = list(sql = character(0), seed_fn = NULL),
-        # version 2 — add translations table; seed from CSV
+        # version 2 — add translations table (filled by sync_seed_data() after
+        # the migrations, like every other table)
         "2" = list(
             sql = c("CREATE TABLE IF NOT EXISTS translations (
                          key        TEXT NOT NULL PRIMARY KEY,
@@ -101,11 +103,17 @@ migrate_akilimo_db <- function(conn, current_version) {
                          sw         TEXT NOT NULL DEFAULT '',
                          updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
                      );"),
-            seed_fn = .seed_translations
+            seed_fn = NULL
         ),
         # version 3 — add rw (Kinyarwanda) column to translations
         "3" = list(
             sql = c("ALTER TABLE translations ADD COLUMN rw TEXT NOT NULL DEFAULT '';"),
+            seed_fn = NULL
+        ),
+        # version 4 — track where each translation came from, so seed updates
+        # never overwrite rows refreshed from the API
+        "4" = list(
+            sql = c("ALTER TABLE translations ADD COLUMN source TEXT NOT NULL DEFAULT 'seed';"),
             seed_fn = NULL
         )
     )
@@ -153,7 +161,6 @@ open_akilimo_db <- function() {
     if (is_new) {
         log_write("INFO", "akilimo_db: new database — creating schema and seeding from CSV")
         .create_tables(conn)
-        seed_akilimo_db(conn)
     } else {
         # Check schema version and migrate if behind
         ver <- DBI::dbGetQuery(conn, "PRAGMA user_version;")[[1]]
@@ -163,6 +170,11 @@ open_akilimo_db <- function() {
             migrate_akilimo_db(conn, ver)
         }
     }
+
+    # Bring the seed CSVs into the database on every start: new rows are added
+    # and seed rows pick up CSV edits, but rows refreshed from the API are kept.
+    # So the database survives deploys and restarts and never needs deleting.
+    sync_seed_data(conn)
 
     # Store globally so readers/writers can use it without re-opening
     assign(".akilimo_db_conn", conn, envir = globalenv())
@@ -198,21 +210,66 @@ open_akilimo_db <- function() {
         sw         = if (!is.null(tr_raw$sw)) tr_raw$sw else rep("", nrow(tr_raw)),
         rw         = if (!is.null(tr_raw$rw)) tr_raw$rw else rep("", nrow(tr_raw)),
         updated_at = strftime(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
+        source     = "seed",
         stringsAsFactors = FALSE
     )
-    # The v2 migration seeds before v3 adds `rw`, so write only existing columns
-    rows <- rows[, intersect(names(rows), DBI::dbListFields(conn, "translations")), drop = FALSE]
-    DBI::dbWriteTable(conn, "translations", rows, append = TRUE)
-    log_write("INFO", sprintf("akilimo_db: seeded translations (%d rows)", nrow(rows)))
+    .sync_seed_rows(conn, "translations", rows, key_cols = "key")
     invisible(NULL)
 }
 
 
 # ---------------------------------------------------------------------------
-# seed_akilimo_db(conn)  — run once on first startup
+# .sync_seed_rows(conn, table, rows, key_cols)
+# Adds seed rows whose key is missing, and updates rows that still come from
+# the seed (source = 'seed') when the CSV value changed. Rows written by a
+# refresh (any other source) are never touched. Columns the table lacks are
+# dropped, so it works at any schema version.
 # ---------------------------------------------------------------------------
 
-seed_akilimo_db <- function(conn) {
+.sync_seed_rows <- function(conn, table, rows, key_cols) {
+    fields <- DBI::dbListFields(conn, table)
+    rows <- rows[, intersect(names(rows), fields), drop = FALSE]
+    if (nrow(rows) == 0) return(invisible(c(added = 0L, updated = 0L)))
+    # Keep the first row per key, as the old plain INSERT would have failed on dupes
+    rows <- rows[!duplicated(rows[, key_cols, drop = FALSE]), , drop = FALSE]
+
+    tmp <- paste0("seed_", table)
+    DBI::dbWriteTable(conn, tmp, rows, temporary = TRUE, overwrite = TRUE)
+    on.exit(DBI::dbExecute(conn, sprintf("DROP TABLE IF EXISTS temp.%s;", tmp)), add = TRUE)
+
+    cols     <- names(rows)
+    col_list <- paste(cols, collapse = ", ")
+    added <- DBI::dbExecute(conn, sprintf(
+        "INSERT OR IGNORE INTO %s (%s) SELECT %s FROM temp.%s;", table, col_list, col_list, tmp))
+
+    updated <- 0L
+    value_cols <- setdiff(cols, c(key_cols, "updated_at", "source"))
+    if ("source" %in% fields && length(value_cols) > 0) {
+        match   <- paste(sprintf("s.%s = %s.%s", key_cols, table, key_cols), collapse = " AND ")
+        changed <- paste(sprintf("%s.%s IS NOT s.%s", table, value_cols, value_cols), collapse = " OR ")
+        set     <- paste(sprintf("%s = (SELECT s.%s FROM temp.%s s WHERE %s)",
+                                 value_cols, value_cols, tmp, match), collapse = ", ")
+        updated <- DBI::dbExecute(conn, sprintf(
+            "UPDATE %s SET %s, updated_at = strftime('%%Y-%%m-%%dT%%H:%%M:%%SZ','now')
+             WHERE source = 'seed' AND EXISTS (SELECT 1 FROM temp.%s s WHERE %s AND (%s));",
+            table, set, tmp, match, changed))
+    }
+
+    if (added > 0 || updated > 0)
+        log_write("INFO", sprintf("akilimo_db: %s from seed — %d added, %d updated",
+                                  table, added, updated))
+    invisible(c(added = as.integer(added), updated = as.integer(updated)))
+}
+
+
+# ---------------------------------------------------------------------------
+# sync_seed_data(conn)  — run on every start (see open_akilimo_db())
+# seed_akilimo_db() is the old name, kept for callers and tests.
+# ---------------------------------------------------------------------------
+
+seed_akilimo_db <- function(conn) sync_seed_data(conn)
+
+sync_seed_data <- function(conn) {
     akpath <- Sys.getenv("AKILIMO_ROOT", unset = ".")
 
     # ── default_prices ───────────────────────────────────────────────────────
@@ -232,8 +289,7 @@ seed_akilimo_db <- function(conn) {
             source     = "seed",
             stringsAsFactors = FALSE
         )
-        DBI::dbWriteTable(conn, "default_prices", rows, append = TRUE)
-        log_write("INFO", sprintf("akilimo_db: seeded default_prices (%d rows)", nrow(rows)))
+        .sync_seed_rows(conn, "default_prices", rows, key_cols = c("country", "item"))
     } else {
         log_write("WARN", "akilimo_db: Default_prices.csv not found — default_prices table empty")
     }
@@ -256,8 +312,7 @@ seed_akilimo_db <- function(conn) {
             source               = "seed",
             stringsAsFactors = FALSE
         )
-        DBI::dbWriteTable(conn, "starch_prices", rows, append = TRUE)
-        log_write("INFO", sprintf("akilimo_db: seeded starch_prices (%d rows)", nrow(rows)))
+        .sync_seed_rows(conn, "starch_prices", rows, key_cols = "key")
     } else {
         log_write("WARN", "akilimo_db: starchPrices.csv not found — starch_prices table empty")
     }
@@ -951,9 +1006,9 @@ refresh_translations <- function(source_tag = "api",
     tryCatch({
         for (v in valid) {
             DBI::dbExecute(conn,
-                "INSERT OR REPLACE INTO translations (key, en, sw, rw, updated_at)
-                 VALUES (?, ?, ?, ?, ?)",
-                params = list(v$key, v$en, v$sw, v$rw, v$updated_at)
+                "INSERT OR REPLACE INTO translations (key, en, sw, rw, updated_at, source)
+                 VALUES (?, ?, ?, ?, ?, ?)",
+                params = list(v$key, v$en, v$sw, v$rw, v$updated_at, source_tag)
             )
         }
         log_write("INFO", sprintf("akilimo_db: refreshed translations (%d rows, %d page(s))",

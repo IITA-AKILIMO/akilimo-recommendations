@@ -98,7 +98,7 @@ expect_true("price_refresh_log" %in% tables, info = "price_refresh_log table exi
 expect_true("translations"     %in% tables, info = "translations table exists")
 
 ver <- DBI::dbGetQuery(ctx$conn, "PRAGMA user_version;")[[1]]
-expect_equal(ver, 3L, info = "schema version is 3")
+expect_equal(ver, 4L, info = "schema version is 4")
 
 cleanup_test_db(ctx)
 
@@ -348,7 +348,7 @@ Sys.setenv(AKILIMO_DB_PATH = old_db)
 conn2 <- open_akilimo_db()
 
 ver2 <- DBI::dbGetQuery(conn2, "PRAGMA user_version;")[[1]]
-expect_equal(ver2, 3L, info = "v1→v3 migration sets user_version to 3")
+expect_equal(ver2, 4L, info = "v1→v4 migration sets user_version to 4")
 
 tabs2 <- DBI::dbListTables(conn2)
 expect_true("translations" %in% tabs2, info = "translations table created by v1→v3 migration")
@@ -388,15 +388,49 @@ Sys.setenv(AKILIMO_DB_PATH = v2_db)
 conn3 <- open_akilimo_db()
 
 ver3 <- DBI::dbGetQuery(conn3, "PRAGMA user_version;")[[1]]
-expect_equal(ver3, 3L, info = "v2→v3 migration sets user_version to 3")
+expect_equal(ver3, 4L, info = "v2→v4 migration sets user_version to 4")
 
 cols3 <- DBI::dbListFields(conn3, "translations")
 expect_true("rw" %in% cols3, info = "rw column present after v2→v3 migration")
+expect_true("source" %in% cols3, info = "source column present after v3→v4 migration")
 
 DBI::dbDisconnect(conn3)
 unlink(v2_db)
 if (is.na(old_env)) Sys.unsetenv("AKILIMO_DB_PATH") else Sys.setenv(AKILIMO_DB_PATH = old_env)
 assign(".akilimo_db_conn", NULL, envir = globalenv())
+
+# ---------------------------------------------------------------------------
+# Seed sync — the database survives restarts: seed rows are added and pick up
+# CSV edits, refreshed (API) rows are never overwritten
+# ---------------------------------------------------------------------------
+
+ctx <- new_empty_test_db()
+seed <- function(price) data.frame(country = c("NG", "NG"), item = c("Urea", "DAP"),
+                                   price = price, unit = "per_bag", currency = "",
+                                   updated_at = "2026-01-01T00:00:00Z", source = "seed",
+                                   stringsAsFactors = FALSE)
+first <- .sync_seed_rows(ctx$conn, "default_prices", seed(c(100, 200)), c("country", "item"))
+expect_equal(unname(first), c(2L, 0L), info = "seed sync adds missing rows")
+
+# A refresh replaces Urea; the CSV then changes both prices
+DBI::dbExecute(ctx$conn, "UPDATE default_prices SET price = 150, source = 'api' WHERE item = 'Urea'")
+second <- .sync_seed_rows(ctx$conn, "default_prices", seed(c(999, 250)), c("country", "item"))
+expect_equal(unname(second), c(0L, 1L), info = "seed sync updates only seed rows")
+p <- DBI::dbGetQuery(ctx$conn, "SELECT item, price, source FROM default_prices ORDER BY item")
+expect_equal(p$price[p$item == "Urea"], 150, info = "refreshed price kept after a CSV change")
+expect_equal(p$price[p$item == "DAP"], 250, info = "seed price follows the CSV")
+
+third <- .sync_seed_rows(ctx$conn, "default_prices", seed(c(999, 250)), c("country", "item"))
+expect_equal(unname(third), c(0L, 0L), info = "unchanged CSV changes nothing")
+
+# Reopening an existing database keeps refreshed rows (no wipe needed)
+db_file <- ctx$db_file
+DBI::dbDisconnect(ctx$conn)
+conn_again <- open_akilimo_db()
+kept <- DBI::dbGetQuery(conn_again, "SELECT price FROM default_prices WHERE item = 'Urea' AND source = 'api'")
+expect_equal(kept$price, 150, info = "refreshed price survives reopening the database")
+ctx$conn <- conn_again
+cleanup_test_db(ctx)
 
 # ---------------------------------------------------------------------------
 # Summary

@@ -34,8 +34,9 @@ if [ -z "$RSCRIPT_CMD" ]; then
     exit 1
 fi
 
-# Delete any stale SQLite databases before starting
-rm -f "$TARGET_DIR"/data/input/*.sqlite "$TARGET_DIR"/data/input/*.db
+# The price database is kept between runs: on start it is migrated and
+# updated from the seed CSVs, keeping prices refreshed from the API.
+# To start from a clean database, delete data/input/akilimo_compute.sqlite.
 
 echo "Akilimo dev server — auto-restart enabled"
 echo "Rscript : $RSCRIPT_CMD"

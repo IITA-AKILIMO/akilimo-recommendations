@@ -198,7 +198,7 @@ jobs:
       group: server-${{ needs.plan.outputs.target }}
       cancel-in-progress: false
     steps:
-      - name: Pull code, clear caches and install R packages
+      - name: Pull code, clear temp files and install R packages
         uses: appleboy/ssh-action@v1.2.4
         env:
           APP_DIR: ${{ needs.plan.outputs.app_dir }}
@@ -221,8 +221,8 @@ jobs:
             echo "Cleaning temp folder..."
             rm -rf "$APP_DIR"/temp/*
 
-            echo "Removing old SQLite database files..."
-            find . -type f -name 'akilimo_compute*.sqlite*' -exec rm -f {} \;
+            # The price database is kept: on start the API migrates it and
+            # updates it from the seed CSVs without losing refreshed prices
 
             # Exits non-zero if any package fails, which stops the deploy here
             echo "Installing R packages..."
