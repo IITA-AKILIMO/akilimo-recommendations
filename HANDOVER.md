@@ -82,14 +82,17 @@ All of these are also in [docs/TECH-DEBT.md](docs/TECH-DEBT.md) ("Blocked on dat
 ## 4. Related work in other places
 
 - **new-akilimo-api** (Laravel price/translation service, `D:\Dev\php\new-akilimo-api`, branch `develop`, `http://127.0.0.1:9100/api/v1` locally). It has no handover of its own; this file covers it.
-  - **`690ff69` (not pushed): price catalogue phase 1**, by another agent. Checked 2026-11-08:
+  - **`8acb962` (not pushed): price catalogue phase 1**, by another agent. It was `690ff69` before its garbled message was reworded. Checked 2026-11-08:
     - 250 tests pass and no migrations are pending.
     - `GET /v1/prices?country=TZ` answers 200 with an `ETag`, `default_price_basis` and the new row fields.
     - The ±30 % second review is in `app/Service/PriceCatalogueService.php`; its threshold and the units per item are in `config/price_catalogue.php`.
     - Research labour estimates are imported as `draft` rows (migration `…000009`).
     - Existing rows have no `min_price`/`max_price`/source yet; country teams fill those in through the admin.
-    - **Caveat, `phpstan.neon`:** the commit replaced the whole file. The old one never ran, because one `ignoreErrors` entry lacked regex delimiters (`#…#`). But the rewrite also dropped the custom `EnforceNamedArgumentsRule`, the Larastan options and every strict rule. Fixing the one bad line would have kept them. The new config still reports errors (e.g. `ApiKey::where()`, `PlaygroundController` return types). The owner should decide whether to restore it.
-    - Its commit message has literal `\n` and blank field names, so read the diff rather than the message.
+    - **`phpstan.neon`:** that commit had replaced the whole file. **Restored in `068b868` (not pushed)**, with the custom `EnforceNamedArgumentsRule`, the Larastan options and the strict rules back.
+      - The old file never ran: one `ignoreErrors` entry lacked `#…#` delimiters, and its extensions weren't installed.
+      - `068b868` fixes that entry, adds `phpstan/phpstan-strict-rules` as a dev dependency and `includes` both extensions explicitly.
+      - Run it with `vendor\bin\phpstan analyse --memory-limit=1G`. It reports **19 findings**, all in `app/Http/Controllers/Web`: 11 `namedArguments.required` (10 of them in `HealthCheckController`), 3 dynamic static calls, 4 non-boolean conditions and 1 `empty()`. They are not fixed yet.
+      - `composer require` also reported 8 security advisories affecting 5 existing packages (`composer audit`).
   - **Earlier commits there**, all pushed to `develop` (newest first):
     - `d6c1e00`: the owner's own navigation-param fix.
     - `179880f`, `1fa40a5`, `5e2bcc6`: price catalogue design doc with decisions.
@@ -130,7 +133,7 @@ All of these are also in [docs/TECH-DEBT.md](docs/TECH-DEBT.md) ("Blocked on dat
 
 1. Both repos were pushed on 2026-11-08. Check the "Build and deploy" run for `experimental`, especially the OSF data download and `test_small`.
 2. Refresh prices on beta (`Rscript refresh_prices.R --type all`) so it picks up the currencies, the Burundi fix and the TZ fertiliser prices.
-3. **Price catalogue phase 2** ([§8](#8-price-catalogue-arch-1-phase-1-done-phase-2-next)): the engine syncs `/v1/prices`. Phase 1 is done (new-akilimo-api `690ff69`). Country teams can now enter prices in the admin.
+3. **Price catalogue phase 2** ([§8](#8-price-catalogue-arch-1-phase-1-done-phase-2-next)): the engine syncs `/v1/prices`. Phase 1 is done (new-akilimo-api `8acb962`). Country teams can now enter prices in the admin.
 4. Do DATA-1 ([§7](#7-next-task-sp-for-rw-and-bi-data-1)) once the owner picks the BI soil source. Hand DATA-2 / AGR-1 / AGR-2 to the IITA translation and agronomy owners.
 
 ## 7. Next task: SP for RW and BI (DATA-1)
@@ -211,7 +214,7 @@ Limits to tell the owner:
 
 Burundi FOMI rows are per 25 kg (`bag_kg = 25`), so use `bag_kg` from the API, not an assumed 50.
 
-**Phase 1, done** in new-akilimo-api `690ff69` (see §4 for checks and the `phpstan.neon` caveat). Its scope was:
+**Phase 1, done** in new-akilimo-api `8acb962` (see §4 for the checks and the PHPStan restore). Its scope was:
 1. **Extend `default_prices`:** add `region` (nullable), `subsidised_price`, `bag_kg`, `min_price`, `max_price`, `status` (`draft` / `pending_second_review` / `active`), `source`, `source_date`, `confidence`, `effective_from` and `updated_by`. Correct `unit` (labour is `per_acre`, not `per_bag`; Burundi FOMI is `bag_kg = 25`). Add a `default_price_history` table.
 2. **Add `countries.default_price_basis`,** default `open_market`.
 3. **Add `GET /v1/prices?country=&updated_since=`:** active, national, effective rows only, with an `ETag`. Keep `/v1/default-prices` working for the engine.
