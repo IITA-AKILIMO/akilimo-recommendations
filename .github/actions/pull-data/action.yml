@@ -34,7 +34,7 @@ runs:
   using: composite
   steps:
     - name: Download data on the server
-      uses: appleboy/ssh-action@v1.2.4
+      uses: appleboy/ssh-action@v1.2.5
       env:
         APP_DIR: ${{ inputs.app_dir }}
         DATA_SOURCE: ${{ inputs.source }}

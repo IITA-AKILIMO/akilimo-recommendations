@@ -56,7 +56,7 @@ jobs:
   # ---------------------------------------------------------------------------
   plan:
     name: Plan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       deploy: ${{ steps.pick.outputs.deploy }}
       target: ${{ steps.pick.outputs.target }}
@@ -64,7 +64,7 @@ jobs:
       service_name: ${{ steps.target.outputs.service_name }}
     steps:
       - name: Check out deploy settings
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           sparse-checkout: .github
 
@@ -110,7 +110,7 @@ jobs:
     name: Wait for more pushes
     needs: [ plan ]
     if: needs.plan.outputs.deploy == 'true' && github.event_name == 'push'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     concurrency:
       group: deploy-${{ needs.plan.outputs.target }}-wait
       cancel-in-progress: true
@@ -145,7 +145,7 @@ jobs:
       AKILIMO_ROOT: ${{ github.workspace }}
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up R and packages (cached)
         id: r
@@ -188,7 +188,7 @@ jobs:
       - name: Restore cached runtime data
         id: data
         if: ${{ !cancelled() && steps.r.outcome == 'success' }}
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         env:
           SEGMENT_DOWNLOAD_TIMEOUT_MINS: "5"
         with:
@@ -201,7 +201,7 @@ jobs:
 
       - name: Install Python for the data download (cache miss)
         if: ${{ !cancelled() && steps.r.outcome == 'success' && steps.data.outputs.cache-hit != 'true' }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.13"
 
@@ -216,7 +216,7 @@ jobs:
 
       - name: Save runtime data to the cache
         if: ${{ !cancelled() && steps.r.outcome == 'success' && steps.data.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6
         with:
           path: |
             data/yield
@@ -256,14 +256,14 @@ jobs:
       !cancelled() &&
       needs.plan.outputs.deploy == 'true' &&
       needs.checks.result == 'success'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     concurrency:
       group: server-${{ needs.plan.outputs.target }}
       cancel-in-progress: false
     steps:
       - name: Pull code, clear temp files and install R packages
-        uses: appleboy/ssh-action@v1.2.4
+        uses: appleboy/ssh-action@v1.2.5
         env:
           APP_DIR: ${{ needs.plan.outputs.app_dir }}
           BRANCH: ${{ github.ref_name }}
@@ -308,14 +308,14 @@ jobs:
       !cancelled() &&
       needs.update.result == 'success' &&
       github.event_name == 'workflow_dispatch' && inputs.setup_data
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     concurrency:
       group: server-${{ needs.plan.outputs.target }}
       cancel-in-progress: false
     steps:
       - name: Check out actions
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           sparse-checkout: .github
 
@@ -338,14 +338,14 @@ jobs:
       !cancelled() &&
       needs.update.result == 'success' &&
       (needs.setup-data.result == 'success' || needs.setup-data.result == 'skipped')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     concurrency:
       group: server-${{ needs.plan.outputs.target }}
       cancel-in-progress: false
     steps:
       - name: Reload systemd and restart the API
-        uses: appleboy/ssh-action@v1.2.4
+        uses: appleboy/ssh-action@v1.2.5
         env:
           SERVICE_NAME: ${{ needs.plan.outputs.service_name }}
         with:
@@ -362,11 +362,11 @@ jobs:
   health:
     name: Check health (${{ needs.plan.outputs.target }})
     needs: [ plan, restart ]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - name: Wait for GET /health (up to 180s)
-        uses: appleboy/ssh-action@v1.2.4
+        uses: appleboy/ssh-action@v1.2.5
         env:
           APP_DIR: ${{ needs.plan.outputs.app_dir }}
           SERVICE_NAME: ${{ needs.plan.outputs.service_name }}
@@ -411,18 +411,25 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # lets the tag action fall back to local git history
 
+      # v7 runs on Node 24 (the old masgeek fork pinned to @release was a
+      # Node 16 build of upstream 6.1). Commits without a recognised type,
+      # like the gitmoji-prefixed ones here, still get the default patch bump.
       - name: Work out the next version tag
         id: tag_version
-        uses: masgeek/github-tag-action@release
+        uses: mathieudutour/github-tag-action@v7
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          release_branches: main
           tag_prefix: ""
           create_annotated_tag: true
 
       - name: Publish the GitHub release
-        uses: ncipollo/release-action@v1.16.0
+        if: steps.tag_version.outputs.new_tag != ''
+        uses: ncipollo/release-action@v1.21.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ steps.tag_version.outputs.new_tag }}

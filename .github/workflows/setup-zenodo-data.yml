@@ -35,7 +35,7 @@ permissions:
 jobs:
   setup-data:
     name: Pull runtime data (${{ inputs.target }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     # Shares the pipeline's server lock, so it never runs during a deploy
     concurrency:
@@ -44,7 +44,7 @@ jobs:
 
     steps:
       - name: Check out deploy settings
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           sparse-checkout: .github
 

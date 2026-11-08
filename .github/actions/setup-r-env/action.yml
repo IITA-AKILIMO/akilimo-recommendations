@@ -17,7 +17,7 @@ runs:
     # packages are installed afresh rather than layered on an old library
     - name: Restore cached R packages
       id: restore
-      uses: actions/cache/restore@v4
+      uses: actions/cache/restore@v6
       env:
         SEGMENT_DOWNLOAD_TIMEOUT_MINS: "3"   # give up on a stalled download instead of hanging
       with:
@@ -46,7 +46,7 @@ runs:
 
     - name: Save R packages to the cache
       if: steps.restore.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v4
+      uses: actions/cache/save@v6
       with:
         path: ${{ env.R_LIBS_USER }}
         key: r-pkgs-${{ runner.os }}-${{ hashFiles('install_packages.R') }}
