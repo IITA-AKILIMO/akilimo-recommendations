@@ -68,7 +68,7 @@ then [CLAUDE.md](CLAUDE.md), before changing anything.
 |----|-----|--------------------|
 | DATA-1 | No scheduled planting for RW and BI: no `{CC}_WLY_LINTUL_2020SP.nc`, and no BI points in `SoilData_4Country.RDS` | Blocked on LINTUL runs. The API returns a clear 400; `/coverage?type=SP` is empty |
 | DATA-2 | Kinyarwanda (`rw`) text empty | Needs a translator; fill the `rw` column of `translations.csv` |
-| DATA-3 | Burundi default prices missing in the price service (stored as `BU`, queried as `BI`) | Fix requested in the new-akilimo-api session (change the seed `BU`→`BI` and update 4 rows). **Check that it was committed there.** |
+| DATA-3 | Burundi default prices missing in the price service: `database/seeders/data/default_prices.csv` has the 4 BI rows under `BU`, so `?country=BI` returns 0 | In new-akilimo-api, change `BU`→`BI` in the CSV and add a data migration updating the 4 rows. A fix was requested from its session; **check that it was committed**. Its price CSV also has no currency column (no currency for any country), and there are no starch prices for BI, RW or GH |
 | AGR-1 | PP advice is minimal | Needs agronomist-approved wording; see `docs/TECH-DEBT.md` |
 | AGR-2 | Intercrop coefficients flagged "check with Pieter" | Agronomist review |
 | — | `main` far behind `experimental` | Owner's decision when to merge |
@@ -80,7 +80,10 @@ All of these are also in [docs/TECH-DEBT.md](docs/TECH-DEBT.md) ("Blocked on dat
 
 - **new-akilimo-api** (Laravel price/translation service, `http://127.0.0.1:9100/api/v1` locally):
   - The API key admin page and `php artisan api-key:generate` are committed there (`5543858`, `d652171`, `49631f7`; 227 tests pass).
-  - `ak_` keys now work as Bearer tokens on `/translations`.
+  - `ak_` keys now work as Bearer tokens on `/translations`. It is the only route that checks the key (ability `translations:read`); the price routes are unauthenticated.
+    - The old 401 was a token that matched no stored key.
+    - The current `.env` key works (200).
+    - A new key needs `translations:read` or wildcard: `php artisan api-key:generate --user=<user> --name="R recommendations" --ability=translations:read`.
   - The Burundi `BU`→`BI` fix was requested but not confirmed.
 - **Branch `claude/vigilant-mclean-c38063`** is fully merged into `experimental` (fast-forward) and can be deleted.
 
