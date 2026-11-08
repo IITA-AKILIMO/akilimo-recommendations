@@ -22,7 +22,7 @@ import tarfile
 import click
 from rich.rule import Rule
 
-from .common import DIST_DIR, PROJECT_ROOT, Config, console
+from .common import DIST_DIR, PROJECT_ROOT, Config, console, is_bundle_excluded
 
 BUNDLES: dict[str, str] = {
     "input": "data/input",
@@ -69,7 +69,9 @@ def create_bundle(name: str) -> bool:
     DIST_DIR.mkdir(parents=True, exist_ok=True)
 
     with tarfile.open(output_path, "w:gz") as tar:
-        tar.add(source_dir, arcname=BUNDLES[name])
+        # Leave out git-tracked files and the runtime price database
+        tar.add(source_dir, arcname=BUNDLES[name],
+                filter=lambda info: None if is_bundle_excluded(info.name) else info)
 
     size_mb = output_path.stat().st_size / 1_048_576
     console.print(

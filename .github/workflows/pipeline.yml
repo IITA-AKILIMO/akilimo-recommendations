@@ -181,6 +181,70 @@ jobs:
             quit(status = if (all(as.logical(r))) 0 else 1)
           '
 
+      # --- Recommendation tests: need the runtime data (about 560 MB, public on
+      # OSF). It is cached under a key made from scripts/.env.example (which holds
+      # the OSF/Zenodo IDs), so it is downloaded only when the data release changes.
+      # translations.csv is tracked in git, so the cache never includes it.
+      - name: Restore cached runtime data
+        id: data
+        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
+        uses: actions/cache/restore@v4
+        env:
+          SEGMENT_DOWNLOAD_TIMEOUT_MINS: "5"
+        with:
+          path: |
+            data/yield
+            data/soil
+            data/input
+            !data/input/translations.csv
+          key: runtime-data-v1-${{ hashFiles('scripts/.env.example') }}
+
+      - name: Install Python for the data download (cache miss)
+        if: ${{ !cancelled() && steps.r.outcome == 'success' && steps.data.outputs.cache-hit != 'true' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Download runtime data from OSF (cache miss)
+        if: ${{ !cancelled() && steps.r.outcome == 'success' && steps.data.outputs.cache-hit != 'true' }}
+        working-directory: scripts
+        run: |
+          cp .env.example .env
+          pipx install poetry
+          poetry install --no-interaction
+          poetry run setup-data --source osf
+
+      - name: Save runtime data to the cache
+        if: ${{ !cancelled() && steps.r.outcome == 'success' && steps.data.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            data/yield
+            data/soil
+            data/input
+            !data/input/translations.csv
+          key: runtime-data-v1-${{ hashFiles('scripts/.env.example') }}
+
+      - name: Test recommendations against the saved baseline
+        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
+        run: |
+          # The test skips itself without data; in CI missing data is a failure
+          test -f data/yield/Nigeria_WLY_LINTUL_2020.RDS || { echo "::error::runtime data missing"; exit 1; }
+          Rscript -e '
+            r <- tinytest::run_test_file("tests/test_small.R", verbose = 1)
+            print(summary(r))
+            quit(status = if (length(r) > 0 && all(as.logical(r))) 0 else 1)
+          '
+
+      - name: Test Rwanda regressions
+        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
+        run: |
+          Rscript -e '
+            r <- tinytest::run_test_file("tests/test_rw_regressions.R", verbose = 1)
+            print(summary(r))
+            quit(status = if (length(r) > 0 && all(as.logical(r))) 0 else 1)
+          '
+
   # ---------------------------------------------------------------------------
   # Deploy: one job per server step, strictly in order. Server jobs share a
   # per-target lock so two runs never work on the same server at once.
@@ -214,6 +278,13 @@ jobs:
             cd "$APP_DIR"
 
             echo "Updating $APP_DIR to $BRANCH..."
+            # translations.csv used to come only from the data bundle; it is now
+            # tracked in git, so an untracked copy would block the pull
+            if [ -f data/input/translations.csv ] && \
+               ! git ls-files --error-unmatch data/input/translations.csv >/dev/null 2>&1; then
+              echo "Replacing the bundled translations.csv with the tracked one"
+              rm -f data/input/translations.csv
+            fi
             git fetch origin
             git checkout "$BRANCH"
             git pull origin "$BRANCH"

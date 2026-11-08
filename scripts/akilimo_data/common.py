@@ -38,6 +38,20 @@ load_dotenv(SCRIPTS_DIR / ".env", override=False)
 
 console = Console()
 
+# Paths under data/ that never travel in a data bundle: files tracked in git
+# (they ship with the code) and the runtime price database. Bundling skips
+# them, and extracting an older bundle that has them leaves the local copies
+# alone, so a data pull never overwrites the repo's translations or the
+# server's refreshed prices.
+BUNDLE_EXCLUDED_FILES: tuple[str, ...] = ("data/input/translations.csv",)
+BUNDLE_EXCLUDED_SUFFIXES: tuple[str, ...] = (".sqlite", ".sqlite-wal", ".sqlite-shm", ".db")
+
+
+def is_bundle_excluded(name: str) -> bool:
+    """True for a tar member / path that must not be bundled or extracted."""
+    path = name.replace("\\", "/").removeprefix("./")
+    return path in BUNDLE_EXCLUDED_FILES or path.endswith(BUNDLE_EXCLUDED_SUFFIXES)
+
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -143,7 +157,11 @@ def fetch_tarball(url: str, asset_name: str, cfg: Config) -> bool:
     console.print(f"  Extracting  [cyan]{asset_name}[/] ...")
     try:
         with tarfile.open(tmp_path, "r:gz") as tar:
-            tar.extractall(path=PROJECT_ROOT)
+            members = [m for m in tar.getmembers() if not is_bundle_excluded(m.name)]
+            skipped = len(tar.getmembers()) - len(members)
+            tar.extractall(path=PROJECT_ROOT, members=members)
+        if skipped:
+            console.print(f"  [dim]kept local copies of {skipped} tracked/runtime file(s)[/]")
         console.print(f"  [green][ok][/]   {asset_name}")
         return True
     except tarfile.TarError as exc:

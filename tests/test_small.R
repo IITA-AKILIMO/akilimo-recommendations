@@ -1,24 +1,35 @@
+# Regression tests: runs run_akilimo() on every fixture in tests/input/ (listed
+# below) and compares the result with the saved baseline in tests/test_small.rds.
+# Needs the runtime data in data/ (yield, soil, input CSVs; see CLAUDE.md "First-
+# Time Setup"). Skips itself when the data is missing. CI runs it after pulling
+# the data from OSF.
+#
+#   Rscript -e 'tinytest::run_test_file("tests/test_small.R")'
+#
+# After an intended change in results, rebuild the baseline and commit it:
+#   UPDATE_BASELINE=1 Rscript -e 'tinytest::run_test_file("tests/test_small.R")'
+#
+# What is compared, per fixture: the status, the recommendation text (exactly),
+# and the data (numbers within 1%, which absorbs optimiser noise between
+# platforms). The API version is ignored. PDFs, email, SMS and price refreshes
+# are switched off, and prices come from a fresh database seeded from the CSVs,
+# so results do not depend on the machine or on refreshed prices.
 
-this <- system('hostname', TRUE)
-if (this == "LAPTOP-IVSPBGCA") {
-	akpath <- "C:/github/omilika/akilimo-recommendations"
-} else {
-	akpath <- "."
-}
+akpath <- Sys.getenv("AKILIMO_ROOT", unset = ".")
+if (!file.exists(file.path(akpath, "data", "yield", "Nigeria_WLY_LINTUL_2020.RDS")))
+  exit_file("runtime data not found under AKILIMO_ROOT/data")
+
 setwd(akpath)
+assign("akpath", akpath, envir = globalenv())
+for (f in grep("api", list.files("R", pattern = "\\.R$"), invert = TRUE, value = TRUE))
+  source(file.path("R", f))
 
-srcdir <- file.path(akpath, "R")
-testdir <- file.path(akpath, "tests")
-
-cmp <- readRDS(file.path(testdir, "test_small.rds"))
-
-test <- function(i, x) {
-	y <- cmp[[i]]
-	a <- tinytest::expect_equal(x$recommendation, y$recommendation)
-	if (!a) print(a)
-	b <- tinytest::expect_equivalent(x$data, y$data, tolerance=0.1)
-	if (!b) print(b)
-}
+# Deterministic run: no API refresh, no network, no reports, seed-only prices
+Sys.setenv(AKILIMO_API_URL = "", MAPBOX_TOKEN = "", MAP_API_URL = "",
+           AKILIMO_DB_PATH = tempfile(fileext = ".sqlite"))
+assign("generate_pdfs",   function(...) character(0), envir = globalenv())
+assign("sendEmailReport", function(...) invisible(NULL), envir = globalenv())
+invisible(suppressMessages(open_akilimo_db()))
 
 test_files <- c(
     "in_1_TZ_FR_starch_factory_riskAtt0",
@@ -64,18 +75,35 @@ test_files <- c(
     "in_41_RW_FR_small_area_m2_riskAtt2"
 )
 
-run <- function(i) {
-	cat("+--- ", i, " ---+\n"); flush.console()
-	json <- readLines(file.path(testdir, "input", paste0(test_files[i], ".json")))
-	run_akilimo(json)
+run_fixture <- function(name) {
+  json <- paste(readLines(file.path("tests", "input", paste0(name, ".json")), warn = FALSE), collapse = "\n")
+  r <- tryCatch(suppressWarnings(suppressMessages(run_akilimo(json))),
+                error = function(e) list(status = "R error", data = list(message = conditionMessage(e))))
+  # Plain values only (no unbox classes), without the API version
+  r <- jsonlite::fromJSON(jsonlite::toJSON(r, auto_unbox = TRUE, digits = NA, null = "null", na = "null"))
+  r$version <- NULL
+  r
 }
 
-for (f in grep("api", list.files(srcdir, pattern="\\.R$"), invert=TRUE, value=TRUE)) source(file.path(srcdir, f))
+baseline_file <- file.path("tests", "test_small.rds")
+out <- setNames(lapply(test_files, run_fixture), test_files)
 
-out <- lapply(1:29, \(i) {r <- run(i); test(i, r); r})
+if (nzchar(Sys.getenv("UPDATE_BASELINE"))) {
+  saveRDS(out, baseline_file)
+  exit_file(sprintf("baseline rebuilt: %d fixtures written to %s", length(out), baseline_file))
+}
+if (!file.exists(baseline_file))
+  exit_file("no baseline yet: run with UPDATE_BASELINE=1 and commit tests/test_small.rds")
 
-# Fixtures 38-41 (Rwanda regressions) have no saved baseline; tests/test_rw_regressions.R checks them.
-
-#timeout <- sapply(1:29, \(i) system.time(run(i))["elapsed"])
-#saveRDS(out, file.path(testdir, "test_out6.rds"))
-
+cmp <- readRDS(baseline_file)
+for (name in test_files) {
+  x <- out[[name]]; y <- cmp[[name]]
+  if (is.null(y)) {
+    expect_true(FALSE, info = paste(name, "has no baseline: rebuild with UPDATE_BASELINE=1"))
+    next
+  }
+  expect_equal(x$status, y$status, info = paste(name, "status"))
+  expect_equal(x$data$recommendation, y$data$recommendation, info = paste(name, "recommendation text"))
+  expect_equal(x$data$message, y$data$message, info = paste(name, "message"))
+  expect_equivalent(x$data, y$data, tolerance = 0.01, info = paste(name, "data"))
+}
