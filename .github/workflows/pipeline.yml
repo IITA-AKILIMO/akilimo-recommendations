@@ -193,7 +193,7 @@ jobs:
       # --- Recommendation tests: need the runtime data (about 560 MB, public on
       # OSF). It is cached under a key made from scripts/.env.example (which holds
       # the OSF/Zenodo IDs), so it is downloaded only when the data release changes.
-      # translations.csv is tracked in git, so the cache never includes it.
+      # translations.csv and fertilizer_npk.csv are tracked in git, so the cache never includes them.
       - name: Restore cached runtime data
         id: data
         if: ${{ !cancelled() && steps.r.outcome == 'success' }}
@@ -206,6 +206,7 @@ jobs:
             data/soil
             data/input
             !data/input/translations.csv
+            !data/input/fertilizer_npk.csv
           key: runtime-data-v1-${{ hashFiles('scripts/.env.example') }}
 
       - name: Install Python for the data download (cache miss)
@@ -232,6 +233,7 @@ jobs:
             data/soil
             data/input
             !data/input/translations.csv
+            !data/input/fertilizer_npk.csv
           key: runtime-data-v1-${{ hashFiles('scripts/.env.example') }}
 
       - name: Test recommendations against the saved baseline
@@ -287,13 +289,14 @@ jobs:
             cd "$APP_DIR"
 
             echo "Updating $APP_DIR to $BRANCH..."
-            # translations.csv used to come only from the data bundle; it is now
-            # tracked in git, so an untracked copy would block the pull
-            if [ -f data/input/translations.csv ] && \
-               ! git ls-files --error-unmatch data/input/translations.csv >/dev/null 2>&1; then
-              echo "Replacing the bundled translations.csv with the tracked one"
-              rm -f data/input/translations.csv
-            fi
+            # These files used to come only from the data bundle (or were copied by
+            # hand); they are now tracked in git, so an untracked copy would block the pull
+            for f in data/input/translations.csv data/input/fertilizer_npk.csv; do
+              if [ -f "$f" ] && ! git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
+                echo "Replacing the untracked $f with the tracked one"
+                rm -f "$f"
+              fi
+            done
             git fetch origin
             git checkout "$BRANCH"
             git pull origin "$BRANCH"

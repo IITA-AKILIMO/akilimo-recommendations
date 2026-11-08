@@ -43,7 +43,10 @@ console = Console()
 # them, and extracting an older bundle that has them leaves the local copies
 # alone, so a data pull never overwrites the repo's translations or the
 # server's refreshed prices.
-BUNDLE_EXCLUDED_FILES: tuple[str, ...] = ("data/input/translations.csv",)
+BUNDLE_EXCLUDED_FILES: tuple[str, ...] = (
+    "data/input/translations.csv",
+    "data/input/fertilizer_npk.csv",
+)
 BUNDLE_EXCLUDED_SUFFIXES: tuple[str, ...] = (".sqlite", ".sqlite-wal", ".sqlite-shm", ".db")
 
 
