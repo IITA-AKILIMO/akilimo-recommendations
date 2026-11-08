@@ -71,7 +71,7 @@ then [CLAUDE.md](CLAUDE.md), before changing anything.
 | DATA-3 | Price service data gaps | **Mostly done in new-akilimo-api:**<br>- Burundi `BU`→`BI` (`3681ce2`, pushed).<br>- Currency set on every default and starch price (`2bd8760`).<br>- GH/RW starch factories added **inactive** with estimated prices; inactive factories are hidden from `/starch-prices` (`d80ccf5`, pushed).<br>Left: confirm the GH/RW starch prices, then activate them in the admin. BI has no starch buyer |
 | DATA-4 | Default prices are stale (fertiliser 1.3–7× below market in all five countries; app price ranges reject real prices; Burundi FOMI is per 25 kg bag) | Reviewed with sources in new-akilimo-api `docs/data/price-review-2026-11.md`. Tanzania fertiliser updated to TFRA Sep 2025 (`87721bc`). The rest waits for the price catalogue (§8) and country-team review in the admin |
 | DATA-5 | No post-planting labour defaults for RW, GH, BI. The engine has them only for NG/TZ, hardcoded in `R/AkilimoMain.R` (`default_lmo_costs`) | Draft estimates in new-akilimo-api `docs/data/labour-costs-rw-gh-bi.md` (low confidence). They go in through the catalogue (§8) |
-| ARCH-1 | Prices live in three places that drift apart (API choice lists, API `default_prices`, hardcoded R values) | Design agreed: new-akilimo-api `docs/PRICE_CATALOGUE_DESIGN.md`. **Phase 1 not started**; see §8 |
+| ARCH-1 | Prices live in three places that drift apart (API choice lists, API `default_prices`, hardcoded R values) | Design agreed: new-akilimo-api `docs/PRICE_CATALOGUE_DESIGN.md`. **Phase 1 completed**; see §8 |
 | AGR-1 | PP advice is minimal | Needs agronomist-approved wording; see `docs/TECH-DEBT.md` |
 | AGR-2 | Intercrop coefficients flagged "check with Pieter" | Agronomist review |
 | — | `main` far behind `experimental` | Owner's decision when to merge |
@@ -189,7 +189,7 @@ Limits to tell the owner:
 
 ## 8. Next task: price catalogue phase 1 (ARCH-1)
 
-**Read first:** new-akilimo-api `docs/PRICE_CATALOGUE_DESIGN.md`. It holds the design, the rollout phases and the owner's decisions D1–D6. Nothing is built yet. Phase 1 is API-only and changes nothing for clients.
+**Read first:** new-akilimo-api `docs/PRICE_CATALOGUE_DESIGN.md`. It holds the design, the rollout phases and the owner's decisions D1–D6. Phase 1 is already implemented and API‑only.
 
 **Phase 1 scope** (new-akilimo-api, branch `develop`):
 1. **Extend `default_prices`:** add `region` (nullable), `subsidised_price`, `bag_kg`, `min_price`, `max_price`, `status` (`draft` / `pending_second_review` / `active`), `source`, `source_date`, `confidence`, `effective_from` and `updated_by`. Correct `unit` (labour is `per_acre`, not `per_bag`; Burundi FOMI is `bag_kg = 25`). Add a `default_price_history` table.
