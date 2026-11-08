@@ -163,6 +163,15 @@ jobs:
             quit(status = if (all(as.logical(r))) 0 else 1)
           '
 
+      - name: Test request validation
+        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
+        run: |
+          Rscript -e '
+            r <- tinytest::run_test_file("tests/test_validate_request.R", verbose = 1)
+            print(summary(r))
+            quit(status = if (all(as.logical(r))) 0 else 1)
+          '
+
       - name: Test PDF templates
         if: ${{ !cancelled() && steps.r.outcome == 'success' }}
         run: |

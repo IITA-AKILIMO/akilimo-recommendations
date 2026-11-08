@@ -119,6 +119,11 @@ getSPrecText <- function(ds, country, lang, PD, HD) {
 #' @export
 #'
 #' @examples
+# Why getSPrecommendations() returned no table; process_SP() turns each into its own response.
+SP_NO_LOCATION_DATA   <- "sp_no_location_data"    # no planting-window yield or soil data for this cell
+SP_DATES_OUT_OF_RANGE <- "sp_dates_out_of_range"  # PD/HD combination is outside the modelled window
+SP_MODEL_FAILED       <- "sp_model_failed"        # QUEFTS failed for every row
+
 getSPrecommendations <- function(areaHa, country, lat, lon,
 			PD, HD, PD_window, HD_window, saleSF, nameSF, FCY, 
 			rootUP, rootUP_m1, rootUP_m2, rootUP_p1, rootUP_p2) {
@@ -129,7 +134,7 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
 	if ((nrow(SoilData) == 0) || isTRUE(is.na(SoilData$soilN)) ||
 	    isTRUE(is.na(SoilData$soilP)) || isTRUE(is.na(SoilData$soilK)) ||
 	    (NROW(WLY) == 0)) {
-		return(NULL)
+		return(SP_NO_LOCATION_DATA)
 	}
 
 	WLY <- merge(WLY, data.frame(
@@ -154,7 +159,7 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
 	WLY <- WLY[!is.na(WLY$Current_Yield), ]
 	if (nrow(WLY) == 0) {
 		log_write("WARN", "SP: all QUEFTS calls failed for", country, lon, lat)
-		return(NULL)
+		return(SP_MODEL_FAILED)
 	}
 
     yld <- unique(data.frame(plw = WLY$PlweekNr, haw = WLY$haw, CY = WLY$Current_Yield, WY = WLY$WLY))
@@ -227,9 +232,9 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
 	    # Current-practice (rPWnr=0, rHWnr=0) is absent from the merged yield data —
 	    # the requested PD/HD combination falls outside the modelled scheduling window.
 	    warning(sprintf(
-	        "getSPrecommendations: no yield data for current practice at lon=%.4f lat=%.4f PD=%s HD=%s — returning NULL",
+	        "getSPrecommendations: no yield data for current practice at lon=%.4f lat=%.4f PD=%s HD=%s",
 	        lon, lat, PD, HD))
-		return(NULL)
+		return(SP_DATES_OUT_OF_RANGE)
 	} else {
 		ds$dGR <- ds$GR - ds[ds$CP, "GR"]
 		#sort by decreasing GR, increasing HWnr, decreasing PWnr
@@ -262,8 +267,16 @@ process_SP <- function(
 			FCY = FCY, rootUP = rootUP, rootUP_m1 = rootUP_m1, rootUP_m2 = rootUP_m2, rootUP_p1 = rootUP_p1,
 			rootUP_p2 = rootUP_p2)
 
-		if (!is.data.frame(res)) {
-			recText <- tr("fr_out_of_domain", lang)
+		if (identical(res, SP_NO_LOCATION_DATA)) {
+			return(bad_request(sprintf(
+				"No scheduled planting data available for lat=%.3f, lon=%.3f in %s — fertilizer (FR) advice may still be available for this location",
+				lat, lon, country)))
+		} else if (identical(res, SP_DATES_OUT_OF_RANGE)) {
+			return(bad_request(sprintf(
+				"Scheduled planting cannot be computed for PD=%s and HD=%s — the time from planting to harvest must be between %d and %d days",
+				PD, HD, SP_HAW_DAYS_MIN, max(seq(SP_HAW_DAYS_MIN, SP_HAW_DAYS_MAX, SP_HAW_DAYS_STEP)))))
+		} else if (!is.data.frame(res)) {
+			stop(sprintf("Scheduled planting model failed for lat=%.3f, lon=%.3f in %s", lat, lon, country))
 		} else {
 			success <- TRUE
 

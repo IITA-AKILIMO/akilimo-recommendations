@@ -15,6 +15,9 @@ REC_TYPE_COUNTRIES <- list(
   PP = c("NG", "TZ", "RW", "GH", "BI"),
   SP = c("NG", "TZ", "GH")
 )
+# Types whose result depends on the location's yield/soil data, so a point outside
+# the coverage grid is rejected. IC and PP give the same advice anywhere in a country.
+LOCATION_REC_TYPES <- c("FR", "SP")
 REC_TYPE_LABELS <- c(
   FR = "Fertilizer (FR)",
   IC = "Intercropping (IC)",
@@ -58,7 +61,18 @@ validate_request <- function(body) {
     lon < -180 ||
     lon > 180)
     return("Invalid or missing lon — must be numeric between -180 and 180")
-  if (country %in% VALID_COUNTRIES && !is_point_covered(country, lon, lat))
+
+  rec_type <- active_rec_type(body)
+  if (!is.na(rec_type) && !country %in% REC_TYPE_COUNTRIES[[rec_type]])
+    return(sprintf(
+      "%s recommendations are not available for country: %s — supported countries are %s",
+      REC_TYPE_LABELS[[rec_type]], country, paste(REC_TYPE_COUNTRIES[[rec_type]], collapse = ", ")
+    ))
+
+  # Only FR and SP look up location data (the yield/soil grid GET /coverage draws;
+  # SP's planting-window cells match it for NG and TZ). IC and PP use no location
+  # data, so they are not limited to the grid.
+  if (rec_type %in% LOCATION_REC_TYPES && !is_point_covered(country, lon, lat))
     return(sprintf(
       "No recommendation data available for lat=%.3f, lon=%.3f in %s — this location is outside the supported agricultural area for this country",
       lat, lon, country
@@ -69,13 +83,6 @@ validate_request <- function(body) {
     return(paste("Invalid or missing areaUnits — must be one of:", paste(VALID_AREA_UNITS, collapse = ", ")))
   if (!any(flags))
     return("At least one recommendation flag must be TRUE (FR, IC, PP, SPP, or SPH)")
-
-  rec_type <- active_rec_type(body)
-  if (!is.na(rec_type) && !country %in% REC_TYPE_COUNTRIES[[rec_type]])
-    return(sprintf(
-      "%s recommendations are not available for country: %s — supported countries are %s",
-      REC_TYPE_LABELS[[rec_type]], country, paste(REC_TYPE_COUNTRIES[[rec_type]], collapse = ", ")
-    ))
 
   FCY <- body[["FCY"]]
   if (!is.null(FCY) && (!is.numeric(FCY) || FCY < 0 || FCY > 100))

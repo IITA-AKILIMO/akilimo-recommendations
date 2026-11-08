@@ -130,13 +130,17 @@ get_currency <- function(country) {
 #DESCRIPTION: Function to predict root FM yield based on date of harvest and country, using data from gravimetric starch measurements conducted across ACAI trials.
 #INPUT:       HD: harvest date (Date format)
 #             RDY: root dry matter yield (user's units)
-#             country = c("NG", "TZ")
+#             country = c("NG", "TZ"); any other country uses the NG curve
 
 getRFY <- function(HD, RDY, country) {
 
   d <- as.numeric(strftime(HD, format = "%j"))
   #data.frame with day of the year (dayNr = [1..366]) and %DM (DMCont = [0..100], by country)
   fd <- get_data("dry_matter")
+  # fd2.csv only has curves for NG and TZ. RW, GH and BI use the NG curve, as
+  # run_Optim_NG2() already does for every country; without this the merge is
+  # empty and callers (rerun_25kgha) get numeric(0).
+  if (!country %in% fd$country) country <- "NG"
   DC <- merge(data.frame(dayNr = d), fd[fd$country == country,], sort = FALSE)$DMCont
   RFY <- RDY / DC * 100
   return(RFY)

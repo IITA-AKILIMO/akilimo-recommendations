@@ -46,7 +46,12 @@ build_country_footprint <- function(country) {
         sf::st_simplify(footprint, dTolerance = 1e-6, preserveTopology = TRUE)
     ))
 
-    sf::st_sf(country = country, n_cells = nrow(pts), geometry = footprint)
+    # rec_types: the recommendation types /compute serves in this country, comma-separated
+    # (GeoJSON via GDAL has no portable array property). FR and SP need the point inside
+    # this footprint; IC and PP use no location data. Source: REC_TYPE_COUNTRIES (AkilimoMain.R).
+    rec_types <- names(Filter(function(cc) country %in% cc, REC_TYPE_COUNTRIES))
+    sf::st_sf(country = country, n_cells = nrow(pts), rec_types = paste(rec_types, collapse = ","),
+              geometry = footprint)
 }
 
 sf_to_geojson <- function(x) {

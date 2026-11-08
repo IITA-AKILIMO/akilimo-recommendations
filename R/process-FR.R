@@ -219,8 +219,10 @@ getFRrecommendations <- function(lat, lon, HD, PD, maxInv, fertilizers, rootUP, 
 	} else {
 ## Fertilizers < 25 kg/ha are dropped. ty and NR are recalculated
 ## RH: conceptually it would be better to optimize again?
-		fert25 <- recom_ha[, above25]
-		onlyFert25 <- onlyFert[, above25]
+		# drop = FALSE: with exactly one fertilizer above 25 kg/ha a plain [, j]
+		# returns an unnamed vector, and rerun_25kgha() then matches no fertilizer.
+		fert25 <- recom_ha[, above25, drop = FALSE]
+		onlyFert25 <- onlyFert[, above25, drop = FALSE]
         rdd <- cbind(fertinfo, onlyFert25)
         fert25rec <- rerun_25kgha(rootUP = rootUP, rdd=rdd, fertilizer = fertilizers, 
 				QID = SoilData, onlyFert25 = fert25, country = country, 

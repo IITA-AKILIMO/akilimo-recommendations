@@ -54,11 +54,11 @@ Returns `200` on success, `400` on a bad request, `500` on an unexpected server 
 
 ### `GET /coverage`
 
-Returns a GeoJSON `FeatureCollection` with one `Feature` per supported country (NG, TZ, RW, GH, BI), each a polygon tracing the actual geographic area the yield/soil data covers (not a bounding box). Each feature's properties include `country` and `n_cells` (number of 0.05° grid cells in that country's yield data).
+Returns a GeoJSON `FeatureCollection` with one `Feature` per supported country (NG, TZ, RW, GH, BI), each a polygon tracing the actual geographic area the yield/soil data covers (not a bounding box). Each feature's properties include `country`, `n_cells` (number of 0.05° grid cells in that country's yield data) and `rec_types`, a comma-separated list of the recommendation types `/compute` serves in that country (for example `"FR,PP"` for RW).
 
 Intended for other services that need to know where AKILIMO can produce a recommendation — e.g. to draw coverage overlays on a map, or to pre-filter requests before calling `/compute`. The footprint is generated from the same data `is_point_covered()` uses internally, so it matches `/compute`'s own coverage decisions exactly. Computed once per server process and cached in memory.
 
-The footprint is the area where a location is accepted, which is the FR/PP grid. It does not mean every recommendation type is available there: IC and SP are limited by country (see [Availability by country](#availability-by-country)). The footprint can also contain holes (interior rings) where the grid has no cells, so map clients must draw polygon holes rather than only the outer ring.
+The footprint limits only the types that use location data: FR and SP requests for a point outside it get a `400`. IC and PP give the same advice anywhere in the country, so they are not limited to it. Inside the footprint, a type is still only available if it is listed in `rec_types` (see [Availability by country](#availability-by-country)). The footprint can also contain holes (interior rings) where the grid has no cells, so map clients must draw polygon holes rather than only the outer ring.
 
 ```bash
 curl http://localhost:8000/coverage
@@ -119,7 +119,7 @@ Not every recommendation type has data for every country. If the flag that would
 | PP | ✓ | ✓ | ✓ | ✓ | ✓ |
 | SP (`SPP`/`SPH`) | ✓ | ✓ | — | ✓ | — |
 
-SP needs a planting-window yield file (`data/yield/{CC}_WLY_LINTUL_2020SP.nc`), which exists only for NG, TZ and GH. The list is `REC_TYPE_COUNTRIES` in `R/AkilimoMain.R`.
+SP needs a planting-window yield file (`data/yield/{CC}_WLY_LINTUL_2020SP.nc`), which exists only for NG, TZ and GH. The list is `REC_TYPE_COUNTRIES` in `R/AkilimoMain.R`, and `GET /coverage` reports it per country as `rec_types`. FR and SP also need the point inside the country's coverage footprint; IC and PP do not.
 
 ### Crop and yield
 
@@ -374,13 +374,15 @@ Common causes:
 | `Missing required field: country` | `country` absent or blank |
 | `Invalid country: xx — must be one of: NG, TZ, RW, GH, BI` | Unrecognised country code |
 | `Invalid or missing lat — must be numeric between -90 and 90` | `lat` out of range or non-numeric |
-| `No recommendation data available for lat=X, lon=Y in CC — this location is outside the supported agricultural area for this country` | Coordinate falls outside the country's yield/soil grid; check it against `GET /coverage/CC` |
+| `No recommendation data available for lat=X, lon=Y in CC — this location is outside the supported agricultural area for this country` | FR or SP request for a coordinate outside the country's yield/soil grid; check it against `GET /coverage/CC` |
 | `Invalid or missing area — must be a positive number` | `area` ≤ 0 or absent |
 | `At least one recommendation flag must be TRUE` | All of FR/IC/PP/SPP/SPH are false |
 | `PD must be a valid date in YYYY-MM-DD format` | Bad date string |
 | `maizeUW must be a positive number when maizePD is 'grain'` | Missing weight for grain maize price |
 | `Intercropping (IC) recommendations are not available for country: RW — supported countries are NG, TZ` | IC only supported for NG and TZ (see [Availability by country](#availability-by-country)) |
 | `Scheduled planting (SPP/SPH) recommendations are not available for country: RW — supported countries are NG, TZ, GH` | No planting-window yield data for RW or BI |
+| `No scheduled planting data available for lat=X, lon=Y in CC — fertilizer (FR) advice may still be available for this location` | The point is inside the coverage footprint but has no planting-window yield or soil data (a few cells in GH) |
+| `Scheduled planting cannot be computed for PD=… and HD=… — the time from planting to harvest must be between 235 and 452 days` | `HD − PD` is outside the range the SP model covers |
 | `Invalid or missing areaUnits — must be one of: ha, acre, are, m2, ekari, hekta, string` | `areaUnits` absent or not a supported unit |
 
 ### `500 Internal Server Error`

@@ -60,7 +60,8 @@ test_files <- c(
     "in_37_BI_FR_default_prices_riskAtt2",
     "in_38_RW_SP_window2_not_available",
     "in_39_RW_IC_not_available",
-    "in_40_RW_FR_ekari_riskAtt2"
+    "in_40_RW_FR_ekari_riskAtt2",
+    "in_41_RW_FR_small_area_m2_riskAtt2"
 )
 
 run <- function(i) {
@@ -73,19 +74,7 @@ for (f in grep("api", list.files(srcdir, pattern="\\.R$"), invert=TRUE, value=TR
 
 out <- lapply(1:29, \(i) {r <- run(i); test(i, r); r})
 
-# Rwanda regressions (no saved baseline; check the response envelope instead).
-# SP and IC have no data for RW, so they must return a clear 400 rather than
-# "success" with the fertilizer out-of-domain text or an empty recommendation.
-# ekari is a documented areaUnits value and must be accepted.
-r38 <- run(38)
-tinytest::expect_equal(as.character(r38$status), "400 - bad request")
-tinytest::expect_true(grepl("Scheduled planting .* not available for country: RW", r38$data$message))
-r39 <- run(39)
-tinytest::expect_equal(as.character(r39$status), "400 - bad request")
-tinytest::expect_true(grepl("Intercropping .* not available for country: RW", r39$data$message))
-r40 <- run(40)
-tinytest::expect_equal(as.character(r40$status), "success")
-tinytest::expect_true(nzchar(as.character(r40$data$recommendation)))
+# Fixtures 38-41 (Rwanda regressions) have no saved baseline; tests/test_rw_regressions.R checks them.
 
 #timeout <- sapply(1:29, \(i) system.time(run(i))["elapsed"])
 #saveRDS(out, file.path(testdir, "test_out6.rds"))
