@@ -314,7 +314,8 @@ sync_seed_data <- function(conn) {
             min_starch           = as.numeric(sp$minStarch),
             range_starch         = sp$rangeStarch,
             price                = as.numeric(sp$price),
-            currency             = "",
+            # Optional column; older copies of the CSV have none
+            currency             = if ("currency" %in% names(sp)) ifelse(is.na(sp$currency), "", sp$currency) else "",
             updated_at           = strftime(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
             source               = "seed",
             stringsAsFactors = FALSE
