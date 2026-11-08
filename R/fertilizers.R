@@ -31,7 +31,11 @@ get_fertilizers2 <- function(js, country) {
 	price_notes <- character(0)
 	for (idx in seq_len(nrow(d))) {
 		catalogue <- get_catalogue_price(country, d$type[[idx]], subsidised)
-		if (d$costPerBag[[idx]] == 0 && !is.null(catalogue)) {
+		if (d$costPerBag[[idx]] == 0 && is.null(catalogue)) {
+			# No price from the farmer or the catalogue: NA, so the fertilizer is dropped below
+			# with a "missing values" warning instead of being treated as free
+			d$costPerBag[[idx]] <- NA
+		} else if (d$costPerBag[[idx]] == 0) {
 			d$costPerBag[[idx]] <- catalogue$selected_price[[1]]
 			if (identical(catalogue$unit[[1]], "per_bag") &&
 				!is.na(catalogue$bag_kg[[1]]) && catalogue$bag_kg[[1]] > 0)
@@ -45,21 +49,6 @@ get_fertilizers2 <- function(js, country) {
 			price_notes <- c(price_notes, msg)
 		}
 	}
-	i <- FALSE
-
-	if (any(i)) {
-		# NPK201226 price needs to be added for TZ and NG
-		# NPK151515, SSP also missing for TZ
-
-		#RH: these prices are bag prices. For what weight? 50 kg? If so, 
-		# if the user specified bag weight is not 50, this price needs to be adjusted. 
-		# or is that not allowed (either price and weight or nothing?)
-		default_prices <- get_data("default_prices")
-		default_prices <- default_prices[default_prices$Country == country, ]		
-		m <- match(d$type, default_prices$Item)
-		d$costPerBag[i] <- default_prices$Price[m[i]] 
-	}
-
 	content <- get_data("fertilizer_npk")
 
 	#NPK ought to be followed by 6 numbers

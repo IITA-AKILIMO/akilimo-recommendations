@@ -23,7 +23,7 @@ VALID_UNITS     <- c("per_bag", "per_kg", "per_tonne", "per_acre", "per_ha")
 .akilimo_db_conn <- NULL
 
 # Current schema version — increment whenever DDL changes
-.DB_SCHEMA_VERSION <- 5L
+.DB_SCHEMA_VERSION <- 6L
 
 # ---------------------------------------------------------------------------
 # DDL helpers
@@ -50,6 +50,8 @@ VALID_UNITS     <- c("per_bag", "per_kg", "per_tonne", "per_acre", "per_ha")
         CREATE TABLE IF NOT EXISTS country_price_settings (
             country             TEXT NOT NULL PRIMARY KEY,
             default_price_basis TEXT NOT NULL DEFAULT 'open_market',
+            refreshed_at        TEXT,
+            api_cursor          TEXT,
             updated_at          TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
         );
     ")
@@ -140,6 +142,16 @@ migrate_akilimo_db <- function(conn, current_version) {
                     default_price_basis TEXT NOT NULL DEFAULT 'open_market',
                     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
                 );"
+            ),
+            seed_fn = NULL
+        ),
+        # version 6 — per-country sync state. refreshed_at is the last successful
+        # refresh (drives staleness even when nothing changed); api_cursor is the newest
+        # price-service updated_at seen, sent back verbatim as updated_since.
+        "6" = list(
+            sql = c(
+                "ALTER TABLE country_price_settings ADD COLUMN refreshed_at TEXT;",
+                "ALTER TABLE country_price_settings ADD COLUMN api_cursor TEXT;"
             ),
             seed_fn = NULL
         )
@@ -558,13 +570,16 @@ refresh_prices <- function(country = NULL,
     now_str  <- strftime(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
     valid    <- list()
     page_num <- 1L
+    # The cursor is the price service's own timestamp, so updated_since compares like with like
     last_sync <- DBI::dbGetQuery(conn,
-        "SELECT MAX(updated_at) AS updated_at FROM default_prices WHERE country = ? AND source != 'seed'",
+        "SELECT api_cursor FROM country_price_settings WHERE country = ?",
         params = list(country)
-    )$updated_at[[1]]
+    )$api_cursor
+    last_sync <- if (length(last_sync) == 1) last_sync[[1]] else NA_character_
     updated_since <- if (!is.na(last_sync) && nzchar(last_sync)) paste0("&updated_since=", utils::URLencode(last_sync, reserved = TRUE)) else ""
     page_url <- paste0(api_url, "/prices?country=", country, updated_since, "&page=1")
     price_basis <- NULL
+    api_cursor  <- NA_character_
 
     repeat {
         log_write("DEBUG", sprintf("akilimo_db: fetching default prices %s page %d", country, page_num))
@@ -626,9 +641,12 @@ refresh_prices <- function(country = NULL,
                 currency   = row$currency %||% "",
                 min_price  = suppressWarnings(as.numeric(row$min_price %||% NA_real_)),
                 max_price  = suppressWarnings(as.numeric(row$max_price %||% NA_real_)),
-                updated_at = row$updated_at %||% now_str,
+                # Local sync time, in the format prices_are_stale() parses
+                updated_at = now_str,
                 source     = source_tag
             )
+            row_ts <- row$updated_at %||% ""
+            if (nzchar(row_ts) && (is.na(api_cursor) || row_ts > api_cursor)) api_cursor <- row_ts
         }
 
         if (!is.null(resp$default_price_basis)) price_basis <- resp$default_price_basis
@@ -665,13 +683,21 @@ refresh_prices <- function(country = NULL,
                               v$updated_at, v$source)
             )
         }
-        if (!is.null(price_basis) && price_basis %in% c("open_market", "subsidised")) {
-            DBI::dbExecute(conn,
-                "INSERT OR REPLACE INTO country_price_settings
-                     (country, default_price_basis, updated_at) VALUES (?, ?, ?)",
-                params = list(country, price_basis, now_str)
-            )
-        }
+        basis <- if (!is.null(price_basis) && price_basis %in% c("open_market", "subsidised")) price_basis else NA_character_
+        DBI::dbExecute(conn,
+            "INSERT OR IGNORE INTO country_price_settings (country) VALUES (?)",
+            params = list(country)
+        )
+        # A refresh that brought nothing new still counts: it resets staleness
+        DBI::dbExecute(conn,
+            "UPDATE country_price_settings
+                SET default_price_basis = COALESCE(?, default_price_basis),
+                    api_cursor          = COALESCE(?, api_cursor),
+                    refreshed_at        = ?,
+                    updated_at          = ?
+              WHERE country = ?",
+            params = list(basis, api_cursor, now_str, now_str, country)
+        )
         list(status = "ok", rows_upserted = length(valid), message = NULL)
     }, error = function(e) {
         log_write("WARN", "akilimo_db: DB write error for default/", country, ":", conditionMessage(e))
@@ -863,6 +889,17 @@ prices_are_stale <- function(country) {
         as.numeric(Sys.getenv("PRICE_MAX_AGE_DAYS", unset = "7"))
     )
     if (is.na(max_age_days) || max_age_days <= 0) max_age_days <- 7
+
+    # After a catalogue sync, age is the last successful refresh: incremental syncs
+    # only touch changed rows, so the oldest row would otherwise stay "stale" forever
+    refreshed <- DBI::dbGetQuery(conn,
+        "SELECT refreshed_at FROM country_price_settings WHERE country = ?",
+        params = list(country)
+    )$refreshed_at
+    if (length(refreshed) == 1 && !is.na(refreshed[[1]])) {
+        at <- as.POSIXct(refreshed[[1]], format = "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
+        if (!is.na(at)) return(difftime(Sys.time(), at, units = "days") > max_age_days)
+    }
 
     row <- DBI::dbGetQuery(conn,
         "SELECT MIN(updated_at) AS oldest FROM default_prices WHERE country = ?",

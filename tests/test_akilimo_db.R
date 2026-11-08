@@ -98,12 +98,15 @@ expect_true("price_refresh_log" %in% tables, info = "price_refresh_log table exi
 expect_true("translations"     %in% tables, info = "translations table exists")
 
 ver <- DBI::dbGetQuery(ctx$conn, "PRAGMA user_version;")[[1]]
-expect_equal(ver, 5L, info = "schema version is 5")
+expect_equal(ver, 6L, info = "schema version is 6")
 expect_true(all(c("subsidised_price", "bag_kg", "min_price", "max_price") %in%
                 DBI::dbListFields(ctx$conn, "default_prices")),
             info = "catalogue metadata columns exist")
 expect_true("country_price_settings" %in% tables,
             info = "country_price_settings table exists")
+expect_true(all(c("refreshed_at", "api_cursor") %in%
+                DBI::dbListFields(ctx$conn, "country_price_settings")),
+            info = "country_price_settings keeps the sync state")
 
 cleanup_test_db(ctx)
 
@@ -262,6 +265,20 @@ DBI::dbExecute(ctx$conn,
 )
 expect_true(prices_are_stale("NG"), info = "prices_are_stale: TRUE when row is 8 days old")
 
+# After a catalogue sync, a recent refresh counts even though rows are old: an
+# incremental sync that finds nothing new must not leave the country stale forever
+now_ts <- strftime(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
+DBI::dbExecute(ctx$conn,
+    "INSERT INTO country_price_settings (country, refreshed_at, api_cursor) VALUES ('NG', ?, '2026-05-03 16:49:42')",
+    params = list(now_ts)
+)
+expect_false(prices_are_stale("NG"), info = "prices_are_stale: FALSE right after a refresh, even with old rows")
+DBI::dbExecute(ctx$conn,
+    "UPDATE country_price_settings SET refreshed_at = ? WHERE country = 'NG'",
+    params = list(old_ts)
+)
+expect_true(prices_are_stale("NG"), info = "prices_are_stale: TRUE when the last refresh is 8 days old")
+
 cleanup_test_db(ctx)
 
 # ---------------------------------------------------------------------------
@@ -390,7 +407,9 @@ Sys.setenv(AKILIMO_DB_PATH = old_db)
 conn2 <- open_akilimo_db()
 
 ver2 <- DBI::dbGetQuery(conn2, "PRAGMA user_version;")[[1]]
-expect_equal(ver2, 5L, info = "v1→v5 migration sets user_version to 5")
+expect_equal(ver2, 6L, info = "v1→v6 migration sets user_version to 6")
+expect_true(all(c("refreshed_at", "api_cursor") %in% DBI::dbListFields(conn2, "country_price_settings")),
+            info = "v1→v6 migration adds the sync state columns")
 
 tabs2 <- DBI::dbListTables(conn2)
 expect_true("translations" %in% tabs2, info = "translations table created by v1→v3 migration")
@@ -430,7 +449,7 @@ Sys.setenv(AKILIMO_DB_PATH = v2_db)
 conn3 <- open_akilimo_db()
 
 ver3 <- DBI::dbGetQuery(conn3, "PRAGMA user_version;")[[1]]
-expect_equal(ver3, 5L, info = "v2→v5 migration sets user_version to 5")
+expect_equal(ver3, 6L, info = "v2→v6 migration sets user_version to 6")
 
 cols3 <- DBI::dbListFields(conn3, "translations")
 expect_true("rw" %in% cols3, info = "rw column present after v2→v3 migration")
