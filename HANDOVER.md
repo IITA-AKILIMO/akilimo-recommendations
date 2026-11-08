@@ -66,7 +66,7 @@ then [CLAUDE.md](CLAUDE.md), before changing anything.
 
 | ID | Gap | Status / next step |
 |----|-----|--------------------|
-| DATA-1 | No scheduled planting for RW and BI: no `{CC}_WLY_LINTUL_2020SP.nc`, and no BI points in `SoilData_4Country.RDS` | Blocked on LINTUL runs. The API returns a clear 400; `/coverage?type=SP` is empty |
+| DATA-1 | No scheduled planting for RW and BI: no `{CC}_WLY_LINTUL_2020SP.nc`, and no BI points in `SoilData_4Country.RDS` | **Not blocked on LINTUL runs.** The `.nc` files can be built from the existing yield RDS; see [§7](#7-next-task-sp-for-rw-and-bi-data-1). Open: the BI soil source (owner's decision). The API returns a clear 400 until then; `/coverage?type=SP` is empty |
 | DATA-2 | Kinyarwanda (`rw`) text empty | Needs a translator; fill the `rw` column of `translations.csv` |
 | DATA-3 | Price service data gaps: no currency on any default price (its CSV has no currency column), and no starch prices for BI, RW or GH | Needs real data from IITA. (Burundi default prices are **fixed** in new-akilimo-api `3681ce2`: rows moved `BU`→`BI` by migration, `BU` accepted as an alias, 232 tests pass. A dry-run `refresh_prices.R --country BI` fetched 4 rows. Not pushed there either) |
 | AGR-1 | PP advice is minimal | Needs agronomist-approved wording; see `docs/TECH-DEBT.md` |
@@ -108,4 +108,66 @@ All of these are also in [docs/TECH-DEBT.md](docs/TECH-DEBT.md) ("Blocked on dat
 
 1. The owner pushes `experimental`. Watch the first "Build and deploy" run, especially the OSF data download and `test_small`.
 2. Confirm the new-akilimo-api Burundi fix, then refresh prices on beta (`Rscript refresh_prices.R --type default`).
-3. Hand DATA-1 / DATA-2 / AGR-1 / AGR-2 to the IITA data, translation and agronomy owners.
+3. Do DATA-1 ([§7](#7-next-task-sp-for-rw-and-bi-data-1)) once the owner picks the BI soil source. Hand DATA-2 / AGR-1 / AGR-2 to the IITA translation and agronomy owners.
+
+## 7. Next task: SP for RW and BI (DATA-1)
+
+The owner asked how to build the LINTUL planting-window files for the missing countries. Nothing has been built or committed yet.
+
+**No new LINTUL runs are needed.** `data/yield/Rwanda_WLY_LINTUL.RDS` and `Burundi_WLY_LINTUL.RDS`, the files FR uses, are the same LINTUL output in wide form:
+- Columns: `plantingDate, lat, long, WLY_235 … WLY_452`. That is 32 harvest ages, the same as the `.nc` `daysOnField` dimension.
+- No NAs, and no duplicate cell × planting date.
+- Reshaped long, they give exactly the layout `get_WLY_15M_ncdf()` (`R/get_data.R`) reads:
+  - dims `daysOnField`, `plant` and `cell` (`cellFromLonLat()` at 0.05°)
+  - variable `WLY` in kg/ha
+  - sorted by cell, then plant day, then daysOnField, so daysOnField varies fastest
+
+| Country | Planting dates | Cells | SP soil (`SoilData_4Country.RDS`) |
+|---------|----------------|-------|-----------------------------------|
+| BI | 53, weekly, all year | 805 | **none** |
+| RW | 17: weeks 6–14 and 37–44 (the two seasons) | 782 | all cells |
+
+Steps:
+1. **Build the files.** Add a script under `tools/`; `R/preprocess/` is off limits. It mirrors `R/preprocess/WLY_LINTUL.R` but starts from the wide RDS:
+   ```r
+   for (f in c("misc.R", "get_data.R")) source(file.path("R", f))
+   library(ncdf4)
+   build_sp_nc <- function(cc, rds) {
+     w    <- long2lon(readRDS(file.path("data/yield", rds)))
+     cols <- grep("^WLY_", names(w), value = TRUE)
+     d <- data.frame(
+       cell        = rep(cellFromLonLat(round5min(w$lon), round5min(w$lat)), times = length(cols)),
+       plantDay    = rep(w$plantingDate, times = length(cols)),
+       daysOnField = rep(as.integer(sub("WLY_", "", cols)), each = nrow(w)),
+       WLY         = unlist(w[cols], use.names = FALSE))
+     d  <- d[order(d$cell, d$plantDay, d$daysOnField), ]
+     dC <- ncdim_def("cell", "", as.integer(sort(unique(d$cell))))
+     dP <- ncdim_def("plant", "", as.integer(sort(unique(d$plantDay))))
+     dH <- ncdim_def("daysOnField", "", as.integer(sort(unique(d$daysOnField))))
+     v  <- ncvar_def("WLY", "kg/ha", list(dH, dP, dC), -1, longname = "water limited yield", prec = "double")
+     nc <- nc_create(sprintf("data/yield/%s_WLY_LINTUL_2020SP.nc", cc), v)
+     ncvar_put(nc, v, d$WLY); nc_close(nc)
+   }
+   build_sp_nc("RW", "Rwanda_WLY_LINTUL.RDS")
+   build_sp_nc("BI", "Burundi_WLY_LINTUL.RDS")
+   ```
+   Check: read a few cells back with `get_WLY_15M_ncdf()` and compare them with the RDS values.
+2. **BI soil: the owner decides.** Either:
+   - (a) the producer of `SoilData_4Country.RDS` adds BI, which keeps one method for all countries; or
+   - (b) `getSPrecommendations()` (`R/process-SP.R`) uses `BI_FCY{1..5}_soilNPK.RDS`, picking the class from FCY the way FR does.
+
+   RW can go ahead without waiting for this.
+3. **Code:**
+   - Remove `if (country == "BI") return(NULL)` in `get_WLY_15M_ncdf()`.
+   - Add RW (and BI once soil is settled) to `REC_TYPE_COUNTRIES$SP` in `R/AkilimoMain.R`. `/coverage?type=SP` (`coverage_points()` in `R/coverage.R`) picks them up from the `.nc` file and soil data.
+4. **Tests and docs:**
+   - Update `tests/test_validate_request.R`.
+   - Fixtures `in_38` (RW SP, now expected to succeed) and `in_39`.
+   - `tests/test_rw_regressions.R`.
+   - Rebuild `tests/test_small.rds` with `UPDATE_BASELINE=1`.
+   - In `docs/API-REFERENCE.md`, update the "Availability by country" table and the error list.
+5. **Ship the data (owner only; this publishes data):** run `cd scripts && poetry run bundle-assets`, upload to OSF/Zenodo, then run "Data setup" with target `beta`.
+
+Limits to tell the owner:
+- RW SP only works when PD ± `PD_window` falls in planting weeks 6–14 or 37–44. Other dates get the existing `SP_DATES_OUT_OF_RANGE` 400 ("Scheduled planting cannot be computed for PD=… and HD=…"). Full-year RW would need new LINTUL runs.
+- SP converts dry to fresh yield with the NG curve for every country (`R/process-SP.R`, the `getRFY(..., country = "NG")` loop).
