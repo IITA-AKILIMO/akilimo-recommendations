@@ -23,7 +23,7 @@ VALID_UNITS     <- c("per_bag", "per_kg", "per_tonne", "per_acre", "per_ha")
 .akilimo_db_conn <- NULL
 
 # Current schema version — increment whenever DDL changes
-.DB_SCHEMA_VERSION <- 4L
+.DB_SCHEMA_VERSION <- 5L
 
 # ---------------------------------------------------------------------------
 # DDL helpers
@@ -35,11 +35,22 @@ VALID_UNITS     <- c("per_bag", "per_kg", "per_tonne", "per_acre", "per_ha")
             country     TEXT    NOT NULL,
             item        TEXT    NOT NULL,
             price       REAL    NOT NULL,
+            subsidised_price REAL,
             unit        TEXT    NOT NULL DEFAULT 'per_bag',
+            bag_kg      REAL,
             currency    TEXT    NOT NULL DEFAULT '',
+            min_price   REAL,
+            max_price   REAL,
             updated_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now')),
             source      TEXT    NOT NULL DEFAULT 'seed',
             PRIMARY KEY (country, item)
+        );
+    ")
+    DBI::dbExecute(conn, "
+        CREATE TABLE IF NOT EXISTS country_price_settings (
+            country             TEXT NOT NULL PRIMARY KEY,
+            default_price_basis TEXT NOT NULL DEFAULT 'open_market',
+            updated_at          TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
         );
     ")
     DBI::dbExecute(conn, "
@@ -114,6 +125,22 @@ migrate_akilimo_db <- function(conn, current_version) {
         # never overwrite rows refreshed from the API
         "4" = list(
             sql = c("ALTER TABLE translations ADD COLUMN source TEXT NOT NULL DEFAULT 'seed';"),
+            seed_fn = NULL
+        ),
+        # version 5 — persist price catalogue metadata and each country's
+        # default price basis while keeping the legacy price columns intact.
+        "5" = list(
+            sql = c(
+                "ALTER TABLE default_prices ADD COLUMN subsidised_price REAL;",
+                "ALTER TABLE default_prices ADD COLUMN bag_kg REAL;",
+                "ALTER TABLE default_prices ADD COLUMN min_price REAL;",
+                "ALTER TABLE default_prices ADD COLUMN max_price REAL;",
+                "CREATE TABLE IF NOT EXISTS country_price_settings (
+                    country TEXT NOT NULL PRIMARY KEY,
+                    default_price_basis TEXT NOT NULL DEFAULT 'open_market',
+                    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+                );"
+            ),
             seed_fn = NULL
         )
     )
@@ -378,6 +405,39 @@ get_default_prices <- function(country = NULL) {
 }
 
 # ---------------------------------------------------------------------------
+# get_catalogue_price(country, item, subsidised = NULL)
+# Returns the price and metadata for one catalogue item. When subsidised is
+# NULL, the country's stored default_price_basis selects the applicable price.
+# ---------------------------------------------------------------------------
+
+get_catalogue_price <- function(country, item, subsidised = NULL) {
+    conn <- .assert_db_conn()
+    row <- DBI::dbGetQuery(conn,
+        "SELECT price, subsidised_price, unit, bag_kg, currency, min_price, max_price
+         FROM default_prices
+         WHERE country = ? AND lower(item) = lower(?)
+         LIMIT 1",
+        params = list(country, item)
+    )
+    if (nrow(row) == 0) return(NULL)
+
+    basis <- DBI::dbGetQuery(conn,
+        "SELECT default_price_basis FROM country_price_settings WHERE country = ?",
+        params = list(country)
+    )$default_price_basis
+    use_subsidised <- if (is.null(subsidised)) {
+        length(basis) == 1 && identical(basis[[1]], "subsidised")
+    } else {
+        isTRUE(subsidised)
+    }
+    if (use_subsidised && !is.na(row$subsidised_price[[1]]) && row$subsidised_price[[1]] > 0)
+        row$selected_price <- row$subsidised_price
+    else
+        row$selected_price <- row$price
+    row
+}
+
+# ---------------------------------------------------------------------------
 # get_starch_prices()
 # Returns data.frame with columns matching old starchPrices.csv
 # ---------------------------------------------------------------------------
@@ -498,7 +558,13 @@ refresh_prices <- function(country = NULL,
     now_str  <- strftime(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
     valid    <- list()
     page_num <- 1L
-    page_url <- paste0(api_url, "/default-prices?country=", country, "&page=1")
+    last_sync <- DBI::dbGetQuery(conn,
+        "SELECT MAX(updated_at) AS updated_at FROM default_prices WHERE country = ? AND source != 'seed'",
+        params = list(country)
+    )$updated_at[[1]]
+    updated_since <- if (!is.na(last_sync) && nzchar(last_sync)) paste0("&updated_since=", utils::URLencode(last_sync, reserved = TRUE)) else ""
+    page_url <- paste0(api_url, "/prices?country=", country, updated_since, "&page=1")
+    price_basis <- NULL
 
     repeat {
         log_write("DEBUG", sprintf("akilimo_db: fetching default prices %s page %d", country, page_num))
@@ -554,12 +620,18 @@ refresh_prices <- function(country = NULL,
                 country    = ctry,
                 item       = item,
                 price      = price,
+                subsidised_price = suppressWarnings(as.numeric(row$subsidised_price %||% NA_real_)),
                 unit       = unit,
+                bag_kg     = suppressWarnings(as.numeric(row$bag_kg %||% NA_real_)),
                 currency   = row$currency %||% "",
-                updated_at = now_str,
+                min_price  = suppressWarnings(as.numeric(row$min_price %||% NA_real_)),
+                max_price  = suppressWarnings(as.numeric(row$max_price %||% NA_real_)),
+                updated_at = row$updated_at %||% now_str,
                 source     = source_tag
             )
         }
+
+        if (!is.null(resp$default_price_basis)) price_basis <- resp$default_price_basis
 
         log_write("DEBUG", sprintf("akilimo_db: prices %s page %d — %d record(s), total so far: %d",
                                    country, page_num, length(records), length(valid)))
@@ -570,7 +642,7 @@ refresh_prices <- function(country = NULL,
         page_num <- page_num + 1L
     }
 
-    if (length(valid) == 0) {
+    if (length(valid) == 0 && is.na(last_sync)) {
         msg <- paste("no valid rows returned for", country)
         log_write("WARN", "akilimo_db:", msg)
         return(list(status = "error", rows_upserted = 0L, message = msg))
@@ -585,10 +657,19 @@ refresh_prices <- function(country = NULL,
         for (v in valid) {
             DBI::dbExecute(conn,
                 "INSERT OR REPLACE INTO default_prices
-                     (country, item, price, unit, currency, updated_at, source)
-                 VALUES (?, ?, ?, ?, ?, ?, ?)",
-                params = list(v$country, v$item, v$price, v$unit,
-                              v$currency, v$updated_at, v$source)
+                     (country, item, price, subsidised_price, unit, bag_kg, currency,
+                      min_price, max_price, updated_at, source)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                params = list(v$country, v$item, v$price, v$subsidised_price, v$unit,
+                              v$bag_kg, v$currency, v$min_price, v$max_price,
+                              v$updated_at, v$source)
+            )
+        }
+        if (!is.null(price_basis) && price_basis %in% c("open_market", "subsidised")) {
+            DBI::dbExecute(conn,
+                "INSERT OR REPLACE INTO country_price_settings
+                     (country, default_price_basis, updated_at) VALUES (?, ?, ?)",
+                params = list(country, price_basis, now_str)
             )
         }
         list(status = "ok", rows_upserted = length(valid), message = NULL)

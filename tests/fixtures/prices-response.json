@@ -1,0 +1,19 @@
+{
+  "default_price_basis": "subsidised",
+  "data": [
+    {
+      "country": "BI",
+      "item": "FOMIBAGARA",
+      "price": 52000,
+      "subsidised_price": 26000,
+      "unit": "per_bag",
+      "bag_kg": 25,
+      "currency": "BIF",
+      "min_price": 20000,
+      "max_price": 65000,
+      "source_date": "2026-11-01",
+      "updated_at": "2026-11-08T00:00:00Z"
+    }
+  ],
+  "links": { "next": null }
+}

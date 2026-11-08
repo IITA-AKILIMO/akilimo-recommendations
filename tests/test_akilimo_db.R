@@ -98,7 +98,39 @@ expect_true("price_refresh_log" %in% tables, info = "price_refresh_log table exi
 expect_true("translations"     %in% tables, info = "translations table exists")
 
 ver <- DBI::dbGetQuery(ctx$conn, "PRAGMA user_version;")[[1]]
-expect_equal(ver, 4L, info = "schema version is 4")
+expect_equal(ver, 5L, info = "schema version is 5")
+expect_true(all(c("subsidised_price", "bag_kg", "min_price", "max_price") %in%
+                DBI::dbListFields(ctx$conn, "default_prices")),
+            info = "catalogue metadata columns exist")
+expect_true("country_price_settings" %in% tables,
+            info = "country_price_settings table exists")
+
+cleanup_test_db(ctx)
+
+# ---------------------------------------------------------------------------
+# 3b. get_catalogue_price — selects subsidy basis and returns bag metadata
+# ---------------------------------------------------------------------------
+
+ctx <- new_empty_test_db()
+DBI::dbExecute(ctx$conn,
+    "INSERT INTO default_prices
+         (country, item, price, subsidised_price, unit, bag_kg, currency, min_price, max_price, source)
+     VALUES ('BI', 'FOMIBAGARA', 52000, 26000, 'per_bag', 25, 'BIF', 20000, 65000, 'test')")
+DBI::dbExecute(ctx$conn,
+    "INSERT INTO country_price_settings (country, default_price_basis) VALUES ('BI', 'subsidised')")
+
+price <- get_catalogue_price("BI", "fomibagara")
+expect_equal(price$selected_price, 26000, info = "catalogue uses country subsidised basis")
+expect_equal(price$bag_kg, 25, info = "catalogue retains real bag size")
+expect_equal(get_catalogue_price("BI", "FOMIBAGARA", subsidised = FALSE)$selected_price,
+             52000, info = "explicit open-market choice overrides country basis")
+
+fixture <- jsonlite::fromJSON(file.path(akpath, "tests", "fixtures", "prices-response.json"),
+                              simplifyVector = FALSE)
+contract_row <- fixture$data[[1]]
+expect_true(all(c("country", "item", "price", "subsidised_price", "unit", "bag_kg",
+                  "currency", "min_price", "max_price") %in% names(contract_row)),
+            info = "prices contract fixture has every catalogue field")
 
 cleanup_test_db(ctx)
 
@@ -358,7 +390,7 @@ Sys.setenv(AKILIMO_DB_PATH = old_db)
 conn2 <- open_akilimo_db()
 
 ver2 <- DBI::dbGetQuery(conn2, "PRAGMA user_version;")[[1]]
-expect_equal(ver2, 4L, info = "v1→v4 migration sets user_version to 4")
+expect_equal(ver2, 5L, info = "v1→v5 migration sets user_version to 5")
 
 tabs2 <- DBI::dbListTables(conn2)
 expect_true("translations" %in% tabs2, info = "translations table created by v1→v3 migration")
@@ -398,7 +430,7 @@ Sys.setenv(AKILIMO_DB_PATH = v2_db)
 conn3 <- open_akilimo_db()
 
 ver3 <- DBI::dbGetQuery(conn3, "PRAGMA user_version;")[[1]]
-expect_equal(ver3, 4L, info = "v2→v4 migration sets user_version to 4")
+expect_equal(ver3, 5L, info = "v2→v5 migration sets user_version to 5")
 
 cols3 <- DBI::dbListFields(conn3, "translations")
 expect_true("rw" %in% cols3, info = "rw column present after v2→v3 migration")

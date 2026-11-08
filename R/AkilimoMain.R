@@ -98,12 +98,15 @@ validate_request <- function(body) {
     }
   }
 
-  for (win_field in c("PD_window", "HD_window")) {
+	for (win_field in c("PD_window", "HD_window")) {
     val <- body[[win_field]]
     if (!is.null(val) && !is.na(val)) {
       if (!is.numeric(val) || val < 0 || floor(val) != val)
         return(paste(win_field, "must be a non-negative integer"))
-    }
+	}
+
+	if (!is.null(body[["subsidisedFertilizer"]]) && !is.logical(body[["subsidisedFertilizer"]]))
+		return("subsidisedFertilizer must be a boolean")
   }
 
   NULL  # no error
@@ -197,7 +200,8 @@ parse_request <- function(body) {
 
   user <- get_user(body)
   userField <- from_json("userField", body)
-  riskAtt <- from_json("riskAtt", body, default_value = 0)
+	  riskAtt <- from_json("riskAtt", body, default_value = 0)
+	  subsidisedFertilizer <- from_json("subsidisedFertilizer", body, default_value = NULL)
 
   lang_raw <- from_json("lang", body, default_value = "en")
   # rw (Kinyarwanda) is accepted; until its text is translated, tr() and
@@ -232,7 +236,8 @@ parse_request <- function(body) {
     PD = PD, HD = HD, PD_window = PD_window, HD_window = HD_window,
     FCY = FCY, CMP = CMP, saleSF = saleSF, nameSF = nameSF,
     cassPD = cassPD, cassUW = cassUW, cassUP = cassUP, maxInv = maxInv,
-    user = user, userField = userField, riskAtt = riskAtt,
+	    user = user, userField = userField, riskAtt = riskAtt,
+	    subsidisedFertilizer = subsidisedFertilizer,
     selected_key = selected_key, areaHa = areaHa,
     rootUP = rootUP, cass_denominator = cass_denominator
   )
@@ -241,17 +246,22 @@ parse_request <- function(body) {
 
 # Route to the appropriate processor based on the active recommendation flag.
 dispatch_recommendations <- function(p, body) {
+	with_price_notes <- function(result, fertilizers) {
+		notes <- attr(fertilizers, "price_notes")
+		if (length(notes) > 0) result$price_notes <- notes
+		result
+	}
 
   if (p$FR) {
 
     fertilizers <- get_fertilizers2(body, p$country)
-    process_FR(
+	    with_price_notes(process_FR(
       lat = p$lat, lon = p$lon, HD = p$HD, maxInv = p$maxInv,
       fertilizers = fertilizers, rootUP = p$rootUP, areaHa = p$areaHa,
       country = p$country, lang = p$lang, FCY = p$FCY, riskAtt = p$riskAtt,
       user = p$user, userField = p$userField, area = p$area,
       areaUnits = p$areaUnits, PD = p$PD, cassPD = p$cassPD, cassUW = p$cassUW
-    )
+	    ), fertilizers)
 
   } else if (p$IC) {
 
@@ -264,16 +274,22 @@ dispatch_recommendations <- function(p, body) {
       if (maizePD == "grain") maizeUW <- as.numeric(as.character(maizeUW))
       if (!is.na(maizeUW) && maizeUW == 0) maizeUW <- NA
 
-      maizeUP <- safe_numeric(from_json("maizeUP", body, default_value = 0), "maizeUP")
-      if (!is.na(maizeUP) && maizeUP == 0) {
-        maizeUW <- 1
-        maizeUP <- if (maizePD == "fresh_cob") 50 else 230
+	      maizeUP <- safe_numeric(from_json("maizeUP", body, default_value = 0), "maizeUP")
+	      if (!is.na(maizeUP) && maizeUP == 0) {
+	        maizeUW <- 1
+	        item <- if (maizePD == "fresh_cob") "maize_freshCob" else "maize_grain"
+	        catalogue <- get_catalogue_price(p$country, item)
+	        maizeUP <- if (!is.null(catalogue)) catalogue$selected_price[[1]] else {
+	          fallback <- if (maizePD == "fresh_cob") 50 else 230
+	          log_write("WARN", "Missing catalogue price for", item, "in", p$country, "— using fallback", fallback)
+	          fallback
+	        }
       }
       if (maizePD == "grain" && (is.na(maizeUW) || maizeUW <= 0))
         return(bad_request("maizeUW must be a positive number when maizePD is 'grain'"))
       cobUP <- ifelse(maizePD == "fresh_cob", maizeUP, maizeUP / maizeUW / MAIZE_COBS_PER_KG_GRAIN)
 
-      process_IC_NG(
+	      with_price_notes(process_IC_NG(
         IC = p$IC, country = p$country, lang = p$lang, areaHa = p$areaHa, CMP = p$CMP,
         cobUP = cobUP, fertilizers = fertilizers, riskAtt = p$riskAtt,
         maizePD = maizePD, user = p$user, userField = p$userField,
@@ -281,7 +297,7 @@ dispatch_recommendations <- function(p, body) {
         lat = p$lat, lon = p$lon, maizeUW = maizeUW, cassUW = p$cassUW,
         saleSF = p$saleSF, nameSF = p$nameSF, rootUP = p$rootUP,
         cassPD = p$cassPD, maxInv = p$maxInv, maizeUP = maizeUP
-      )
+	      ), fertilizers)
 
     } else {
       # Only TZ reaches here: validate_request() rejects IC for countries outside
@@ -293,9 +309,15 @@ dispatch_recommendations <- function(p, body) {
       if (!is.na(sweetPotatoUW) && sweetPotatoUW == 0) sweetPotatoUW <- 1000
 
       # Apply price defaults BEFORE computing tuberUP to avoid dividing by zero price
-      if (is.na(sweetPotatoUP) || sweetPotatoUP == 0) {
-        sweetPotatoUW <- 1000
-        sweetPotatoUP <- if (sweetPotatoPD == "tubers") 120000 else 384000
+	      if (is.na(sweetPotatoUP) || sweetPotatoUP == 0) {
+	        sweetPotatoUW <- 1000
+	        item <- if (sweetPotatoPD == "tubers") "sweetPotato_tuber" else "sweetPotato_flour"
+	        catalogue <- get_catalogue_price(p$country, item)
+	        sweetPotatoUP <- if (!is.null(catalogue)) catalogue$selected_price[[1]] else {
+	          fallback <- if (sweetPotatoPD == "tubers") 120000 else 384000
+	          log_write("WARN", "Missing catalogue price for", item, "in", p$country, "— using fallback", fallback)
+	          fallback
+	        }
       }
 
       tuberConv <- data.frame(
@@ -307,7 +329,7 @@ dispatch_recommendations <- function(p, body) {
         sweetPotatoUW /
         conversion_factor3 * 1000
 
-      process_IC_TZ(
+	      with_price_notes(process_IC_TZ(
         IC = p$IC, country = p$country, lang = p$lang, areaHa = p$areaHa, FCY = p$FCY,
         tuberUP = tuberUP, rootUP = p$rootUP, fertilizers = fertilizers,
         riskAtt = p$riskAtt, user = p$user, userField = p$userField,
@@ -315,7 +337,7 @@ dispatch_recommendations <- function(p, body) {
         lat = p$lat, lon = p$lon, sweetPotatoUP = sweetPotatoUP,
         sweetPotatoPD = sweetPotatoPD, sweetPotatoUW = sweetPotatoUW,
         cassUW = p$cassUW, cassPD = p$cassPD, maxInv = p$maxInv
-      )
+	      ), fertilizers)
     }
 
   } else if (p$PP) {
@@ -606,7 +628,7 @@ get_costLMO <- function(body, country, areaHa, areaUnits, ploughing, harrowing, 
   # Conversion factor: cost per acre → cost per hectare
   ACRES_PER_HA <- 2.47105
 
-  # Default land management operation costs (per acre) by country
+	  # Last-resort values for databases without reviewed catalogue prices.
   default_lmo_costs <- list(
     NG = list(
       manual_ploughing = 17000, manual_harrowing = 15000, manual_ridging = 12000,
@@ -620,7 +642,17 @@ get_costLMO <- function(body, country, areaHa, areaUnits, ploughing, harrowing, 
     )
   )
 
-  lmo <- default_lmo_costs[[country]]
+	  lmo <- default_lmo_costs[[country]]
+	  if (!is.null(lmo)) {
+	    for (item in names(lmo)) {
+	      catalogue <- get_catalogue_price(country, item)
+	      if (!is.null(catalogue)) {
+	        lmo[[item]] <- catalogue$selected_price[[1]]
+	      } else {
+	        log_write("WARN", "Missing catalogue price for", item, "in", country, "— using fallback", lmo[[item]])
+	      }
+	    }
+	  }
   if (!is.null(lmo)) {
     if (is.na(cost_manual_ploughing))
       costLMO[costLMO$operation == "ploughing" & man, "costHa"] <- lmo$manual_ploughing * ACRES_PER_HA
