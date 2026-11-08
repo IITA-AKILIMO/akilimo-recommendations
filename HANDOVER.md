@@ -29,11 +29,12 @@ then [CLAUDE.md](CLAUDE.md), before changing anything.
 
 ## 2. Current state
 
-- Branch `experimental`. Pushed up to `462c2ac`. The handover commits after it are local.
+- `experimental` remains the beta branch. Price catalogue phase 2 is on its own branch, **`feat/price-catalogue-phase-2`**, pushed at `c052864` with [PR #31](https://github.com/IITA-AKILIMO/akilimo-recommendations/pull/31) targeting `experimental`.
 - **Latest commits** (newest first):
 
 | Commit | What |
 |--------|------|
+| `c052864` | Price catalogue phase 2: engine syncs reviewed `/v1/prices`, applies catalogue defaults and records range notes; PR #31 |
 | (handover) | This handover update |
 | `d90f8b3` | Reverts `8dd1b29`: Tanzania weeding defaults back to 60,000 / 45,000 TZS per acre (see the warning in §8) |
 | `2f9a168` | Tanzania `tractor_ridging` default 115,000 → 100,000 TZS per acre, matching the price service |
@@ -55,12 +56,16 @@ then [CLAUDE.md](CLAUDE.md), before changing anything.
 | `test_ic_units` | 12/12 |
 | `test_small` | 164/164 (re-run after `d90f8b3`) |
 | `test_rw_regressions` | 8/8 |
+| Phase 2 parse check | 33 files, 0 errors |
+| Phase 2 `test_akilimo_db` | 49/49 |
+| Phase 2 `test_validate_request` | 49/49 |
 
   The translations sync was also dry-run against the local price service: 60 rows, no 401.
 - **Not verified:**
   - The new pipeline on GitHub. First run after push: the OSF data download (~560 MB) on a cold cache, the `github-tag-action@v7` behaviour on `main`, and whether Windows-built `test_small.rds` matches Linux results (1% numeric tolerance, exact recommendation text).
   - Any request over HTTP against a running server.
-  - The beta server's first deploy with these changes. It removes the untracked `data/input/translations.csv` before `git pull` and migrates the DB to v4.
+  - Phase 2 refresh against a live `/v1/prices` response, and a complete recommendation request using an activated catalogue price.
+  - The beta server's first deploy with these changes. It removes the untracked `data/input/translations.csv` before `git pull` and migrates the DB to v5.
 
 ## 3. Open gaps
 
@@ -156,7 +161,7 @@ All of these are also in [docs/TECH-DEBT.md](docs/TECH-DEBT.md) ("Blocked on dat
 
 1. Both repos were pushed on 2026-11-08. Check the "Build and deploy" run for `experimental`, especially the OSF data download and `test_small`.
 2. Refresh prices on beta (`Rscript refresh_prices.R --type all`) so it picks up the currencies, the Burundi fix and the TZ fertiliser prices.
-3. **Price catalogue phase 2** ([§8](#8-price-catalogue-arch-1-phase-1-done-phase-2-next)): the engine syncs `/v1/prices`. Phase 1 is done on new-akilimo-api's `feat/price-review` branch, not yet merged into `develop`. Build phase 2 on branch **`feat/price-catalogue-phase-2`** here (already created from `experimental`, not pushed, no work on it yet), against that API branch. It ships when the owner merges both.
+3. Review and merge [price catalogue phase 2 PR #31](https://github.com/IITA-AKILIMO/akilimo-recommendations/pull/31) alongside new-akilimo-api's `feat/price-review`. Before release, verify `refresh_prices()` and a `/compute` request against the live `/v1/prices` endpoint.
 4. Do DATA-1 ([§7](#7-next-task-sp-for-rw-and-bi-data-1)) once the owner picks the BI soil source. Hand DATA-2 / AGR-1 / AGR-2 to the IITA translation and agronomy owners.
 
 ## 7. Next task: SP for RW and BI (DATA-1)
@@ -221,17 +226,16 @@ Limits to tell the owner:
 - RW SP only works when PD ± `PD_window` falls in planting weeks 6–14 or 37–44. Other dates get the existing `SP_DATES_OUT_OF_RANGE` 400 ("Scheduled planting cannot be computed for PD=… and HD=…"). Full-year RW would need new LINTUL runs.
 - SP converts dry to fresh yield with the NG curve for every country (`R/process-SP.R`, the `getRFY(..., country = "NG")` loop).
 
-## 8. Price catalogue (ARCH-1): phase 1 done, phase 2 next
+## 8. Price catalogue (ARCH-1): phase 1 done, phase 2 awaiting review
 
 **Read first:** new-akilimo-api `docs/PRICE_CATALOGUE_DESIGN.md`. It holds the design, the rollout phases and the owner's decisions D1–D6.
 
-**Phase 2, the next task (this repo). Not started; the owner wants it later.**
-- **Branch:** `feat/price-catalogue-phase-2`, created 2026-11-08 from `experimental` at the handover commit, local only.
-  - Check it out (`git switch feat/price-catalogue-phase-2`), bring it up to date with `experimental` before starting, and never commit phase 2 work to `experimental` directly.
-  - Pushing the branch doesn't deploy: only `experimental` and `main` have deploy targets.
+**Phase 2 (this repo). Implemented in `c052864`; [PR #31](https://github.com/IITA-AKILIMO/akilimo-recommendations/pull/31) is open against `experimental`.**
+- **Branch:** `feat/price-catalogue-phase-2`, pushed. Pushing the branch does not deploy: only `experimental` and `main` have deploy targets.
+- **Release dependency:** merge and deploy it with new-akilimo-api's `feat/price-review`, which provides `GET /v1/prices`. Against an older API the engine logs the refresh failure and keeps its existing seed/cache prices.
 - **API to build against:** new-akilimo-api `feat/price-review`, run locally at `http://127.0.0.1:9100/api/v1`.
 
-Steps:
+Implemented scope (pending live and full-regression verification):
 1. `refresh_prices()` in `R/akilimo_db.R` reads `GET /v1/prices?country=CC[&updated_since=]` instead of `/default-prices`.
    - Store `subsidised_price`, `unit`, `bag_kg`, `min_price`, `max_price` and `currency`: a schema bump, kept across deploys like v4.
    - Keep the rule that a failed or empty refresh keeps the last good data.
@@ -240,6 +244,8 @@ Steps:
 4. Out-of-range request prices: accept, log WARN, and add a response note with the range (D6). Never reject or clamp.
 5. Add a contract-test fixture of a `/v1/prices` response under `tests/`, and run the sync against it in `test_akilimo_db.R`.
 6. `test_small` must pass unchanged at today's values, then update `docs/API-REFERENCE.md`.
+
+**Still to verify:** run `test_small` with runtime data, refresh against the running `feat/price-review` API, and make a `/compute` request that exercises an activated catalogue row. The focused parse, SQLite and request-validation checks are recorded in §2.
 
 Burundi FOMI rows are per 25 kg (`bag_kg = 25`), so use `bag_kg` from the API, not an assumed 50.
 
