@@ -615,7 +615,7 @@ get_costLMO <- function(body, country, areaHa, areaUnits, ploughing, harrowing, 
     ),
     TZ = list(
       manual_ploughing = 175000, manual_harrowing = 150000, manual_ridging = 225000,
-      tractor_ploughing = 150000, tractor_harrowing = 100000, tractor_ridging = 115000,
+      tractor_ploughing = 150000, tractor_harrowing = 100000, tractor_ridging = 100000,
       weeding1 = 600000, weeding2 = 450000
     )
   )
