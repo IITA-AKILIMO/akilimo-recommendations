@@ -4,9 +4,37 @@ bad_request <- function(msg) {
        data    = list(message = jsonlite::unbox(msg)))
 }
 
+# Countries each recommendation type has data for. FR and PP use the per-country
+# yield/soil grids (all five countries, the same grid GET /coverage draws). IC needs
+# an intercrop model (NG: maize, TZ: sweet potato). SP needs a planting-window
+# NetCDF (data/yield/{CC}_WLY_LINTUL_2020SP.nc) plus SoilData_4Country.RDS, which
+# exist for NG, TZ and GH only.
+REC_TYPE_COUNTRIES <- list(
+  FR = c("NG", "TZ", "RW", "GH", "BI"),
+  IC = c("NG", "TZ"),
+  PP = c("NG", "TZ", "RW", "GH", "BI"),
+  SP = c("NG", "TZ", "GH")
+)
+REC_TYPE_LABELS <- c(
+  FR = "Fertilizer (FR)",
+  IC = "Intercropping (IC)",
+  PP = "Post-planting (PP)",
+  SP = "Scheduled planting (SPP/SPH)"
+)
+
+# The recommendation type dispatch_recommendations() will run: the first active
+# flag in FR -> IC -> PP -> SP order, or NA if none is set.
+active_rec_type <- function(body) {
+  flag_type <- c(FR = "FR", IC = "IC", PP = "PP", SPP = "SP", SPH = "SP")
+  on <- vapply(names(flag_type), function(f) isTRUE(as.logical(body[[f]])), logical(1))
+  if (!any(on)) NA_character_ else unname(flag_type[which(on)[1]])
+}
+
 validate_request <- function(body) {
   VALID_COUNTRIES <- c("NG", "TZ", "RW", "GH", "BI")
-  VALID_AREA_UNITS <- c("ha", "acre", "are", "m2")
+  # Must match the units parse_request() converts: ekari/hekta are aliases for
+  # acre/ha, and string uses a factor of 1000 per ha.
+  VALID_AREA_UNITS <- c("ha", "acre", "are", "m2", "ekari", "hekta", "string")
 
   country  <- toupper(trimws(body[["country"]] %||% ""))
   lat <- body[["lat"]]
@@ -41,6 +69,13 @@ validate_request <- function(body) {
     return(paste("Invalid or missing areaUnits — must be one of:", paste(VALID_AREA_UNITS, collapse = ", ")))
   if (!any(flags))
     return("At least one recommendation flag must be TRUE (FR, IC, PP, SPP, or SPH)")
+
+  rec_type <- active_rec_type(body)
+  if (!is.na(rec_type) && !country %in% REC_TYPE_COUNTRIES[[rec_type]])
+    return(sprintf(
+      "%s recommendations are not available for country: %s — supported countries are %s",
+      REC_TYPE_LABELS[[rec_type]], country, paste(REC_TYPE_COUNTRIES[[rec_type]], collapse = ", ")
+    ))
 
   FCY <- body[["FCY"]]
   if (!is.null(FCY) && (!is.numeric(FCY) || FCY < 0 || FCY > 100))
@@ -239,14 +274,9 @@ dispatch_recommendations <- function(p, body) {
         cassPD = p$cassPD, maxInv = p$maxInv, maizeUP = maizeUP
       )
 
-    } else if (p$country %in% c("RW", "GH", "BI")) {
-      return(bad_request(paste(
-        "Intercropping (IC) recommendations are not yet available for country:", p$country,
-        "— supported countries are NG and TZ"
-      )))
-
     } else {
-      # Only TZ reaches here; NG and RW/GH/BI are handled above.
+      # Only TZ reaches here: validate_request() rejects IC for countries outside
+      # REC_TYPE_COUNTRIES$IC (NG, TZ).
 
       sweetPotatoPD <- from_json("sweetPotatoPD", body, default_value = "tubers")
       sweetPotatoUW <- from_json("sweetPotatoUW", body, default_value = NA)
@@ -398,6 +428,9 @@ run_akilimo <- function(json) {
   }
 
   result <- dispatch_recommendations(params, body)
+  # A processor that returns bad_request() must reach the caller as a 400, not
+  # wrapped in a "success" envelope by build_response().
+  if (grepl("^400", as.character(result[["status"]] %||% ""))) return(result)
 
   # Shown on every page of the reports: the caller's reference (the AKILIMO API sends its request_id) and
   # the assumptions behind the advice

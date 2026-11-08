@@ -58,6 +58,8 @@ Returns a GeoJSON `FeatureCollection` with one `Feature` per supported country (
 
 Intended for other services that need to know where AKILIMO can produce a recommendation — e.g. to draw coverage overlays on a map, or to pre-filter requests before calling `/compute`. The footprint is generated from the same data `is_point_covered()` uses internally, so it matches `/compute`'s own coverage decisions exactly. Computed once per server process and cached in memory.
 
+The footprint is the area where a location is accepted, which is the FR/PP grid. It does not mean every recommendation type is available there: IC and SP are limited by country (see [Availability by country](#availability-by-country)). The footprint can also contain holes (interior rings) where the grid has no cells, so map clients must draw polygon holes rather than only the outer ring.
+
 ```bash
 curl http://localhost:8000/coverage
 ```
@@ -105,6 +107,19 @@ At least one flag must be `true`. Only the first active flag (FR → IC → PP �
 | `SPH` | boolean | `false` | Scheduled planting — optimise harvest date |
 
 > **Note:** `SPP` and `SPH` are processed together as a single SP request. Set one or both to `true`.
+
+#### Availability by country
+
+Not every recommendation type has data for every country. If the flag that would be processed isn't available for `country`, `/compute` returns `400` with a message naming the supported countries.
+
+| Type | NG | TZ | RW | GH | BI |
+|------|----|----|----|----|----|
+| FR | ✓ | ✓ | ✓ | ✓ | ✓ |
+| IC | ✓ | ✓ | — | — | — |
+| PP | ✓ | ✓ | ✓ | ✓ | ✓ |
+| SP (`SPP`/`SPH`) | ✓ | ✓ | — | ✓ | — |
+
+SP needs a planting-window yield file (`data/yield/{CC}_WLY_LINTUL_2020SP.nc`), which exists only for NG, TZ and GH. The list is `REC_TYPE_COUNTRIES` in `R/AkilimoMain.R`.
 
 ### Crop and yield
 
@@ -364,7 +379,9 @@ Common causes:
 | `At least one recommendation flag must be TRUE` | All of FR/IC/PP/SPP/SPH are false |
 | `PD must be a valid date in YYYY-MM-DD format` | Bad date string |
 | `maizeUW must be a positive number when maizePD is 'grain'` | Missing weight for grain maize price |
-| `Intercropping (IC) not yet available for country: RW` | IC only supported for NG and TZ |
+| `Intercropping (IC) recommendations are not available for country: RW — supported countries are NG, TZ` | IC only supported for NG and TZ (see [Availability by country](#availability-by-country)) |
+| `Scheduled planting (SPP/SPH) recommendations are not available for country: RW — supported countries are NG, TZ, GH` | No planting-window yield data for RW or BI |
+| `Invalid or missing areaUnits — must be one of: ha, acre, are, m2, ekari, hekta, string` | `areaUnits` absent or not a supported unit |
 
 ### `500 Internal Server Error`
 
