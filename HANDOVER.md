@@ -29,11 +29,12 @@ then [CLAUDE.md](CLAUDE.md), before changing anything.
 
 ## 2. Current state
 
-- `experimental` remains the beta branch. Price catalogue phase 2 is on its own branch, **`feat/price-catalogue-phase-2`**, pushed at `c052864` with [PR #31](https://github.com/IITA-AKILIMO/akilimo-recommendations/pull/31) targeting `experimental`.
+- `experimental` remains the beta branch. Price catalogue phase 2 is on its own branch, **`feat/price-catalogue-phase-2`**, with [PR #31](https://github.com/IITA-AKILIMO/akilimo-recommendations/pull/31) targeting `experimental`. `c052864` is pushed; the fix commit `94bdee0` is not.
 - **Latest commits** (newest first):
 
 | Commit | What |
 |--------|------|
+| `94bdee0` | Phase 2 fixes, found in review (§8): unpriced fertilisers were treated as free, every request re-ran the price refresh, labour lookups covered only NG/TZ. Schema v6 |
 | `c052864` | Price catalogue phase 2: engine syncs reviewed `/v1/prices`, applies catalogue defaults and records range notes; PR #31 |
 | (handover) | This handover update |
 | `d90f8b3` | Reverts `8dd1b29`: Tanzania weeding defaults back to 60,000 / 45,000 TZS per acre (see the warning in §8) |
@@ -56,16 +57,19 @@ then [CLAUDE.md](CLAUDE.md), before changing anything.
 | `test_ic_units` | 12/12 |
 | `test_small` | 164/164 (re-run after `d90f8b3`) |
 | `test_rw_regressions` | 8/8 |
-| Phase 2 parse check | 33 files, 0 errors |
-| Phase 2 `test_akilimo_db` | 49/49 |
-| Phase 2 `test_validate_request` | 49/49 |
+| Phase 2 at `94bdee0`: parse check | 33 files, 0 errors |
+| Phase 2 at `94bdee0`: `test_akilimo_db` | 53/53 |
+| Phase 2 at `94bdee0`: `test_validate_request` | 51/51 |
+| Phase 2 at `94bdee0`: `test_pdf_template`, `test_ic_units` | 48/48, 12/12 |
+| Phase 2 at `94bdee0`: `test_small` | **164/164** (31 of 164 failed at `c052864`) |
+| Phase 2 at `94bdee0`: live refresh | TZ refreshed twice from the running `feat/price-review` API into a DB copy: 16 rows, then 0; the cursor is kept and the country isn't stale |
 
   The translations sync was also dry-run against the local price service: 60 rows, no 401.
 - **Not verified:**
   - The new pipeline on GitHub. First run after push: the OSF data download (~560 MB) on a cold cache, the `github-tag-action@v7` behaviour on `main`, and whether Windows-built `test_small.rds` matches Linux results (1% numeric tolerance, exact recommendation text).
   - Any request over HTTP against a running server.
-  - Phase 2 refresh against a live `/v1/prices` response, and a complete recommendation request using an activated catalogue price.
-  - The beta server's first deploy with these changes. It removes the untracked `data/input/translations.csv` before `git pull` and migrates the DB to v5.
+  - A complete `/compute` request over HTTP that uses an activated catalogue price, e.g. a draft RW labour price activated in the admin.
+  - The beta server's first deploy with these changes. It removes the untracked `data/input/translations.csv` before `git pull` and migrates the DB to v6.
 
 ## 3. Open gaps
 
@@ -226,26 +230,37 @@ Limits to tell the owner:
 - RW SP only works when PD ± `PD_window` falls in planting weeks 6–14 or 37–44. Other dates get the existing `SP_DATES_OUT_OF_RANGE` 400 ("Scheduled planting cannot be computed for PD=… and HD=…"). Full-year RW would need new LINTUL runs.
 - SP converts dry to fresh yield with the NG curve for every country (`R/process-SP.R`, the `getRFY(..., country = "NG")` loop).
 
-## 8. Price catalogue (ARCH-1): phase 1 done, phase 2 awaiting review
+## 8. Price catalogue (ARCH-1): phase 1 done, phase 2 fixed and awaiting review
 
 **Read first:** new-akilimo-api `docs/PRICE_CATALOGUE_DESIGN.md`. It holds the design, the rollout phases and the owner's decisions D1–D6.
 
-**Phase 2 (this repo). Implemented in `c052864`; [PR #31](https://github.com/IITA-AKILIMO/akilimo-recommendations/pull/31) is open against `experimental`.**
+**Phase 2 (this repo). Implemented in `c052864` and fixed in `94bdee0`; [PR #31](https://github.com/IITA-AKILIMO/akilimo-recommendations/pull/31) is open against `experimental`.**
 - **Branch:** `feat/price-catalogue-phase-2`, pushed. Pushing the branch does not deploy: only `experimental` and `main` have deploy targets.
 - **Release dependency:** merge and deploy it with new-akilimo-api's `feat/price-review`, which provides `GET /v1/prices`. Against an older API the engine logs the refresh failure and keeps its existing seed/cache prices.
 - **API to build against:** new-akilimo-api `feat/price-review`, run locally at `http://127.0.0.1:9100/api/v1`.
 
-Implemented scope (pending live and full-regression verification):
+Implemented scope:
 1. `refresh_prices()` in `R/akilimo_db.R` reads `GET /v1/prices?country=CC[&updated_since=]` instead of `/default-prices`.
    - Store `subsidised_price`, `unit`, `bag_kg`, `min_price`, `max_price` and `currency`: a schema bump, kept across deploys like v4.
    - Keep the rule that a failed or empty refresh keeps the last good data.
+   - **Sync state (v6, `94bdee0`):** each row's `updated_at` is the local sync time in ISO format, which `prices_are_stale()` parses. Per country, `country_price_settings` holds:
+     - `api_cursor`: the newest price-service `updated_at` seen, in the API's own format (`2026-11-08 12:33:42`), sent back verbatim as `updated_since`;
+     - `refreshed_at`: the last successful refresh, which staleness uses even when nothing changed.
 2. Replace the hardcoded defaults in `R/AkilimoMain.R` with DB lookups: `default_lmo_costs`, maize `50`/`230` and sweet potato `120000`/`384000`. Keep the hardcoded values only as a last resort, logged at WARN.
 3. Add the optional request field `subsidisedFertilizer` (D1). If absent, use the country's `default_price_basis` from the response. Prices the farmer typed always win.
 4. Out-of-range request prices: accept, log WARN, and add a response note with the range (D6). Never reject or clamp.
 5. Add a contract-test fixture of a `/v1/prices` response under `tests/`, and run the sync against it in `test_akilimo_db.R`.
 6. `test_small` must pass unchanged at today's values, then update `docs/API-REFERENCE.md`.
 
-**Still to verify:** run `test_small` with runtime data, refresh against the running `feat/price-review` API, and make a `/compute` request that exercises an activated catalogue row. The focused parse, SQLite and request-validation checks are recorded in §2.
+**Review findings fixed in `94bdee0`** (all present in `c052864`):
+- **Free fertilisers.** A fertiliser with no price from the farmer or the catalogue got a cost of 0 instead of `NA`. Before phase 2 such fertilisers were dropped with "missing values for fertilizer type: …". At 0 the optimiser treated them as free: 13 regression cases changed, and some were "problem infeasible".
+- **Refresh on every request.** Rows stored the API's `updated_at` (`2026-11-08 12:33:42`), which `prices_are_stale()` can't parse, so every `/compute` re-ran the refresh. Even in the right format, rows unchanged for a week stayed stale, because incremental syncs don't touch them.
+- **Labour lookups only for NG/TZ.** RW/GH/BI labour prices were never read from the catalogue. Now every country is looked up; the hardcoded NG/TZ values are only a fallback.
+- **Minor:** the `subsidisedFertilizer` check was inside the `PD_window`/`HD_window` loop, and tabs were mixed into `R/AkilimoMain.R`.
+
+**Still to verify:** a `/compute` request over HTTP that uses an activated catalogue row, e.g. activate a draft RW labour price in the admin and run a RW PP request.
+
+**Known limitation:** incremental sync never removes a row that was deactivated in the API, so the engine keeps its last price. A full refresh is the workaround: clear `api_cursor` for the country.
 
 Burundi FOMI rows are per 25 kg (`bag_kg = 25`), so use `bag_kg` from the API, not an assumed 50.
 
