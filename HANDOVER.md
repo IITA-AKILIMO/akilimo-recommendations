@@ -29,8 +29,8 @@ then [CLAUDE.md](CLAUDE.md), before changing anything.
 
 ## 2. Current state
 
-- Branch `experimental`, working tree clean once the handover commit lands. Earlier work up to `b37fe29` has been pushed.
-- **Local commits not pushed** (newest first):
+- Branch `experimental`. **Everything is pushed** (`eda0060` and earlier, as of 2026-11-08).
+- **Latest commits** (newest first):
 
 | Commit | What |
 |--------|------|
@@ -82,7 +82,7 @@ All of these are also in [docs/TECH-DEBT.md](docs/TECH-DEBT.md) ("Blocked on dat
 ## 4. Related work in other places
 
 - **new-akilimo-api** (Laravel price/translation service, `D:\Dev\php\new-akilimo-api`, branch `develop`, `http://127.0.0.1:9100/api/v1` locally). It has no handover of its own; this file covers it.
-  - **Not pushed there** (newest first):
+  - **Latest commits there**, all pushed to `develop` (newest first):
     - `d6c1e00`: the owner's own navigation-param fix.
     - `179880f`, `1fa40a5`, `5e2bcc6`: price catalogue design doc with decisions.
     - `87721bc`: Tanzania fertiliser defaults set to TFRA Sep 2025.
@@ -120,7 +120,7 @@ All of these are also in [docs/TECH-DEBT.md](docs/TECH-DEBT.md) ("Blocked on dat
 
 ## 6. Suggested next steps
 
-1. The owner pushes `experimental` and new-akilimo-api `develop`. Watch the first "Build and deploy" run, especially the OSF data download and `test_small`.
+1. Both repos were pushed on 2026-11-08. Check the "Build and deploy" run for `experimental`, especially the OSF data download and `test_small`.
 2. Refresh prices on beta (`Rscript refresh_prices.R --type all`) so it picks up the currencies, the Burundi fix and the TZ fertiliser prices.
 3. **Price catalogue phase 1** ([§8](#8-next-task-price-catalogue-phase-1-arch-1)), in new-akilimo-api.
 4. Do DATA-1 ([§7](#7-next-task-sp-for-rw-and-bi-data-1)) once the owner picks the BI soil source. Hand DATA-2 / AGR-1 / AGR-2 to the IITA translation and agronomy owners.
