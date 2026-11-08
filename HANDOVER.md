@@ -156,7 +156,7 @@ All of these are also in [docs/TECH-DEBT.md](docs/TECH-DEBT.md) ("Blocked on dat
 
 1. Both repos were pushed on 2026-11-08. Check the "Build and deploy" run for `experimental`, especially the OSF data download and `test_small`.
 2. Refresh prices on beta (`Rscript refresh_prices.R --type all`) so it picks up the currencies, the Burundi fix and the TZ fertiliser prices.
-3. **Price catalogue phase 2** ([§8](#8-price-catalogue-arch-1-phase-1-done-phase-2-next)): the engine syncs `/v1/prices`. Phase 1 is done on new-akilimo-api's `feat/price-review` branch, not yet merged into `develop`. Build phase 2 against that branch's API, and on a feature branch here too; it ships when the owner merges both.
+3. **Price catalogue phase 2** ([§8](#8-price-catalogue-arch-1-phase-1-done-phase-2-next)): the engine syncs `/v1/prices`. Phase 1 is done on new-akilimo-api's `feat/price-review` branch, not yet merged into `develop`. Build phase 2 on branch **`feat/price-catalogue-phase-2`** here (already created from `experimental`, not pushed, no work on it yet), against that API branch. It ships when the owner merges both.
 4. Do DATA-1 ([§7](#7-next-task-sp-for-rw-and-bi-data-1)) once the owner picks the BI soil source. Hand DATA-2 / AGR-1 / AGR-2 to the IITA translation and agronomy owners.
 
 ## 7. Next task: SP for RW and BI (DATA-1)
@@ -225,7 +225,13 @@ Limits to tell the owner:
 
 **Read first:** new-akilimo-api `docs/PRICE_CATALOGUE_DESIGN.md`. It holds the design, the rollout phases and the owner's decisions D1–D6.
 
-**Phase 2, the next task (this repo):**
+**Phase 2, the next task (this repo). Not started; the owner wants it later.**
+- **Branch:** `feat/price-catalogue-phase-2`, created 2026-11-08 from `experimental` at the handover commit, local only.
+  - Check it out (`git switch feat/price-catalogue-phase-2`), bring it up to date with `experimental` before starting, and never commit phase 2 work to `experimental` directly.
+  - Pushing the branch doesn't deploy: only `experimental` and `main` have deploy targets.
+- **API to build against:** new-akilimo-api `feat/price-review`, run locally at `http://127.0.0.1:9100/api/v1`.
+
+Steps:
 1. `refresh_prices()` in `R/akilimo_db.R` reads `GET /v1/prices?country=CC[&updated_since=]` instead of `/default-prices`.
    - Store `subsidised_price`, `unit`, `bag_kg`, `min_price`, `max_price` and `currency`: a schema bump, kept across deploys like v4.
    - Keep the rule that a failed or empty refresh keeps the last good data.
