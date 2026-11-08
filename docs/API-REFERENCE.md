@@ -96,7 +96,7 @@ All fields are JSON. **R** = required, **O** = optional (default shown).
 | `country` | string | **R** | — | `NG` `TZ` `RW` `GH` `BI` — case-insensitive |
 | `lat` | number | **R** | — | Decimal degrees, −90 to 90 |
 | `lon` | number | **R** | — | Decimal degrees, −180 to 180 |
-| `lang` | string | O | `"en"` | Response language: `en` or `sw` (Swahili) |
+| `lang` | string | O | `"en"` | Response language: `en`, `sw` (Swahili) or `rw` (Kinyarwanda; English until its text is translated). Anything else gives English |
 
 ### Farm area
 

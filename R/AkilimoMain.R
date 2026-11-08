@@ -200,7 +200,9 @@ parse_request <- function(body) {
   riskAtt <- from_json("riskAtt", body, default_value = 0)
 
   lang_raw <- from_json("lang", body, default_value = "en")
-  lang <- if (lang_raw %in% c("en", "sw")) lang_raw else "en"
+  # rw (Kinyarwanda) is accepted; until its text is translated, tr() and
+  # html_label() fall back to English key by key
+  lang <- if (lang_raw %in% c("en", "sw", "rw")) lang_raw else "en"
 
   flag_to_key <- c(FR = "FR", PP = "PP", IC = "IC", SPP = "SP", SPH = "SP")
   active_flags <- c(FR = FR, PP = PP, IC = IC, SPP = SPP, SPH = SPH)

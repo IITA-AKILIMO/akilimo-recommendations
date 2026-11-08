@@ -34,3 +34,12 @@ tests/response/*
 .RData
 .idea/*
 .ai
+
+# Recommendation text is versioned with the code that uses it (new keys ship
+# with the change that needs them); the rest of data/ comes from OSF/Zenodo.
+!data/input/
+data/input/*
+!data/input/translations.csv
+
+# Saved regression results for tests/test_small.R
+!tests/test_small.rds

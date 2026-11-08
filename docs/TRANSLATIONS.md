@@ -19,9 +19,11 @@ recPopt,"Your revenue will be highest at your proposed planting date, on {date}.
 | `key`  | Unique identifier used in R code |
 | `en`   | English text (default / fallback) |
 | `sw`   | Swahili text |
-| `rw`   | Kinyarwanda text (placeholder — falls back to `en`) |
+| `rw`   | Kinyarwanda text — **still empty, waiting for a translator**; every key falls back to `en` |
 
 **Rule:** every key must have an `en` value. Other columns may be empty or contain a placeholder — the `tr()` function falls back to `en` automatically.
+
+The file is tracked in git (an exception in `.gitignore`; the rest of `data/` comes from OSF/Zenodo), so a new key ships in the same commit as the code that uses it. Requests with `lang: "rw"` are accepted and get English until the `rw` column is filled in. On every start the API copies the CSV into the price database (`sync_seed_data()` in `R/akilimo_db.R`); rows refreshed from the translations API are kept.
 
 ---
 
@@ -129,7 +131,7 @@ No R code changes are required unless you are introducing a new composite senten
    lang <- if (lang_raw %in% c("en", "sw", "fr")) lang_raw else "en"
    ```
 
-3. Publish the updated `translations.csv` to OSF or Zenodo (see [SETUP.md](../SETUP.md#maintainer-publishing-data-updates)).
+3. Commit the updated `translations.csv` with the change (it is tracked in git).
 
 Keys that lack a translation for the new language automatically fall back to English.
 

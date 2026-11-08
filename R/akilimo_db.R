@@ -213,6 +213,13 @@ open_akilimo_db <- function() {
         source     = "seed",
         stringsAsFactors = FALSE
     )
+    # An empty language column (e.g. rw before it is translated) reads as NA;
+    # the table stores blanks as '' and tr() falls back to English
+    for (col in c("en", "sw", "rw")) {
+        v <- as.character(rows[[col]])
+        v[is.na(v)] <- ""
+        rows[[col]] <- v
+    }
     .sync_seed_rows(conn, "translations", rows, key_cols = "key")
     invisible(NULL)
 }
