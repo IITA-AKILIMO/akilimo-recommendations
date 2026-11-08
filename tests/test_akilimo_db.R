@@ -126,6 +126,16 @@ if (has_csv) {
         "SELECT COUNT(*) AS n FROM default_prices WHERE country = 'BU'")$n
     expect_equal(bu_rows, 0L, info = "legacy BU normalised to BI during seed")
 
+    # Optional currency column is carried into the table
+    sp_src <- read.csv(sp_csv, stringsAsFactors = FALSE)
+    if ("currency" %in% names(sp_src)) {
+        with_cur <- sp_src[!is.na(sp_src$currency) & nzchar(sp_src$currency), ]
+        seeded <- DBI::dbGetQuery(ctx$conn,
+            "SELECT key, currency FROM starch_prices WHERE currency != ''")
+        expect_equal(sort(seeded$key), sort(with_cur$KEY),
+                     info = "starch_prices currency seeded from CSV")
+    }
+
     cleanup_test_db(ctx)
 } else {
     message("SKIP: CSV data files not present — seed tests skipped")
