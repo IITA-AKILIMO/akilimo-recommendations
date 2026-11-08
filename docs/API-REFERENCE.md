@@ -753,7 +753,9 @@ Rows with an invalid `country`, blank `item`, non-positive `price`, or unrecogni
 
 ## Starch Prices Feed
 
-Starch factory gate prices used for Tanzania cassava processing recommendations. Refreshed by `refresh_starch_prices()` when `AKILIMO_API_URL` is set.
+Starch factory gate prices (per tonne of fresh roots) used when a request sells to a starch factory (`saleSF`). Refreshed by `refresh_starch_prices()` when `AKILIMO_API_URL` is set.
+
+Nigeria and Tanzania have confirmed factories. Ghana (Ayensu Starch Company, `AyensuStarch`) and Rwanda (Kinazi Cassava Plant, `KinaziCassavaPlant`) are in the seed `starchPrices.csv` with **estimated** prices. The API keeps them inactive and leaves them out of this feed until their prices are confirmed. A refresh that returns no rows for a country keeps the seeded rows, and activating a factory in the API replaces them with the confirmed price. Burundi has no starch factory.
 
 ### Expected endpoint
 
