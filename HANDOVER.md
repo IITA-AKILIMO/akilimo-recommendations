@@ -81,19 +81,31 @@ All of these are also in [docs/TECH-DEBT.md](docs/TECH-DEBT.md) ("Blocked on dat
 
 ## 4. Related work in other places
 
-- **new-akilimo-api** (Laravel price/translation service, `D:\Dev\php\new-akilimo-api`, branch `develop`, `http://127.0.0.1:9100/api/v1` locally). It has no handover of its own; this file covers it.
-  - **`8acb962` (not pushed): price catalogue phase 1**, by another agent. It was `690ff69` before its garbled message was reworded. Checked 2026-11-08:
+- **new-akilimo-api** (Laravel price/translation service, `D:\Dev\php\new-akilimo-api`, `http://127.0.0.1:9100/api/v1` locally). It has no handover of its own; this file covers it.
+  - **Branches:**
+    - The price catalogue lives on **`feat/price-review`** (pushed). The owner moved it off `develop` so unfinished features aren't released.
+    - `develop` (origin) stays at `d6c1e00`, **without** phase 1. There is no local `develop` branch now.
+    - Do price-catalogue work on `feat/price-review`; merging it into `develop` is the owner's call.
+  - **Local DB caveat:** the local database has phase 1 migrations `…000005`–`…000009` applied, including **draft** labour prices.
+    - `develop`'s `/v1/default-prices` doesn't filter by status, so running `develop` locally would serve those drafts to `refresh_prices.R`.
+    - Stay on `feat/price-review` locally, or roll those migrations back first: `php artisan migrate:rollback --step=…`, after checking their `down()`.
+  - **`8acb962`: price catalogue phase 1**, by another agent, on `feat/price-review`. It was `690ff69` before its garbled message was reworded. Later commits on that branch:
+    - `068b868`: PHPStan restore;
+    - `512f373`: PHPStan fixes;
+    - `edcf3a8`, `a359a6f`, `310a503`: migration refactors, including a foreign key on `country_reviewers.country_code`.
+
+    Checked 2026-11-08 at `512f373`:
     - 250 tests pass and no migrations are pending.
     - `GET /v1/prices?country=TZ` answers 200 with an `ETag`, `default_price_basis` and the new row fields.
     - The ±30 % second review is in `app/Service/PriceCatalogueService.php`; its threshold and the units per item are in `config/price_catalogue.php`.
     - Research labour estimates are imported as `draft` rows (migration `…000009`).
     - Existing rows have no `min_price`/`max_price`/source yet; country teams fill those in through the admin.
-    - **`phpstan.neon`:** that commit had replaced the whole file. **Restored in `068b868` (not pushed)**, with the custom `EnforceNamedArgumentsRule`, the Larastan options and the strict rules back.
+    - **`phpstan.neon`:** that commit had replaced the whole file. **Restored in `068b868`**, with the custom `EnforceNamedArgumentsRule`, the Larastan options and the strict rules back.
       - The old file never ran: one `ignoreErrors` entry lacked `#…#` delimiters, and its extensions weren't installed.
       - `068b868` fixes that entry, adds `phpstan/phpstan-strict-rules` as a dev dependency and `includes` both extensions explicitly.
-      - Run it with `vendor\bin\phpstan analyse --memory-limit=1G`. It found 19 issues in `app/Http/Controllers/Web`; **all were fixed in `512f373` (not pushed), and it now reports no errors.** Eloquent `exists()`/`orderBy()` false positives were added to the existing `selectRaw` ignore entry. It analyses only `app/Http/Controllers/Web` (the `paths` setting); widening that will surface more.
+      - Run it with `vendor\bin\phpstan analyse --memory-limit=1G`. It found 19 issues in `app/Http/Controllers/Web`; **all were fixed in `512f373`, and it reported no errors at that commit.** Eloquent `exists()`/`orderBy()` false positives were added to the existing `selectRaw` ignore entry. It analyses only `app/Http/Controllers/Web` (the `paths` setting); widening that will surface more.
       - `composer require` also reported 8 security advisories affecting 5 existing packages (`composer audit`).
-  - **Earlier commits there**, all pushed to `develop` (newest first):
+  - **Earlier commits**, all on `develop` (newest first):
     - `d6c1e00`: the owner's own navigation-param fix.
     - `179880f`, `1fa40a5`, `5e2bcc6`: price catalogue design doc with decisions.
     - `87721bc`: Tanzania fertiliser defaults set to TFRA Sep 2025.
@@ -133,7 +145,7 @@ All of these are also in [docs/TECH-DEBT.md](docs/TECH-DEBT.md) ("Blocked on dat
 
 1. Both repos were pushed on 2026-11-08. Check the "Build and deploy" run for `experimental`, especially the OSF data download and `test_small`.
 2. Refresh prices on beta (`Rscript refresh_prices.R --type all`) so it picks up the currencies, the Burundi fix and the TZ fertiliser prices.
-3. **Price catalogue phase 2** ([§8](#8-price-catalogue-arch-1-phase-1-done-phase-2-next)): the engine syncs `/v1/prices`. Phase 1 is done (new-akilimo-api `8acb962`). Country teams can now enter prices in the admin.
+3. **Price catalogue phase 2** ([§8](#8-price-catalogue-arch-1-phase-1-done-phase-2-next)): the engine syncs `/v1/prices`. Phase 1 is done on new-akilimo-api's `feat/price-review` branch, not yet merged into `develop`. Build phase 2 against that branch's API, and on a feature branch here too; it ships when the owner merges both.
 4. Do DATA-1 ([§7](#7-next-task-sp-for-rw-and-bi-data-1)) once the owner picks the BI soil source. Hand DATA-2 / AGR-1 / AGR-2 to the IITA translation and agronomy owners.
 
 ## 7. Next task: SP for RW and BI (DATA-1)
@@ -214,7 +226,7 @@ Limits to tell the owner:
 
 Burundi FOMI rows are per 25 kg (`bag_kg = 25`), so use `bag_kg` from the API, not an assumed 50.
 
-**Phase 1, done** in new-akilimo-api `8acb962` (see §4 for the checks and the PHPStan restore). Its scope was:
+**Phase 1, done** on new-akilimo-api's `feat/price-review` branch (`8acb962` and later; see §4). Its scope was:
 1. **Extend `default_prices`:** add `region` (nullable), `subsidised_price`, `bag_kg`, `min_price`, `max_price`, `status` (`draft` / `pending_second_review` / `active`), `source`, `source_date`, `confidence`, `effective_from` and `updated_by`. Correct `unit` (labour is `per_acre`, not `per_bag`; Burundi FOMI is `bag_kg = 25`). Add a `default_price_history` table.
 2. **Add `countries.default_price_basis`,** default `open_market`.
 3. **Add `GET /v1/prices?country=&updated_since=`:** active, national, effective rows only, with an `ETag`. Keep `/v1/default-prices` working for the engine.
