@@ -87,7 +87,7 @@ akilimo-recommendations/
 │   └── upload_zenodo.py    # Uploads bundles to Zenodo
 ├── systemd/                # systemd service template
 ├── docs/                   # Documentation
-└── .github/workflows/      # CI/CD (pipeline.yml, setup-zenodo-data.yml)
+└── .github/workflows/      # CI/CD (pipeline.yml, data-setup.yml)
 ```
 
 Directories to ignore: `old/` (archived) and `R/preprocess/` (offline data prep, not sourced by the API).
