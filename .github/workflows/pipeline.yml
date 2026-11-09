@@ -27,16 +27,9 @@ on:
   workflow_dispatch:
     inputs:
       setup_data:
-        description: "Pull runtime data (OSF/Zenodo) before deploying"
+        description: "Pull runtime data from OSF before deploying"
         type: boolean
         default: false
-      data_source:
-        description: "Data source (used when setup_data is ticked)"
-        type: choice
-        default: "osf"
-        options:
-          - osf
-          - zenodo
 
 permissions:
   contents: read
@@ -341,8 +334,6 @@ jobs:
           username: ${{ vars.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           app_dir: ${{ needs.plan.outputs.app_dir }}
-          source: ${{ inputs.data_source }}
-          zenodo_record_id: ${{ secrets.ZENODO_RECORD_ID }}
           osf_node_id: ${{ secrets.OSF_NODE_ID }}
 
   restart:

@@ -222,7 +222,7 @@ Plan → Wait for more pushes → R checks (syntax, price database tests, PDF te
 
 `Plan` matches the branch to a target in `deploy-targets.json`; any other branch or a pull request stops after the checks. Server jobs run over SSH using the repo variables `SERVER_HOST`, `SERVER_USER` and the secret `SERVER_SSH_KEY`, only after every check passes, and share a per-target lock. `Check health` fails if `GET /health` does not respond within 180s. `R checks` sets up R once and runs each check as its own step. Its R packages are cached under a key made from `install_packages.R`: they are installed only when that file changes or no cache exists, otherwise they come from the cache. Shared steps live in composite actions under `.github/actions/` (`resolve-target`, `setup-r-env`, `pull-data`).
 
-Runtime data (OSF/Zenodo) is pulled by the `Pull runtime data` job when "Build and deploy" is run by hand with `setup_data` ticked, or on its own by `setup-zenodo-data.yml` ("Data setup") with a `target` of `production` or `beta`. Both targets share the `ZENODO_RECORD_ID` / `OSF_NODE_ID` secrets.
+Runtime data is always pulled from **OSF** on the servers and in CI. Servers get it from the `Pull runtime data` job when "Build and deploy" is run by hand with `setup_data` ticked, or on their own from `setup-zenodo-data.yml` ("Data setup", named before the switch to OSF) with a `target` of `production` or `beta`. Both targets share the `OSF_NODE_ID` secret, which "Data setup" can override per run. Zenodo stays available only for manual use (`poetry run setup-data --source zenodo`).
 
 Service templates: `systemd/akilimo-api.service.example` (production), `systemd/akilimo-api-beta.service.example` (beta). Resource limits: 2GB RAM, 2 CPU cores, 65536 FDs.
 

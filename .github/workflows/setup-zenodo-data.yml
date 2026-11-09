@@ -1,6 +1,7 @@
 name: Data setup
 
-# Pulls runtime data (OSF or Zenodo) onto a deploy target's server, on its own.
+# Pulls runtime data from OSF onto a deploy target's server, on its own.
+# (The file keeps its old name so its run history and links stay intact.)
 # To pull data as part of a deploy, run "Build and deploy" by hand with
 # setup_data ticked. Target paths come from .github/deploy-targets.json.
 on:
@@ -14,19 +15,8 @@ on:
         options:
           - production
           - beta
-      source:
-        description: "Download source"
-        required: true
-        default: "osf"
-        type: choice
-        options:
-          - zenodo
-          - osf
-      record_id:
-        description: "Zenodo record ID (overrides secret; Zenodo only)"
-        required: false
       osf_node_id:
-        description: "OSF project node ID (overrides secret; OSF only)"
+        description: "OSF project node ID (overrides the OSF_NODE_ID secret)"
         required: false
 
 permissions:
@@ -62,6 +52,4 @@ jobs:
           username: ${{ vars.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           app_dir: ${{ steps.target.outputs.app_dir }}
-          source: ${{ inputs.source }}
-          zenodo_record_id: ${{ inputs.record_id || secrets.ZENODO_RECORD_ID }}
           osf_node_id: ${{ inputs.osf_node_id || secrets.OSF_NODE_ID }}
