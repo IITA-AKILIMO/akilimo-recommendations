@@ -2,7 +2,7 @@ name: Data setup
 
 # Pulls runtime data from OSF onto a deploy target's server, on its own.
 # (Runs from before 2026-11-09 are listed under the old file, setup-zenodo-data.yml.)
-# To pull data as part of a deploy, run "Build and deploy" by hand with
+# To pull data as part of a deploy, run "Deploy" (deploy.yml) by hand with
 # setup_data ticked. Target paths come from .github/deploy-targets.json.
 on:
   workflow_dispatch:

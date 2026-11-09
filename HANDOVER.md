@@ -167,14 +167,16 @@ All of these are also in [docs/TECH-DEBT.md](docs/TECH-DEBT.md) ("Blocked on dat
   - `.bat` files must be ASCII with CRLF line endings.
   - watchexec 2.7 needs absolute `--watch` paths (`%CD%\R`).
   - Git converts LF to CRLF in the working copy; that's harmless.
-- **CI (`.github/workflows/pipeline.yml`):**
-  - Order: Plan → Wait → R checks → Update code → Pull data (optional) → Restart → Health → Tag (production only).
+- **CI and deploy** (split on 2026-11-09; was `pipeline.yml`):
+  - `ci.yml` ("CI"): R checks on every push and PR. On pushes it then calls `deploy.yml` as a reusable workflow, which runs from the pushed branch, not from `main`.
+  - `deploy.yml` ("Deploy"): Plan → Wait → Update code → Pull data (optional) → Restart → Health → Tag (production only). It can be run by hand from the Actions tab, but a manual run does **not** run the R checks.
+  - `data-setup.yml` ("Data setup"): pulls OSF data onto a server on its own.
   - Deploy targets live in `.github/deploy-targets.json`.
   - Composite actions are in `.github/actions/`.
 
 ## 6. Suggested next steps
 
-1. Both repos were pushed on 2026-11-08. Check the "Build and deploy" run for `experimental`, especially the OSF data download and `test_small`.
+1. Check the first "CI" run after the workflow split, especially `test_small` and that "Deploy" appears as one box and stops after Plan on a feature branch.
 2. Refresh prices on beta (`Rscript refresh_prices.R --type all`) so it picks up the currencies, the Burundi fix and the TZ fertiliser prices.
 3. Review and merge [price catalogue phase 2 PR #31](https://github.com/IITA-AKILIMO/akilimo-recommendations/pull/31) alongside new-akilimo-api's `feat/price-review`. Before release, verify `refresh_prices()` and a `/compute` request against the live `/v1/prices` endpoint.
 4. Do DATA-1 ([§7](#7-next-task-sp-for-rw-and-bi-data-1)) once the owner picks the BI soil source. Hand DATA-2 / AGR-1 / AGR-2 to the IITA translation and agronomy owners.

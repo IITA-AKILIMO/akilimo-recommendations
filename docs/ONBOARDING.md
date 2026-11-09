@@ -87,7 +87,7 @@ akilimo-recommendations/
 │   └── upload_zenodo.py    # Uploads bundles to Zenodo
 ├── systemd/                # systemd service template
 ├── docs/                   # Documentation
-└── .github/workflows/      # CI/CD (pipeline.yml, data-setup.yml)
+└── .github/workflows/      # CI/CD (ci.yml, deploy.yml, data-setup.yml)
 ```
 
 Directories to ignore: `old/` (archived) and `R/preprocess/` (offline data prep, not sourced by the API).
@@ -380,8 +380,8 @@ To register the new fixture:
 
 ### Branching
 
-- `main` — production branch; `pipeline.yml` deploys on push once all checks pass, then tags a release
-- `experimental` — beta branch; `pipeline.yml` deploys a parallel beta instance on push once all checks pass
+- `main` — production branch; on push, `ci.yml` runs the checks and then `deploy.yml` deploys and tags a release
+- `experimental` — beta branch; on push, `ci.yml` runs the checks and then `deploy.yml` deploys the parallel beta instance
 - `feat/*` — feature branches; open a PR to `main` (or `experimental` for beta-only work)
 - `fix/*` — bug fix branches
 

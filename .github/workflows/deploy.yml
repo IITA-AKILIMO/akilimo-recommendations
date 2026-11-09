@@ -1,44 +1,35 @@
-name: Build and deploy
+name: Deploy
 
-# One pipeline for every branch, with one job per stage:
+# Deploys the branch to its server, one job per stage:
 #
-#   Plan -> Wait for more pushes -> R checks -> Update code and packages
+#   Plan -> Wait for more pushes -> Update code and packages
 #        -> Pull runtime data (optional) -> Restart service -> Check health
 #        -> Tag release (production only)
 #
-# "R checks" sets up R once and runs every R check as its own step. Its R
-# packages are cached under a key made from install_packages.R: while that
-# file is unchanged they come from the cache and nothing is installed.
+# Called by CI (ci.yml) after every check has passed, so it runs this file's
+# version from the pushed branch. Plan matches the branch to a target in
+# .github/deploy-targets.json (main -> production, experimental -> beta); any
+# other branch stops after Plan.
 #
-# Pull requests and feature branches stop after the checks. Pushes to a branch
-# listed in .github/deploy-targets.json (main -> production, experimental ->
-# beta) deploy, but only after every check has passed.
+# It can also be run by hand ("Run workflow" on a deploy branch), e.g. with
+# setup_data ticked to pull the runtime data from OSF. A manual run does NOT
+# run the R checks: CI already ran them on the push that made the commit.
 on:
-  push:
-    paths-ignore:
-      - 'docs/**'
-      - '**/*.md'
-      - 'old/**'
-  pull_request:
-    paths-ignore:
-      - 'docs/**'
-      - '**/*.md'
-      - 'old/**'
+  workflow_call:
+    inputs:
+      setup_data:
+        description: "Pull runtime data from OSF before restarting"
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       setup_data:
-        description: "Pull runtime data from OSF before deploying"
+        description: "Pull runtime data from OSF before restarting"
         type: boolean
         default: false
 
 permissions:
   contents: read
-
-# Feature branches and PRs: a newer push cancels the older run.
-# Deploy branches handle this per job below, so a deploy is never cut short.
-concurrency:
-  group: pipeline-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/experimental' }}
 
 env:
   QUIET_PERIOD: "60" # seconds to wait after the last commit before deploying
@@ -71,6 +62,7 @@ jobs:
             'to_entries[] | select(.value.branch == $b) | .key' \
             .github/deploy-targets.json | head -n1)
 
+          # Inside a call from CI, github.event_name is CI's own event (push)
           deploy=false
           if [ -n "$target" ] && { [ "$EVENT" = "push" ] || [ "$EVENT" = "workflow_dispatch" ]; }; then
             deploy=true
@@ -80,9 +72,9 @@ jobs:
           echo "deploy=$deploy" >> "$GITHUB_OUTPUT"
 
           if [ "$deploy" = "true" ]; then
-            echo "### Deploying \`$BRANCH\` to **$target** after the checks pass" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Deploying \`$BRANCH\` to **$target**" >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "### Checks only, no deploy for \`$BRANCH\` ($EVENT)" >> "$GITHUB_STEP_SUMMARY"
+            echo "### No deploy for \`$BRANCH\` ($EVENT)" >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Look up folder and service
@@ -123,146 +115,16 @@ jobs:
           fi
 
   # ---------------------------------------------------------------------------
-  # Checks: one job, R set up once; every check must pass before anything
-  # deploys. Each check still runs (and reports) if an earlier one failed.
+  # Server steps, strictly in order. They share a per-target lock so two runs
+  # never work on the same server at once.
   # ---------------------------------------------------------------------------
-  checks:
-    name: R checks
+  update:
+    name: Update code and packages
     needs: [ plan, wait ]
     if: >-
       !cancelled() &&
-      (needs.wait.result == 'success' || needs.wait.result == 'skipped')
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    env:
-      AKILIMO_ROOT: ${{ github.workspace }}
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v7
-
-      - name: Set up R and packages (cached)
-        id: r
-        uses: ./.github/actions/setup-r-env
-
-      - name: Check R syntax
-        run: Rscript tests/check_parse.R
-
-      - name: Test price database
-        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
-        run: |
-          Rscript -e '
-            r <- tinytest::run_test_file("tests/test_akilimo_db.R", verbose = 1)
-            print(summary(r))
-            quit(status = if (all(as.logical(r))) 0 else 1)
-          '
-
-      - name: Test request validation
-        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
-        run: |
-          Rscript -e '
-            r <- tinytest::run_test_file("tests/test_validate_request.R", verbose = 1)
-            print(summary(r))
-            quit(status = if (all(as.logical(r))) 0 else 1)
-          '
-
-      - name: Test PDF templates
-        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
-        run: |
-          Rscript -e '
-            r <- tinytest::run_test_file("tests/test_pdf_template.R", verbose = 1)
-            print(summary(r))
-            quit(status = if (all(as.logical(r))) 0 else 1)
-          '
-
-      - name: Test intercrop field-size scaling
-        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
-        run: |
-          Rscript -e '
-            r <- tinytest::run_test_file("tests/test_ic_units.R", verbose = 1)
-            print(summary(r))
-            quit(status = if (all(as.logical(r))) 0 else 1)
-          '
-
-      # --- Recommendation tests: need the runtime data (about 560 MB, public on
-      # OSF). It is cached under a key made from scripts/.env.example (which holds
-      # the OSF/Zenodo IDs), so it is downloaded only when the data release changes.
-      # translations.csv and fertilizer_npk.csv are tracked in git, so the cache never includes them.
-      - name: Restore cached runtime data
-        id: data
-        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
-        uses: actions/cache/restore@v6
-        env:
-          SEGMENT_DOWNLOAD_TIMEOUT_MINS: "5"
-        with:
-          path: |
-            data/yield
-            data/soil
-            data/input
-            !data/input/translations.csv
-            !data/input/fertilizer_npk.csv
-          key: runtime-data-v1-${{ hashFiles('scripts/.env.example') }}
-
-      - name: Install Python for the data download (cache miss)
-        if: ${{ !cancelled() && steps.r.outcome == 'success' && steps.data.outputs.cache-hit != 'true' }}
-        uses: actions/setup-python@v7
-        with:
-          python-version: "3.13"
-
-      - name: Download runtime data from OSF (cache miss)
-        if: ${{ !cancelled() && steps.r.outcome == 'success' && steps.data.outputs.cache-hit != 'true' }}
-        working-directory: scripts
-        run: |
-          cp .env.example .env
-          pipx install poetry
-          poetry install --no-interaction
-          poetry run setup-data --source osf
-
-      - name: Save runtime data to the cache
-        if: ${{ !cancelled() && steps.r.outcome == 'success' && steps.data.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v6
-        with:
-          path: |
-            data/yield
-            data/soil
-            data/input
-            !data/input/translations.csv
-            !data/input/fertilizer_npk.csv
-          key: runtime-data-v1-${{ hashFiles('scripts/.env.example') }}
-
-      - name: Test recommendations against the saved baseline
-        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
-        run: |
-          # The test skips itself without data; in CI missing data is a failure
-          test -f data/yield/Nigeria_WLY_LINTUL_2020.RDS || { echo "::error::runtime data missing"; exit 1; }
-          Rscript -e '
-            r <- tinytest::run_test_file("tests/test_small.R", verbose = 1)
-            print(summary(r))
-            # Show each failing check (fixture, call and difference), not just the count
-            if (!all(as.logical(r))) print(r[!as.logical(r)])
-            quit(status = if (length(r) > 0 && all(as.logical(r))) 0 else 1)
-          '
-
-      - name: Test Rwanda regressions
-        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
-        run: |
-          Rscript -e '
-            r <- tinytest::run_test_file("tests/test_rw_regressions.R", verbose = 1)
-            print(summary(r))
-            if (!all(as.logical(r))) print(r[!as.logical(r)])
-            quit(status = if (length(r) > 0 && all(as.logical(r))) 0 else 1)
-          '
-
-  # ---------------------------------------------------------------------------
-  # Deploy: one job per server step, strictly in order. Server jobs share a
-  # per-target lock so two runs never work on the same server at once.
-  # ---------------------------------------------------------------------------
-  update:
-    name: Update code and packages (${{ needs.plan.outputs.target }})
-    needs: [ plan, checks ]
-    if: >-
-      !cancelled() &&
       needs.plan.outputs.deploy == 'true' &&
-      needs.checks.result == 'success'
+      (needs.wait.result == 'success' || needs.wait.result == 'skipped')
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     concurrency:
@@ -307,15 +169,15 @@ jobs:
             echo "Installing R packages..."
             sudo Rscript install_packages.R
 
-  # Optional, manual runs only. Runs after the code update so it uses the
-  # latest scripts/, and before the restart so the API loads the new data.
+  # Optional (setup_data). Runs after the code update so it uses the latest
+  # scripts/, and before the restart so the API loads the new data.
   setup-data:
-    name: Pull runtime data (${{ needs.plan.outputs.target }})
+    name: Pull runtime data
     needs: [ plan, update ]
     if: >-
       !cancelled() &&
       needs.update.result == 'success' &&
-      github.event_name == 'workflow_dispatch' && inputs.setup_data
+      inputs.setup_data
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     concurrency:
@@ -337,7 +199,7 @@ jobs:
           osf_node_id: ${{ secrets.OSF_NODE_ID }}
 
   restart:
-    name: Restart service (${{ needs.plan.outputs.target }})
+    name: Restart service
     needs: [ plan, update, setup-data ]
     # Data pull is optional: restart when it passed or was not requested
     if: >-
@@ -366,7 +228,7 @@ jobs:
             echo "Restarted $SERVICE_NAME"
 
   health:
-    name: Check health (${{ needs.plan.outputs.target }})
+    name: Check health
     needs: [ plan, restart ]
     runs-on: ubuntu-24.04
     timeout-minutes: 10

@@ -207,25 +207,27 @@ Two instances run in parallel on the same server:
 
 | Instance | Branch | Directory | Service | Workflow |
 |----------|--------|-----------|---------|----------|
-| Production | `main` | `/mnt/data/extra_storage/projects/new_akilimo` | `akilimo-api.service` | `pipeline.yml` |
-| Beta | `experimental` | `/data/extra_storage/projects/akilimo-beta` | `akilimo-api-beta.service` | `pipeline.yml` |
+| Production | `main` | `/mnt/data/extra_storage/projects/new_akilimo` | `akilimo-api.service` | `ci.yml` → `deploy.yml` |
+| Beta | `experimental` | `/data/extra_storage/projects/akilimo-beta` | `akilimo-api-beta.service` | `ci.yml` → `deploy.yml` |
 
 Branch, directory and service per instance are defined once in `.github/deploy-targets.json` (read by the `.github/actions/resolve-target` action) — edit them there, not in the workflows.
 
-A single workflow, `pipeline.yml` ("Build and deploy"), runs on every push and pull request, with one job per stage:
+Two workflows. `ci.yml` ("CI") runs on every push and pull request. On pushes, once every check has passed, it calls `deploy.yml` ("Deploy") as a reusable workflow, which GitHub shows as one collapsible box:
 
 ```
-Plan → Wait for more pushes → R checks (syntax, price database tests, PDF template tests)
-     → Update code and packages → Pull runtime data (manual runs, optional) → Restart service
-     → Check health → Tag release (production only)
+CI:      R checks (syntax, price database, validation, PDF template, regression tests)
+           → Deploy (pushes only)
+Deploy:  Plan → Wait for more pushes → Update code and packages
+           → Pull runtime data (optional) → Restart service → Check health
+           → Tag release (production only)
 ```
 
-`Plan` matches the branch to a target in `deploy-targets.json`; any other branch or a pull request stops after the checks. Server jobs run over SSH using the repo variables `SERVER_HOST`, `SERVER_USER` and the secret `SERVER_SSH_KEY`, only after every check passes, and share a per-target lock. `Check health` fails if `GET /health` does not respond within 180s. `R checks` sets up R once and runs each check as its own step. Its R packages are cached under a key made from `install_packages.R`: they are installed only when that file changes or no cache exists, otherwise they come from the cache. Shared steps live in composite actions under `.github/actions/` (`resolve-target`, `setup-r-env`, `pull-data`).
+`Plan` matches the branch to a target in `deploy-targets.json`; any other branch stops after `Plan`, and pull requests never call Deploy. Deploy runs from the pushed branch's own `deploy.yml`. It can also be run by hand from the Actions tab on a deploy branch; a manual run does **not** run the R checks. Server jobs run over SSH using the repo variables `SERVER_HOST`, `SERVER_USER` and the secret `SERVER_SSH_KEY`, and share a per-target lock. `Check health` fails if `GET /health` does not respond within 180s. `R checks` sets up R once and runs each check as its own step. Its R packages are cached under a key made from `install_packages.R`: they are installed only when that file changes or no cache exists, otherwise they come from the cache; the system libraries they need are installed on every run. Shared steps live in composite actions under `.github/actions/` (`resolve-target`, `setup-r-env`, `pull-data`).
 
-Runtime data is always pulled from **OSF** on the servers and in CI. Servers get it from the `Pull runtime data` job when "Build and deploy" is run by hand with `setup_data` ticked, or on their own from `data-setup.yml` ("Data setup") with a `target` of `production` or `beta`. Both targets share the `OSF_NODE_ID` secret, which "Data setup" can override per run. Zenodo stays available only for manual use (`poetry run setup-data --source zenodo`).
+Runtime data is always pulled from **OSF** on the servers and in CI. Servers get it from Deploy's `Pull runtime data` job when "Deploy" is run by hand with `setup_data` ticked, or on their own from `data-setup.yml` ("Data setup") with a `target` of `production` or `beta`. Both targets share the `OSF_NODE_ID` secret, which "Data setup" can override per run. Zenodo stays available only for manual use (`poetry run setup-data --source zenodo`).
 
 Service templates: `systemd/akilimo-api.service.example` (production), `systemd/akilimo-api-beta.service.example` (beta). Resource limits: 2GB RAM, 2 CPU cores, 65536 FDs.
 
-On pull requests and feature-branch pushes, `pipeline.yml` runs only `Plan` and `R checks`; a newer push cancels the older run. `R checks` downloads the public runtime data from OSF on a cache miss (cached under the IDs in `scripts/.env.example`) so it can run the recommendation regression tests.
+On pull requests and feature-branch pushes, CI runs only `R checks` (plus Deploy's `Plan` on feature-branch pushes); a newer push cancels the older run. `R checks` downloads the public runtime data from OSF on a cache miss (cached under the IDs in `scripts/.env.example`) so it can run the recommendation regression tests.
 
 Workflow actions use version tags (e.g. `actions/checkout@v7`), not commit SHAs, and runners are pinned to `ubuntu-24.04`.
