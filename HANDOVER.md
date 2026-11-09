@@ -29,17 +29,31 @@ then [CLAUDE.md](CLAUDE.md), before changing anything.
 
 ## 2. Current state
 
+<<<<<<< HEAD
 - **Current branch:** `feat/price-catalogue`, at `7745c2d` (a handover branch-name update). Price catalogue phase 2, including the fixes in `94bdee0`, was merged into `experimental` by PR #31 (`06e88aa`). The current feature branch is directly based on that merge commit.
+=======
+- **Current workspace branch:** `feat/integrate-pdc`, at `4a5fdfa`, which adds planting-date-and-cultivar (PDC) support. `experimental` is the beta branch. Price catalogue phase 2 and its `94bdee0` fixes are already merged into `experimental` by PR #31. Documentation PR #32 was merged into `experimental` as `961902e` on 2026-11-09.
+- **PR #33:** `feat/data-1-rw-sp` adds scheduled planting for Rwanda and targets `experimental`. It is still open and is not ready to merge: GitHub reports conflicts, and its latest CI run fails in `test_small` because the RW SP request returns 400 (`No scheduled planting data available`); the runtime RW NetCDF is not present in the data bundle used by CI. Resolve the branch conflict and the CI/runtime-data issue before merging. Do not bypass these checks.
+>>>>>>> b17589d (📝 docs(HANDOVER): update last modified date and current state details)
 - **Latest commits** (newest first):
 
 | Commit | What |
 |--------|------|
+<<<<<<< HEAD
 | `7745c2d` | Updates the handover to use the current phase-2 branch name |
 | `06e88aa` | Merges price catalogue phase 2 PR #31 into `experimental` |
 | `caad7d8` | Restores cached runtime data for recommendation tests |
 | `a78c312` | Splits CI and Deploy workflows |
 | `94bdee0` | Fixes phase 2 review findings (§8): unpriced fertilisers were treated as free, every request re-ran the price refresh, labour lookups covered only NG/TZ. Schema v6 |
 | `c052864` | Adds price catalogue phase 2: engine syncs reviewed `/v1/prices`, applies catalogue defaults and records range notes |
+=======
+| `4a5fdfa` | Current workspace tip: PDC support (`process-PDC.R`, request flags, dispatch, docs and tests) |
+| `961902e` | Merges documentation PR #32 into `experimental` |
+| `7cafb35` | PR #33 branch: enable scheduled planting for Rwanda; pending conflict and CI fixes |
+| `572c469` | Adds initial Rwanda risk-assessment data for PR #33 |
+| `94bdee0` | Fixes phase 2 review findings: free-fertiliser fallback, repeated price refresh, NG/TZ-only labour lookup. Schema v6; merged by PR #31 |
+| `c052864` | Price catalogue phase 2: engine syncs reviewed `/v1/prices`, applies catalogue defaults and records range notes |
+>>>>>>> b17589d (📝 docs(HANDOVER): update last modified date and current state details)
 | `d90f8b3` | Reverts `8dd1b29`: Tanzania weeding defaults back to 60,000 / 45,000 TZS per acre (see the warning in §8) |
 | `2f9a168` | Tanzania `tractor_ridging` default 115,000 → 100,000 TZS per acre, matching the price service |
 | `8dd1b29` | Wrong change (weeding ×10), reverted by `d90f8b3`. Net effect of the two: none |
@@ -70,17 +84,26 @@ then [CLAUDE.md](CLAUDE.md), before changing anything.
 | Phase 2 at `94bdee0`: live refresh | TZ refreshed twice from the running `feat/price-review` API into a DB copy: 16 rows, then 0; the cursor is kept and the country isn't stale |
 
   The translations sync was also dry-run against the local price service: 60 rows, no 401.
+- **Recently verified:** CI on the current work was reported successful, and the beta price refresh (`Rscript refresh_prices.R --type all`) completed successfully on 2026-11-09. These do not imply PR #33 is green; its latest checks fail as described above.
 - **Not verified:**
+<<<<<<< HEAD
   - The CI workflow now runs without issues. Still confirm whether the Windows-built `test_small.rds` baseline matches Linux results (1% numeric tolerance, exact recommendation text), and verify `github-tag-action@v7` behavior when a production deploy on `main` exercises release tagging.
+=======
+  - Whether the Windows-built `test_small.rds` baseline matches Linux results (1% numeric tolerance, exact recommendation text), and `github-tag-action@v7` behavior when a production deploy on `main` exercises release tagging.
+>>>>>>> b17589d (📝 docs(HANDOVER): update last modified date and current state details)
   - Any request over HTTP against a running server.
   - A complete `/compute` request over HTTP that uses an activated catalogue price, e.g. a draft RW labour price activated in the admin.
-  - The beta server's first deploy with these changes. It removes the untracked `data/input/translations.csv` before `git pull` and migrates the DB to v6.
+  - Whether the beta deployment and runtime-data bundle are current for all recent changes, especially PDC/RW scheduled planting. The all-prices refresh succeeded, but that does not verify an end-to-end `/compute` request using an activated catalogue price or confirm the RW NetCDF is present on the server.
 
 ## 3. Open gaps
 
 | ID | Gap | Status / next step |
 |----|-----|--------------------|
+<<<<<<< HEAD
 | DATA-1 | Scheduled planting is not yet available for RW or BI: their `{CC}_WLY_LINTUL_2020SP.nc` files have not been built; BI also has no points in `SoilData_4Country.RDS` | **No new LINTUL runs needed.** Build the files from the existing yield RDS and implement RW independently; BI additionally awaits the owner's soil-source decision. Until each country is enabled, requests receive a clear 400 and `/coverage?type=SP` is empty |
+=======
+| DATA-1 | Scheduled planting is unavailable for RW and BI on `experimental`. PR #33 adds RW support and builds its NetCDF from the existing yield RDS, but its CI currently lacks the generated/runtime RW NetCDF; BI also has no points in `SoilData_4Country.RDS` | Resolve PR #33's branch conflict and make the RW runtime file available to CI/deploy before merging. BI remains blocked on the owner's soil-source decision; see [§7](#7-next-task-sp-for-rw-and-bi-data-1) |
+>>>>>>> b17589d (📝 docs(HANDOVER): update last modified date and current state details)
 | DATA-2 | Kinyarwanda (`rw`) text empty | Needs a translator; fill the `rw` column of `translations.csv` |
 | DATA-3 | Price service data gaps | **Mostly done in new-akilimo-api:**<br>- Burundi `BU`→`BI` (`3681ce2`, pushed).<br>- Currency set on every default and starch price (`2bd8760`).<br>- GH/RW starch factories added **inactive** with estimated prices; inactive factories are hidden from `/starch-prices` (`d80ccf5`, pushed).<br>Left: confirm the GH/RW starch prices, then activate them in the admin. BI has no starch buyer |
 | DATA-4 | Prices are stale (fertiliser 1.3–7× below market in all five countries, both the defaults and the app's price options; Burundi FOMI is per 25 kg bag) | Reviewed with sources in new-akilimo-api `docs/data/price-review-2026-11.md`. Tanzania fertiliser updated to TFRA Sep 2025 (`87721bc`). The rest waits for the price catalogue (§8) and country-team review in the admin |
@@ -93,7 +116,11 @@ then [CLAUDE.md](CLAUDE.md), before changing anything.
 | DATA-PDC | DSSAT data missing for PDC (NG maize) | Owner will upload data/dssat/planting-date-and-cultivar/NGA |
 
 
+<<<<<<< HEAD
 DATA-1 through ARCH-1 and AGR-1/AGR-2 are tracked in [docs/TECH-DEBT.md](docs/TECH-DEBT.md). The branch-status and coverage-polygon notes are specific to this handover.
+=======
+These data and expert-input gaps are tracked in [docs/TECH-DEBT.md](docs/TECH-DEBT.md) where applicable; PR-specific status is recorded here.
+>>>>>>> b17589d (📝 docs(HANDOVER): update last modified date and current state details)
 
 ## 4. Related work in other places
 
@@ -183,13 +210,20 @@ DATA-1 through ARCH-1 and AGR-1/AGR-2 are tracked in [docs/TECH-DEBT.md](docs/TE
 
 ## 6. Suggested next steps
 
+<<<<<<< HEAD
 1. Refresh prices on beta (`Rscript refresh_prices.R --type all`) so it picks up the currencies, the Burundi fix and the TZ fertiliser prices.
 2. Price catalogue phase 2 PR #31 is merged into `experimental`. Before release, verify `refresh_prices()` and a `/compute` request against the deployed `/v1/prices` endpoint, including a request that uses an activated catalogue price.
 3. Start the RW part of DATA-1 ([§7](#7-next-task-sp-for-rw-and-bi-data-1)) without waiting for the BI soil decision; proceed with BI after the owner chooses its soil source. Hand DATA-2 / AGR-1 / AGR-2 to the IITA translation and agronomy owners.
+=======
+1. **Completed:** CI on the current work runs successfully; the beta all-prices refresh succeeded on 2026-11-09. PR #32 (documentation) is merged as `961902e`.
+2. **Next:** resolve PR #33's merge conflict and failing CI. The latest `test_small` failure is caused by the RW SP request receiving 400 because CI's runtime data bundle lacks `RW_WLY_LINTUL_2020SP.nc`. Confirm the correct data-publishing/CI approach, rerun CI, then merge only when checks pass.
+3. Before release, verify a `/compute` request against the deployed `/v1/prices` endpoint that uses an activated catalogue price.
+4. BI scheduled planting remains blocked on the owner's soil-source decision. Hand DATA-2 / AGR-1 / AGR-2 to the IITA translation and agronomy owners.
+>>>>>>> b17589d (📝 docs(HANDOVER): update last modified date and current state details)
 
 ## 7. Next task: SP for RW and BI (DATA-1)
 
-The owner asked how to build the LINTUL planting-window files for the missing countries. Nothing has been built or committed yet.
+PR #33 (`feat/data-1-rw-sp`) implements scheduled planting for Rwanda from the existing yield RDS files; it is not yet merged. Its generator is `tools/build_sp_nc.R`. The PR is currently blocked by a merge conflict and by CI's missing RW SP NetCDF runtime data (see §2 and §6). BI remains unimplemented pending the owner's soil-source decision.
 
 **No new LINTUL runs are needed.** `data/yield/Rwanda_WLY_LINTUL.RDS` and `Burundi_WLY_LINTUL.RDS`, the files FR uses, are the same LINTUL output in wide form:
 - Columns: `plantingDate, lat, long, WLY_235 … WLY_452`. That is 32 harvest ages, the same as the `.nc` `daysOnField` dimension.
@@ -205,7 +239,7 @@ The owner asked how to build the LINTUL planting-window files for the missing co
 | RW | 17: weeks 6–14 and 37–44 (the two seasons) | 782 | all cells |
 
 Steps:
-1. **Build the files.** Add a script under `tools/`; `R/preprocess/` is off limits. It mirrors `R/preprocess/WLY_LINTUL.R` but starts from the wide RDS:
+1. **RW NetCDF generation — implemented in PR #33.** The script under `tools/` mirrors the existing preprocessing layout but starts from the wide RDS; `R/preprocess/` remains off limits. Its core transformation is:
    ```r
    for (f in c("misc.R", "get_data.R")) source(file.path("R", f))
    library(ncdf4)
@@ -228,22 +262,20 @@ Steps:
    build_sp_nc("RW", "Rwanda_WLY_LINTUL.RDS")
    build_sp_nc("BI", "Burundi_WLY_LINTUL.RDS")
    ```
-   Check: read a few cells back with `get_WLY_15M_ncdf()` and compare them with the RDS values.
-2. **BI soil: the owner decides.** Either:
+  The script also verifies the output by reading sample cells through `get_WLY_15M_ncdf()` and comparing with the RDS. The generated `.nc` is runtime data, not a tracked source file; make it available in CI and publish it with the runtime bundle before enabling RW on beta.
+2. **BI soil: the owner decides (pending).** Either:
    - (a) the producer of `SoilData_4Country.RDS` adds BI, which keeps one method for all countries; or
    - (b) `getSPrecommendations()` (`R/process-SP.R`) uses `BI_FCY{1..5}_soilNPK.RDS`, picking the class from FCY the way FR does.
 
    RW can go ahead without waiting for this.
-3. **Code:**
-   - Remove `if (country == "BI") return(NULL)` in `get_WLY_15M_ncdf()`.
-   - Add RW (and BI once soil is settled) to `REC_TYPE_COUNTRIES$SP` in `R/AkilimoMain.R`. `/coverage?type=SP` (`coverage_points()` in `R/coverage.R`) picks them up from the `.nc` file and soil data.
-4. **Tests and docs:**
+3. **RW code — included in PR #33; BI code remains pending:** the PR enables RW in `REC_TYPE_COUNTRIES$SP`, removes the unconditional BI early return from `get_WLY_15M_ncdf()`, and relies on data/soil coverage for availability. Add BI only after its soil source is settled.
+4. **Tests and docs — updates included in PR #33, but CI is not green:**
    - Update `tests/test_validate_request.R`.
    - Fixtures `in_38` (RW SP, now expected to succeed) and `in_39`.
    - `tests/test_rw_regressions.R`.
-   - Rebuild `tests/test_small.rds` with `UPDATE_BASELINE=1`.
+  - Rebuild `tests/test_small.rds` with `UPDATE_BASELINE=1` (done on the PR branch; CI still fails because the RW runtime NetCDF is missing).
    - In `docs/API-REFERENCE.md`, update the "Availability by country" table and the error list.
-5. **Ship the data (owner only; this publishes data):** run `cd scripts && poetry run bundle-assets`, upload to OSF/Zenodo, then run "Data setup" with target `beta`.
+5. **Ship the data (owner only; this publishes data):** include the generated RW NetCDF in the runtime bundle, upload to OSF, then run "Data setup" with target `beta`. Coordinate the CI data source as well; do not merge until the PR conflict is resolved and CI passes.
 
 Limits to tell the owner:
 - RW SP only works when PD ± `PD_window` falls in planting weeks 6–14 or 37–44. Other dates get the existing `SP_DATES_OUT_OF_RANGE` 400 ("Scheduled planting cannot be computed for PD=… and HD=…"). Full-year RW would need new LINTUL runs.
@@ -253,8 +285,13 @@ Limits to tell the owner:
 
 **Read first:** new-akilimo-api `docs/PRICE_CATALOGUE_DESIGN.md`. It holds the design, the rollout phases and the owner's decisions D1–D6.
 
+<<<<<<< HEAD
 **Phase 2 (this repo).** The implementation (`c052864`) and review fixes (`94bdee0`) are included in [PR #31](https://github.com/IITA-AKILIMO/akilimo-recommendations/pull/31), merged into `experimental` as `06e88aa`.
 - **Branch:** `feat/price-catalogue`, pushed. Pushing the branch does not deploy: only `experimental` and `main` have deploy targets.
+=======
+**Phase 2 (this repo).** Implemented in `c052864` and fixed in `94bdee0`; PR #31 is merged into `experimental`. The beta all-prices refresh succeeded on 2026-11-09; an HTTP `/compute` request using an activated catalogue row still needs verification.
+- **Branch/deploy:** only pushes to `experimental` and `main` have deploy targets. The owner handles pushes; never run `git push`.
+>>>>>>> b17589d (📝 docs(HANDOVER): update last modified date and current state details)
 - **Release dependency:** merge and deploy it with new-akilimo-api's `feat/price-review`, which provides `GET /v1/prices`. Against an older API the engine logs the refresh failure and keeps its existing seed/cache prices.
 - **API to build against:** new-akilimo-api `feat/price-review`, run locally at `http://127.0.0.1:9100/api/v1`.
 
@@ -271,7 +308,11 @@ Implemented scope:
 5. Add a contract-test fixture of a `/v1/prices` response under `tests/`, and run the sync against it in `test_akilimo_db.R`.
 6. `test_small` must pass unchanged at today's values, then update `docs/API-REFERENCE.md`.
 
+<<<<<<< HEAD
 **Issues found in `c052864`, fixed in `94bdee0` before PR #31 was merged:**
+=======
+**Review findings identified in `c052864`, fixed in `94bdee0`:**
+>>>>>>> b17589d (📝 docs(HANDOVER): update last modified date and current state details)
 - **Free fertilisers.** A fertiliser with no price from the farmer or the catalogue got a cost of 0 instead of `NA`. Before phase 2 such fertilisers were dropped with "missing values for fertilizer type: …". At 0 the optimiser treated them as free: 13 regression cases changed, and some were "problem infeasible".
 - **Refresh on every request.** Rows stored the API's `updated_at` (`2026-11-08 12:33:42`), which `prices_are_stale()` can't parse, so every `/compute` re-ran the refresh. Even in the right format, rows unchanged for a week stayed stale, because incremental syncs don't touch them.
 - **Labour lookups only for NG/TZ.** RW/GH/BI labour prices were never read from the catalogue. Now every country is looked up; the hardcoded NG/TZ values are only a fallback.
