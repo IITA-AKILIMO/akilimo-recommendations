@@ -106,6 +106,9 @@ validate_request <- function(body) {
     }
   }
 
+  if (!is.null(body[["subsidisedFertilizer"]]) && !is.logical(body[["subsidisedFertilizer"]]))
+    return("subsidisedFertilizer must be a boolean")
+
   NULL  # no error
 }
 
@@ -198,6 +201,7 @@ parse_request <- function(body) {
   user <- get_user(body)
   userField <- from_json("userField", body)
   riskAtt <- from_json("riskAtt", body, default_value = 0)
+  subsidisedFertilizer <- from_json("subsidisedFertilizer", body, default_value = NULL)
 
   lang_raw <- from_json("lang", body, default_value = "en")
   # rw (Kinyarwanda) is accepted; until its text is translated, tr() and
@@ -233,6 +237,7 @@ parse_request <- function(body) {
     FCY = FCY, CMP = CMP, saleSF = saleSF, nameSF = nameSF,
     cassPD = cassPD, cassUW = cassUW, cassUP = cassUP, maxInv = maxInv,
     user = user, userField = userField, riskAtt = riskAtt,
+    subsidisedFertilizer = subsidisedFertilizer,
     selected_key = selected_key, areaHa = areaHa,
     rootUP = rootUP, cass_denominator = cass_denominator
   )
@@ -241,17 +246,22 @@ parse_request <- function(body) {
 
 # Route to the appropriate processor based on the active recommendation flag.
 dispatch_recommendations <- function(p, body) {
+  with_price_notes <- function(result, fertilizers) {
+    notes <- attr(fertilizers, "price_notes")
+    if (length(notes) > 0) result$price_notes <- notes
+    result
+  }
 
   if (p$FR) {
 
     fertilizers <- get_fertilizers2(body, p$country)
-    process_FR(
+    with_price_notes(process_FR(
       lat = p$lat, lon = p$lon, HD = p$HD, maxInv = p$maxInv,
       fertilizers = fertilizers, rootUP = p$rootUP, areaHa = p$areaHa,
       country = p$country, lang = p$lang, FCY = p$FCY, riskAtt = p$riskAtt,
       user = p$user, userField = p$userField, area = p$area,
       areaUnits = p$areaUnits, PD = p$PD, cassPD = p$cassPD, cassUW = p$cassUW
-    )
+    ), fertilizers)
 
   } else if (p$IC) {
 
@@ -267,13 +277,19 @@ dispatch_recommendations <- function(p, body) {
       maizeUP <- safe_numeric(from_json("maizeUP", body, default_value = 0), "maizeUP")
       if (!is.na(maizeUP) && maizeUP == 0) {
         maizeUW <- 1
-        maizeUP <- if (maizePD == "fresh_cob") 50 else 230
+        item <- if (maizePD == "fresh_cob") "maize_freshCob" else "maize_grain"
+        catalogue <- get_catalogue_price(p$country, item)
+        maizeUP <- if (!is.null(catalogue)) catalogue$selected_price[[1]] else {
+          fallback <- if (maizePD == "fresh_cob") 50 else 230
+          log_write("WARN", "Missing catalogue price for", item, "in", p$country, "— using fallback", fallback)
+          fallback
+        }
       }
       if (maizePD == "grain" && (is.na(maizeUW) || maizeUW <= 0))
         return(bad_request("maizeUW must be a positive number when maizePD is 'grain'"))
       cobUP <- ifelse(maizePD == "fresh_cob", maizeUP, maizeUP / maizeUW / MAIZE_COBS_PER_KG_GRAIN)
 
-      process_IC_NG(
+      with_price_notes(process_IC_NG(
         IC = p$IC, country = p$country, lang = p$lang, areaHa = p$areaHa, CMP = p$CMP,
         cobUP = cobUP, fertilizers = fertilizers, riskAtt = p$riskAtt,
         maizePD = maizePD, user = p$user, userField = p$userField,
@@ -281,7 +297,7 @@ dispatch_recommendations <- function(p, body) {
         lat = p$lat, lon = p$lon, maizeUW = maizeUW, cassUW = p$cassUW,
         saleSF = p$saleSF, nameSF = p$nameSF, rootUP = p$rootUP,
         cassPD = p$cassPD, maxInv = p$maxInv, maizeUP = maizeUP
-      )
+      ), fertilizers)
 
     } else {
       # Only TZ reaches here: validate_request() rejects IC for countries outside
@@ -295,7 +311,13 @@ dispatch_recommendations <- function(p, body) {
       # Apply price defaults BEFORE computing tuberUP to avoid dividing by zero price
       if (is.na(sweetPotatoUP) || sweetPotatoUP == 0) {
         sweetPotatoUW <- 1000
-        sweetPotatoUP <- if (sweetPotatoPD == "tubers") 120000 else 384000
+        item <- if (sweetPotatoPD == "tubers") "sweetPotato_tuber" else "sweetPotato_flour"
+        catalogue <- get_catalogue_price(p$country, item)
+        sweetPotatoUP <- if (!is.null(catalogue)) catalogue$selected_price[[1]] else {
+          fallback <- if (sweetPotatoPD == "tubers") 120000 else 384000
+          log_write("WARN", "Missing catalogue price for", item, "in", p$country, "— using fallback", fallback)
+          fallback
+        }
       }
 
       tuberConv <- data.frame(
@@ -307,7 +329,7 @@ dispatch_recommendations <- function(p, body) {
         sweetPotatoUW /
         conversion_factor3 * 1000
 
-      process_IC_TZ(
+      with_price_notes(process_IC_TZ(
         IC = p$IC, country = p$country, lang = p$lang, areaHa = p$areaHa, FCY = p$FCY,
         tuberUP = tuberUP, rootUP = p$rootUP, fertilizers = fertilizers,
         riskAtt = p$riskAtt, user = p$user, userField = p$userField,
@@ -315,7 +337,7 @@ dispatch_recommendations <- function(p, body) {
         lat = p$lat, lon = p$lon, sweetPotatoUP = sweetPotatoUP,
         sweetPotatoPD = sweetPotatoPD, sweetPotatoUW = sweetPotatoUW,
         cassUW = p$cassUW, cassPD = p$cassPD, maxInv = p$maxInv
-      )
+      ), fertilizers)
     }
 
   } else if (p$PP) {
@@ -606,7 +628,7 @@ get_costLMO <- function(body, country, areaHa, areaUnits, ploughing, harrowing, 
   # Conversion factor: cost per acre → cost per hectare
   ACRES_PER_HA <- 2.47105
 
-  # Default land management operation costs (per acre) by country
+  # Last-resort values (per acre) when the price catalogue has no row; NG and TZ only.
   default_lmo_costs <- list(
     NG = list(
       manual_ploughing = 17000, manual_harrowing = 15000, manual_ridging = 12000,
@@ -620,25 +642,48 @@ get_costLMO <- function(body, country, areaHa, areaUnits, ploughing, harrowing, 
     )
   )
 
-  lmo <- default_lmo_costs[[country]]
-  if (!is.null(lmo)) {
-    if (is.na(cost_manual_ploughing))
-      costLMO[costLMO$operation == "ploughing" & man, "costHa"] <- lmo$manual_ploughing * ACRES_PER_HA
-    if (is.na(cost_manual_harrowing))
-      costLMO[costLMO$operation == "harrowing" & man, "costHa"] <- lmo$manual_harrowing * ACRES_PER_HA
-    if (is.na(cost_manual_ridging))
-      costLMO[costLMO$operation == "ridging" & man, "costHa"] <- lmo$manual_ridging * ACRES_PER_HA
-    if (is.na(cost_tractor_ploughing) & tractor_plough)
-      costLMO[costLMO$operation == "ploughing" & tract, "costHa"] <- lmo$tractor_ploughing * ACRES_PER_HA
-    if (is.na(cost_tractor_harrowing) & tractor_harrow)
-      costLMO[costLMO$operation == "harrowing" & tract, "costHa"] <- lmo$tractor_harrowing * ACRES_PER_HA
-    if (is.na(cost_tractor_ridging) & tractor_ridger)
-      costLMO[costLMO$operation == "ridging" & tract, "costHa"] <- lmo$tractor_ridging * ACRES_PER_HA
-    if (is.na(cost_weeding1))
-      costLMO[costLMO$operation == "weeding1", "costHa"] <- lmo$weeding1 * ACRES_PER_HA
-    if (is.na(cost_weeding2))
-      costLMO[costLMO$operation == "weeding2", "costHa"] <- lmo$weeding2 * ACRES_PER_HA
+  # Per-acre default for each operation, for every country: the price catalogue first,
+  # then the NG/TZ fallback above, else NA (the operation keeps whatever the farmer gave)
+  lmo_items <- c("manual_ploughing", "manual_harrowing", "manual_ridging",
+                 "tractor_ploughing", "tractor_harrowing", "tractor_ridging",
+                 "weeding1", "weeding2")
+  fallback <- default_lmo_costs[[country]]
+  lmo <- list()
+  used_fallback <- character(0)
+  for (item in lmo_items) {
+    catalogue <- get_catalogue_price(country, item)
+    lmo[[item]] <- if (!is.null(catalogue)) {
+      catalogue$selected_price[[1]]
+    } else if (!is.null(fallback[[item]])) {
+      used_fallback <- c(used_fallback, item)
+      fallback[[item]]
+    } else {
+      NA_real_
+    }
   }
+  if (length(used_fallback) > 0)
+    log_write("WARN", "No catalogue price in", country, "for", paste(used_fallback, collapse = ", "),
+              "— using built-in defaults")
+
+  set_default <- function(rows, item) {
+    if (!is.na(lmo[[item]])) costLMO[rows, "costHa"] <<- lmo[[item]] * ACRES_PER_HA
+  }
+  if (is.na(cost_manual_ploughing))
+    set_default(costLMO$operation == "ploughing" & man, "manual_ploughing")
+  if (is.na(cost_manual_harrowing))
+    set_default(costLMO$operation == "harrowing" & man, "manual_harrowing")
+  if (is.na(cost_manual_ridging))
+    set_default(costLMO$operation == "ridging" & man, "manual_ridging")
+  if (is.na(cost_tractor_ploughing) & tractor_plough)
+    set_default(costLMO$operation == "ploughing" & tract, "tractor_ploughing")
+  if (is.na(cost_tractor_harrowing) & tractor_harrow)
+    set_default(costLMO$operation == "harrowing" & tract, "tractor_harrowing")
+  if (is.na(cost_tractor_ridging) & tractor_ridger)
+    set_default(costLMO$operation == "ridging" & tract, "tractor_ridging")
+  if (is.na(cost_weeding1))
+    set_default(costLMO$operation == "weeding1", "weeding1")
+  if (is.na(cost_weeding2))
+    set_default(costLMO$operation == "weeding2", "weeding2")
 
   if (any(!is.na(c(cost_manual_ploughing, cost_manual_harrowing, cost_manual_ridging,
                    cost_tractor_ploughing, cost_tractor_harrowing, cost_tractor_ridging,

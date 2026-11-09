@@ -27,21 +27,28 @@ get_fertilizers2 <- function(js, country) {
 	d <- get_df(js)
 	d <- d[d$available, ]
 	d$costPerBag[is.na(d$costPerBag)] <- 0
-	i <- d$costPerBag == 0
-
-	if (any(i)) {
-		# NPK201226 price needs to be added for TZ and NG
-		# NPK151515, SSP also missing for TZ
-
-		#RH: these prices are bag prices. For what weight? 50 kg? If so, 
-		# if the user specified bag weight is not 50, this price needs to be adjusted. 
-		# or is that not allowed (either price and weight or nothing?)
-		default_prices <- get_data("default_prices")
-		default_prices <- default_prices[default_prices$Country == country, ]		
-		m <- match(d$type, default_prices$Item)
-		d$costPerBag[i] <- default_prices$Price[m[i]] 
+	subsidised <- if (is.null(js$subsidisedFertilizer)) NULL else isTRUE(js$subsidisedFertilizer)
+	price_notes <- character(0)
+	for (idx in seq_len(nrow(d))) {
+		catalogue <- get_catalogue_price(country, d$type[[idx]], subsidised)
+		if (d$costPerBag[[idx]] == 0 && is.null(catalogue)) {
+			# No price from the farmer or the catalogue: NA, so the fertilizer is dropped below
+			# with a "missing values" warning instead of being treated as free
+			d$costPerBag[[idx]] <- NA
+		} else if (d$costPerBag[[idx]] == 0) {
+			d$costPerBag[[idx]] <- catalogue$selected_price[[1]]
+			if (identical(catalogue$unit[[1]], "per_bag") &&
+				!is.na(catalogue$bag_kg[[1]]) && catalogue$bag_kg[[1]] > 0)
+				d$bagWeight[[idx]] <- catalogue$bag_kg[[1]]
+		} else if (d$costPerBag[[idx]] > 0 && !is.null(catalogue) &&
+			!is.na(catalogue$min_price[[1]]) && !is.na(catalogue$max_price[[1]]) &&
+			(d$costPerBag[[idx]] < catalogue$min_price[[1]] || d$costPerBag[[idx]] > catalogue$max_price[[1]])) {
+			msg <- sprintf("%s price %s is outside the expected range %s–%s.",
+				d$type[[idx]], d$costPerBag[[idx]], catalogue$min_price[[1]], catalogue$max_price[[1]])
+			log_write("WARN", "akilimo_db:", msg)
+			price_notes <- c(price_notes, msg)
+		}
 	}
-
 	content <- get_data("fertilizer_npk")
 
 	#NPK ought to be followed by 6 numbers
@@ -51,6 +58,7 @@ get_fertilizers2 <- function(js, country) {
 	fd <- merge(d, content, by="type", all.x=TRUE)
 	
 	fd$price <- fd$costPerBag / fd$bagWeight
+	attr(fd, "price_notes") <- price_notes
 	fd$available <- NULL
 
 # if (!all(is.na(c(newFert1name, newFert2name, newFert3name, newFert4name, newFert5name)))) {

@@ -231,7 +231,7 @@ All costs are optional; country defaults are applied when a value is absent or `
 
 ## Fertilizer Catalogue
 
-For each fertilizer type, send three fields: `{type}available` (boolean), `{type}CostperBag` (number, local currency), `{type}BagWt` (number, kg).
+For each fertilizer type, send three fields: `{type}available` (boolean), `{type}CostperBag` (number, local currency), `{type}BagWt` (number, kg). Optionally send `subsidisedFertilizer` (boolean): `true` selects a subsidised catalogue price and `false` an open-market price when a fertilizer cost is `0`. If omitted, the country's default price basis applies.
 
 Set `{type}CostperBag` to `0` to use the country default price. Set `{type}available` to `false` (or omit) to exclude the type.
 
@@ -587,7 +587,9 @@ curl -s -X POST http://localhost:8000/compute \
 
 **Zero prices.** Sending `cassUP: 0`, `maizeUP: 0`, or `sweetPotatoUP: 0` triggers country-specific defaults. Send an explicit positive value to override.
 
-**Fertilizer cost defaults.** Setting `{type}CostperBag: 0` with `{type}available: true` causes the server to use the stored country default price for that type. The request will still succeed.
+**Fertilizer cost defaults.** Setting `{type}CostperBag: 0` with `{type}available: true` causes the server to use the stored country default price for that type, including the catalogue bag size (such as Burundi's 25 kg FOMI bags).
+
+**Out-of-range fertilizer prices.** A farmer-supplied price outside the catalogue range is accepted without adjustment. The response includes `data.price_notes` with the expected range.
 
 **SP window.** Both `PD_window` and `HD_window` must be `> 0` for SP advice to be returned. If either is `0`, the response contains an informational message rather than scheduling data.
 
@@ -707,12 +709,12 @@ The engine loads fertilizer and input prices from the local SQLite database. Whe
 ### Expected endpoint
 
 ```
-GET {AKILIMO_API_URL}/default-prices?country={COUNTRY}&page={n}
+GET {AKILIMO_API_URL}/prices?country={COUNTRY}[&updated_since=ISO8601]
 Accept: application/json
 Authorization: Bearer <token>
 ```
 
-`COUNTRY` is one of `NG`, `TZ`, `RW`, `GH`, `BI`. The engine calls this endpoint once per country and walks all pages. Only `data` and `links.next` are consumed from each page.
+`COUNTRY` is one of `NG`, `TZ`, `RW`, `GH`, `BI`. On later refreshes the engine sends its newest API row timestamp as `updated_since`, so an empty response means there are no changes and the existing local rows remain intact.
 
 Staleness threshold: `PRICE_MAX_AGE_DAYS` env var (default `7` days).
 
@@ -720,22 +722,22 @@ Staleness threshold: `PRICE_MAX_AGE_DAYS` env var (default `7` days).
 
 ```json
 {
+  "country": "TZ",
+  "default_price_basis": "open_market",
   "data": [
     {
       "country":  "TZ",
       "item":     "CAN",
       "price":    45000,
+      "subsidised_price": null,
       "unit":     "per_bag",
-      "currency": "TZS"
+      "bag_kg": 50,
+      "currency": "TZS",
+      "min_price": 30000,
+      "max_price": 60000,
+      "updated_at": "2026-11-08 00:00:00"
     }
-  ],
-  "links": {
-    "first": "https://api.example.com/api/v1/default-prices?country=TZ&page=1",
-    "last":  "https://api.example.com/api/v1/default-prices?country=TZ&page=2",
-    "prev":  null,
-    "next":  "https://api.example.com/api/v1/default-prices?country=TZ&page=2"
-  },
-  "meta": { "...": "informational only" }
+  ]
 }
 ```
 
@@ -746,6 +748,9 @@ Staleness threshold: `PRICE_MAX_AGE_DAYS` env var (default `7` days).
 | `price` | **yes** | number | Price value — must be > 0 |
 | `unit` | **yes** | string | Price unit — one of `per_bag`, `per_kg`, `per_tonne`, `per_acre`, `per_ha` |
 | `currency` | no | string | ISO currency code (e.g. `"TZS"`) |
+| `subsidised_price` | no | number | Subsidised alternative to the open-market `price` |
+| `bag_kg` | no | number | Real bag weight for `per_bag` prices |
+| `min_price`, `max_price` | no | number | Catalogue range for farmer-entered prices |
 
 Rows with an invalid `country`, blank `item`, non-positive `price`, or unrecognised `unit` are skipped with a WARN log entry.
 

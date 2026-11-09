@@ -29,11 +29,13 @@ then [CLAUDE.md](CLAUDE.md), before changing anything.
 
 ## 2. Current state
 
-- Branch `experimental`. Pushed up to `462c2ac`. The handover commits after it are local.
+- `experimental` remains the beta branch. Price catalogue phase 2 is on its own branch, **`feat/price-catalogue-phase-2`**, with [PR #31](https://github.com/IITA-AKILIMO/akilimo-recommendations/pull/31) targeting `experimental`. `c052864` is pushed; the fix commit `94bdee0` is not.
 - **Latest commits** (newest first):
 
 | Commit | What |
 |--------|------|
+| `94bdee0` | Phase 2 fixes, found in review (§8): unpriced fertilisers were treated as free, every request re-ran the price refresh, labour lookups covered only NG/TZ. Schema v6 |
+| `c052864` | Price catalogue phase 2: engine syncs reviewed `/v1/prices`, applies catalogue defaults and records range notes; PR #31 |
 | (handover) | This handover update |
 | `d90f8b3` | Reverts `8dd1b29`: Tanzania weeding defaults back to 60,000 / 45,000 TZS per acre (see the warning in §8) |
 | `2f9a168` | Tanzania `tractor_ridging` default 115,000 → 100,000 TZS per acre, matching the price service |
@@ -55,12 +57,19 @@ then [CLAUDE.md](CLAUDE.md), before changing anything.
 | `test_ic_units` | 12/12 |
 | `test_small` | 164/164 (re-run after `d90f8b3`) |
 | `test_rw_regressions` | 8/8 |
+| Phase 2 at `94bdee0`: parse check | 33 files, 0 errors |
+| Phase 2 at `94bdee0`: `test_akilimo_db` | 53/53 |
+| Phase 2 at `94bdee0`: `test_validate_request` | 51/51 |
+| Phase 2 at `94bdee0`: `test_pdf_template`, `test_ic_units` | 48/48, 12/12 |
+| Phase 2 at `94bdee0`: `test_small` | **164/164** (31 of 164 failed at `c052864`) |
+| Phase 2 at `94bdee0`: live refresh | TZ refreshed twice from the running `feat/price-review` API into a DB copy: 16 rows, then 0; the cursor is kept and the country isn't stale |
 
   The translations sync was also dry-run against the local price service: 60 rows, no 401.
 - **Not verified:**
   - The new pipeline on GitHub. First run after push: the OSF data download (~560 MB) on a cold cache, the `github-tag-action@v7` behaviour on `main`, and whether Windows-built `test_small.rds` matches Linux results (1% numeric tolerance, exact recommendation text).
   - Any request over HTTP against a running server.
-  - The beta server's first deploy with these changes. It removes the untracked `data/input/translations.csv` before `git pull` and migrates the DB to v4.
+  - A complete `/compute` request over HTTP that uses an activated catalogue price, e.g. a draft RW labour price activated in the admin.
+  - The beta server's first deploy with these changes. It removes the untracked `data/input/translations.csv` before `git pull` and migrates the DB to v6.
 
 ## 3. Open gaps
 
@@ -69,7 +78,7 @@ then [CLAUDE.md](CLAUDE.md), before changing anything.
 | DATA-1 | No scheduled planting for RW and BI: no `{CC}_WLY_LINTUL_2020SP.nc`, and no BI points in `SoilData_4Country.RDS` | **Not blocked on LINTUL runs.** The `.nc` files can be built from the existing yield RDS; see [§7](#7-next-task-sp-for-rw-and-bi-data-1). Open: the BI soil source (owner's decision). The API returns a clear 400 until then; `/coverage?type=SP` is empty |
 | DATA-2 | Kinyarwanda (`rw`) text empty | Needs a translator; fill the `rw` column of `translations.csv` |
 | DATA-3 | Price service data gaps | **Mostly done in new-akilimo-api:**<br>- Burundi `BU`→`BI` (`3681ce2`, pushed).<br>- Currency set on every default and starch price (`2bd8760`).<br>- GH/RW starch factories added **inactive** with estimated prices; inactive factories are hidden from `/starch-prices` (`d80ccf5`, pushed).<br>Left: confirm the GH/RW starch prices, then activate them in the admin. BI has no starch buyer |
-| DATA-4 | Default prices are stale (fertiliser 1.3–7× below market in all five countries; app price ranges reject real prices; Burundi FOMI is per 25 kg bag) | Reviewed with sources in new-akilimo-api `docs/data/price-review-2026-11.md`. Tanzania fertiliser updated to TFRA Sep 2025 (`87721bc`). The rest waits for the price catalogue (§8) and country-team review in the admin |
+| DATA-4 | Prices are stale (fertiliser 1.3–7× below market in all five countries, both the defaults and the app's price options; Burundi FOMI is per 25 kg bag) | Reviewed with sources in new-akilimo-api `docs/data/price-review-2026-11.md`. Tanzania fertiliser updated to TFRA Sep 2025 (`87721bc`). The rest waits for the price catalogue (§8) and country-team review in the admin |
 | DATA-5 | No post-planting labour defaults for RW, GH, BI. The engine has them only for NG/TZ, hardcoded in `R/AkilimoMain.R` (`default_lmo_costs`) | Draft estimates in new-akilimo-api `docs/data/labour-costs-rw-gh-bi.md` (low confidence). They go in through the catalogue (§8) |
 | ARCH-1 | Prices live in three places that drift apart (API choice lists, API `default_prices`, hardcoded R values) | Design agreed: new-akilimo-api `docs/PRICE_CATALOGUE_DESIGN.md`. **Phase 1 completed**; see §8 |
 | AGR-1 | PP advice is minimal | Needs agronomist-approved wording; see `docs/TECH-DEBT.md` |
@@ -133,6 +142,17 @@ All of these are also in [docs/TECH-DEBT.md](docs/TECH-DEBT.md) ("Blocked on dat
     - Not verified: the admin create-key page in a browser. The fix (encrypt history only over HTTPS) is unit-tested only.
   - **Inactive starch factories** are left out of `GET /v1/starch-prices` and `/v1/starch-factories/country/{cc}`. `GET /v1/starch-factories` still lists all of them, with `factory_active`.
   - **Research notes** (all marked IITA Internal Use) are in `docs/data/`: starch buyers, labour costs, and the full price review.
+- **akilimo-mobile** (Android app, Kotlin/Compose, `D:\Dev\android\akilimo-mobile`, `git@github.com:IITA-AKILIMO/akilimo-mobile.git`; checked out on `fix/ui-review-findings` on 2026-11-08). The owner works on it in a separate session. Read its `AGENTS.md` before changing it.
+  - **How it reaches this engine:** it posts to new-akilimo-api `v1/recommendations/compute` (base URL `AKILIMO_BASE_URL`, default `https://api.akilimo.org`), which forwards to this repo's `/compute`. It never calls this engine directly.
+  - **Reference data it reads** (`app/src/main/java/com/akilimo/mobile/network/AkilimoApi.kt`): `/v1/fertilizers`, `/v1/fertilizer-prices`, `/v1/cassava-prices`, `/v1/maize-prices`, `/v1/investment-amounts`, `/v1/starch-factories`, `/v1/cassava-units` and `/v1/coverage/{country}`. It does **not** read `/v1/default-prices`, `/v1/prices`, `/v1/potato-prices` or `/v1/operation-costs`.
+  - **Fertiliser price sheet** (`ui/screens/usecases/FertilizerScreen.kt`): one radio option per `fertilizer_prices` row.
+    - `price_per_bag = 0` is **"I don't know"**: sent as price 0, so this engine fills in the catalogue price.
+    - A negative value is **"Exact price"**: free text, any value.
+    - Anything else shows its `price_range`.
+    - `min_allowed_price`/`max_allowed_price` are stored but **never used**.
+  - **Starch factories:** it keeps only rows with `factory_active` true (`dao/StarchFactoryDao.kt`), so inactive factories stay hidden even though the unfiltered `/v1/starch-factories` returns them.
+  - **Labour costs** are only what the farmer types; there is no price list for them in the app.
+  - **When to check it:** any change to the shape of a price or factory endpoint, or to what a `0`/negative price means, must be checked against these files.
 - **Branch `claude/vigilant-mclean-c38063`** is fully merged into `experimental` (fast-forward) and can be deleted.
 
 ## 5. How to work here
@@ -147,16 +167,18 @@ All of these are also in [docs/TECH-DEBT.md](docs/TECH-DEBT.md) ("Blocked on dat
   - `.bat` files must be ASCII with CRLF line endings.
   - watchexec 2.7 needs absolute `--watch` paths (`%CD%\R`).
   - Git converts LF to CRLF in the working copy; that's harmless.
-- **CI (`.github/workflows/pipeline.yml`):**
-  - Order: Plan → Wait → R checks → Update code → Pull data (optional) → Restart → Health → Tag (production only).
+- **CI and deploy** (split on 2026-11-09; was `pipeline.yml`):
+  - `ci.yml` ("CI"): R checks on every push and PR. On pushes it then calls `deploy.yml` as a reusable workflow, which runs from the pushed branch, not from `main`.
+  - `deploy.yml` ("Deploy"): Plan → Wait → Update code → Pull data (optional) → Restart → Health → Tag (production only). It can be run by hand from the Actions tab, but a manual run does **not** run the R checks.
+  - `data-setup.yml` ("Data setup"): pulls OSF data onto a server on its own.
   - Deploy targets live in `.github/deploy-targets.json`.
   - Composite actions are in `.github/actions/`.
 
 ## 6. Suggested next steps
 
-1. Both repos were pushed on 2026-11-08. Check the "Build and deploy" run for `experimental`, especially the OSF data download and `test_small`.
+1. Check the first "CI" run after the workflow split, especially `test_small` and that "Deploy" appears as one box and stops after Plan on a feature branch.
 2. Refresh prices on beta (`Rscript refresh_prices.R --type all`) so it picks up the currencies, the Burundi fix and the TZ fertiliser prices.
-3. **Price catalogue phase 2** ([§8](#8-price-catalogue-arch-1-phase-1-done-phase-2-next)): the engine syncs `/v1/prices`. Phase 1 is done on new-akilimo-api's `feat/price-review` branch, not yet merged into `develop`. Build phase 2 on branch **`feat/price-catalogue-phase-2`** here (already created from `experimental`, not pushed, no work on it yet), against that API branch. It ships when the owner merges both.
+3. Review and merge [price catalogue phase 2 PR #31](https://github.com/IITA-AKILIMO/akilimo-recommendations/pull/31) alongside new-akilimo-api's `feat/price-review`. Before release, verify `refresh_prices()` and a `/compute` request against the live `/v1/prices` endpoint.
 4. Do DATA-1 ([§7](#7-next-task-sp-for-rw-and-bi-data-1)) once the owner picks the BI soil source. Hand DATA-2 / AGR-1 / AGR-2 to the IITA translation and agronomy owners.
 
 ## 7. Next task: SP for RW and BI (DATA-1)
@@ -221,25 +243,37 @@ Limits to tell the owner:
 - RW SP only works when PD ± `PD_window` falls in planting weeks 6–14 or 37–44. Other dates get the existing `SP_DATES_OUT_OF_RANGE` 400 ("Scheduled planting cannot be computed for PD=… and HD=…"). Full-year RW would need new LINTUL runs.
 - SP converts dry to fresh yield with the NG curve for every country (`R/process-SP.R`, the `getRFY(..., country = "NG")` loop).
 
-## 8. Price catalogue (ARCH-1): phase 1 done, phase 2 next
+## 8. Price catalogue (ARCH-1): phase 1 done, phase 2 fixed and awaiting review
 
 **Read first:** new-akilimo-api `docs/PRICE_CATALOGUE_DESIGN.md`. It holds the design, the rollout phases and the owner's decisions D1–D6.
 
-**Phase 2, the next task (this repo). Not started; the owner wants it later.**
-- **Branch:** `feat/price-catalogue-phase-2`, created 2026-11-08 from `experimental` at the handover commit, local only.
-  - Check it out (`git switch feat/price-catalogue-phase-2`), bring it up to date with `experimental` before starting, and never commit phase 2 work to `experimental` directly.
-  - Pushing the branch doesn't deploy: only `experimental` and `main` have deploy targets.
+**Phase 2 (this repo). Implemented in `c052864` and fixed in `94bdee0`; [PR #31](https://github.com/IITA-AKILIMO/akilimo-recommendations/pull/31) is open against `experimental`.**
+- **Branch:** `feat/price-catalogue-phase-2`, pushed. Pushing the branch does not deploy: only `experimental` and `main` have deploy targets.
+- **Release dependency:** merge and deploy it with new-akilimo-api's `feat/price-review`, which provides `GET /v1/prices`. Against an older API the engine logs the refresh failure and keeps its existing seed/cache prices.
 - **API to build against:** new-akilimo-api `feat/price-review`, run locally at `http://127.0.0.1:9100/api/v1`.
 
-Steps:
+Implemented scope:
 1. `refresh_prices()` in `R/akilimo_db.R` reads `GET /v1/prices?country=CC[&updated_since=]` instead of `/default-prices`.
    - Store `subsidised_price`, `unit`, `bag_kg`, `min_price`, `max_price` and `currency`: a schema bump, kept across deploys like v4.
    - Keep the rule that a failed or empty refresh keeps the last good data.
+   - **Sync state (v6, `94bdee0`):** each row's `updated_at` is the local sync time in ISO format, which `prices_are_stale()` parses. Per country, `country_price_settings` holds:
+     - `api_cursor`: the newest price-service `updated_at` seen, in the API's own format (`2026-11-08 12:33:42`), sent back verbatim as `updated_since`;
+     - `refreshed_at`: the last successful refresh, which staleness uses even when nothing changed.
 2. Replace the hardcoded defaults in `R/AkilimoMain.R` with DB lookups: `default_lmo_costs`, maize `50`/`230` and sweet potato `120000`/`384000`. Keep the hardcoded values only as a last resort, logged at WARN.
 3. Add the optional request field `subsidisedFertilizer` (D1). If absent, use the country's `default_price_basis` from the response. Prices the farmer typed always win.
 4. Out-of-range request prices: accept, log WARN, and add a response note with the range (D6). Never reject or clamp.
 5. Add a contract-test fixture of a `/v1/prices` response under `tests/`, and run the sync against it in `test_akilimo_db.R`.
 6. `test_small` must pass unchanged at today's values, then update `docs/API-REFERENCE.md`.
+
+**Review findings fixed in `94bdee0`** (all present in `c052864`):
+- **Free fertilisers.** A fertiliser with no price from the farmer or the catalogue got a cost of 0 instead of `NA`. Before phase 2 such fertilisers were dropped with "missing values for fertilizer type: …". At 0 the optimiser treated them as free: 13 regression cases changed, and some were "problem infeasible".
+- **Refresh on every request.** Rows stored the API's `updated_at` (`2026-11-08 12:33:42`), which `prices_are_stale()` can't parse, so every `/compute` re-ran the refresh. Even in the right format, rows unchanged for a week stayed stale, because incremental syncs don't touch them.
+- **Labour lookups only for NG/TZ.** RW/GH/BI labour prices were never read from the catalogue. Now every country is looked up; the hardcoded NG/TZ values are only a fallback.
+- **Minor:** the `subsidisedFertilizer` check was inside the `PD_window`/`HD_window` loop, and tabs were mixed into `R/AkilimoMain.R`.
+
+**Still to verify:** a `/compute` request over HTTP that uses an activated catalogue row, e.g. activate a draft RW labour price in the admin and run a RW PP request.
+
+**Known limitation:** incremental sync never removes a row that was deactivated in the API, so the engine keeps its last price. A full refresh is the workaround: clear `api_cursor` for the country.
 
 Burundi FOMI rows are per 25 kg (`bag_kg = 25`), so use `bag_kg` from the API, not an assumed 50.
 
@@ -254,11 +288,14 @@ Burundi FOMI rows are per 25 kg (`bag_kg = 25`), so use `bag_kg` from the API, n
 5. **Import the research drafts** from `docs/data/*_candidates.csv` and `price-review-2026-11.md` as `draft` rows. Never as `active`: those prices are unconfirmed.
 6. **Tests** in the existing Pest style; the suite is now at 250 passing.
 
-After phase 2 comes phase 3, in new-akilimo-api: choice lists generated at ±10 %/±30 %, which fixes the allowed ranges.
+After phase 2 comes phase 3, in new-akilimo-api: the app's price options generated from the catalogue at −30/−10/+10/+30 %, so they stay current. Keep the `0` ("I don't know") and negative ("Exact price") marker rows and generate the `price_range` labels, because the mobile app relies on all three (§4, akilimo-mobile).
 
 **Pitfalls learned the hard way:**
 - **Compare against the seed CSVs, not the local database.** Rows may be stale until re-seeded. The Tanzania weeding mix-up (`8dd1b29`, reverted in `d90f8b3`) came from reading a stale DB row (600,000) when the seed file and an owner commit (`b8db4fd`, 27 Oct) said 60,000.
-- **Price "allowed ranges" are not a column.** They are the min and max of hand-made option rows in `fertilizer_prices` and similar tables, including a 0 "don't know" row and odd negative sentinel rows. Don't hand-edit ~190 rows; phase 3 generates them.
+- **Price "allowed ranges" are not a column, and nothing enforces them.** They are the min and max of hand-made option rows in `fertilizer_prices` and similar tables.
+  - Those tables also hold marker rows: `0` = "I don't know" and negative = "Exact price". They are the app's own options, not junk.
+  - The mobile app never uses the ranges; the stale part is the options themselves.
+  - Don't hand-edit ~190 rows; phase 3 generates them.
 - **The engine ignores the API for some defaults:** labour (`default_lmo_costs`, NG/TZ only), maize (50 per cob, 230 per kg) and sweet potato (120,000 / 384,000 per t) are hardcoded in `R/AkilimoMain.R`. It does read `default_prices` for missing fertiliser costs (`R/fertilizers.R`).
 - **Each data file has its own route to production:**
   - The R repo's `data/input/*.csv` is gitignored runtime data, published only via `bundle-assets` and an OSF/Zenodo upload (owner only).

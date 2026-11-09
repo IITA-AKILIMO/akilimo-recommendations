@@ -1,0 +1,176 @@
+name: CI
+
+# Every push and pull request:
+#
+#   R checks -> Deploy (pushes only; see deploy.yml)
+#
+# "R checks" sets up R once and runs every R check as its own step. Its R
+# packages are cached under a key made from install_packages.R: while that
+# file is unchanged they come from the cache and nothing is installed.
+#
+# Deploy is a separate, reusable workflow (deploy.yml) called once every check
+# has passed. It decides from .github/deploy-targets.json whether the branch
+# deploys (main -> production, experimental -> beta); on any other branch it
+# only runs its small Plan job. GitHub shows it as one collapsible box.
+on:
+  push:
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - 'old/**'
+  pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - 'old/**'
+
+permissions:
+  contents: read
+
+# Feature branches and PRs: a newer push cancels the older run.
+# Deploy branches are never cut short, so a deploy always finishes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/experimental' }}
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Checks: one job, R set up once; every check must pass before anything
+  # deploys. Each check still runs (and reports) if an earlier one failed.
+  # ---------------------------------------------------------------------------
+  checks:
+    name: R checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      AKILIMO_ROOT: ${{ github.workspace }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Set up R and packages (cached)
+        id: r
+        uses: ./.github/actions/setup-r-env
+
+      # --- Recommendation tests: need the runtime data (about 560 MB, public on
+      # OSF). It is cached under a key made from scripts/.env.example (which holds
+      # the OSF/Zenodo IDs), so it is downloaded only when the data release changes.
+      # translations.csv and fertilizer_npk.csv are tracked in git, so the cache never includes them.
+      - name: Restore cached runtime data
+        id: data
+        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
+        uses: actions/cache/restore@v6
+        env:
+          SEGMENT_DOWNLOAD_TIMEOUT_MINS: "5"
+        with:
+          path: |
+            data/yield
+            data/soil
+            data/input
+            !data/input/translations.csv
+            !data/input/fertilizer_npk.csv
+          key: runtime-data-v1-${{ hashFiles('scripts/.env.example') }}
+
+      - name: Check R syntax
+        run: Rscript tests/check_parse.R
+
+      - name: Test price database
+        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
+        run: |
+          Rscript -e '
+            r <- tinytest::run_test_file("tests/test_akilimo_db.R", verbose = 1)
+            print(summary(r))
+            quit(status = if (all(as.logical(r))) 0 else 1)
+          '
+
+      - name: Test request validation
+        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
+        run: |
+          Rscript -e '
+            r <- tinytest::run_test_file("tests/test_validate_request.R", verbose = 1)
+            print(summary(r))
+            quit(status = if (all(as.logical(r))) 0 else 1)
+          '
+
+      - name: Test PDF templates
+        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
+        run: |
+          Rscript -e '
+            r <- tinytest::run_test_file("tests/test_pdf_template.R", verbose = 1)
+            print(summary(r))
+            quit(status = if (all(as.logical(r))) 0 else 1)
+          '
+
+      - name: Test intercrop field-size scaling
+        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
+        run: |
+          Rscript -e '
+            r <- tinytest::run_test_file("tests/test_ic_units.R", verbose = 1)
+            print(summary(r))
+            quit(status = if (all(as.logical(r))) 0 else 1)
+          '
+
+
+      - name: Install Python for the data download (cache miss)
+        if: ${{ !cancelled() && steps.r.outcome == 'success' && steps.data.outputs.cache-hit != 'true' }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Download runtime data from OSF (cache miss)
+        if: ${{ !cancelled() && steps.r.outcome == 'success' && steps.data.outputs.cache-hit != 'true' }}
+        working-directory: scripts
+        run: |
+          cp .env.example .env
+          pipx install poetry
+          poetry install --no-interaction
+          poetry run setup-data --source osf
+
+      - name: Save runtime data to the cache
+        if: ${{ !cancelled() && steps.r.outcome == 'success' && steps.data.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            data/yield
+            data/soil
+            data/input
+            !data/input/translations.csv
+            !data/input/fertilizer_npk.csv
+          key: runtime-data-v1-${{ hashFiles('scripts/.env.example') }}
+
+      - name: Test recommendations against the saved baseline
+        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
+        run: |
+          # The test skips itself without data; in CI missing data is a failure
+          test -f data/yield/Nigeria_WLY_LINTUL_2020.RDS || { echo "::error::runtime data missing"; exit 1; }
+          Rscript -e '
+            r <- tinytest::run_test_file("tests/test_small.R", verbose = 1)
+            print(summary(r))
+            # Show each failing check (fixture, call and difference), not just the count
+            if (!all(as.logical(r))) print(r[!as.logical(r)])
+            quit(status = if (length(r) > 0 && all(as.logical(r))) 0 else 1)
+          '
+
+      - name: Test Rwanda regressions
+        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
+        run: |
+          Rscript -e '
+            r <- tinytest::run_test_file("tests/test_rw_regressions.R", verbose = 1)
+            print(summary(r))
+            if (!all(as.logical(r))) print(r[!as.logical(r)])
+            quit(status = if (length(r) > 0 && all(as.logical(r))) 0 else 1)
+          '
+
+  # ---------------------------------------------------------------------------
+  # Deploy: a separate workflow (deploy.yml), run only for pushes once every
+  # check has passed. On branches without a deploy target it stops after Plan.
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: Deploy
+    needs: [ checks ]
+    if: github.event_name == 'push'
+    # The release tag (production) needs to write to the repository
+    permissions:
+      contents: write
+    uses: ./.github/workflows/deploy.yml
+    secrets: inherit

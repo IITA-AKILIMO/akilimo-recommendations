@@ -35,11 +35,13 @@ tests/response/*
 .idea/*
 .ai
 
-# Recommendation text is versioned with the code that uses it (new keys ship
-# with the change that needs them); the rest of data/ comes from OSF/Zenodo.
+# Recommendation text and the fertilizer nutrient table are versioned with the
+# code that uses them (they ship with the change that needs them); the rest of
+# data/ comes from OSF/Zenodo.
 !data/input/
 data/input/*
 !data/input/translations.csv
+!data/input/fertilizer_npk.csv
 
 # Saved regression results for tests/test_small.R
 !tests/test_small.rds

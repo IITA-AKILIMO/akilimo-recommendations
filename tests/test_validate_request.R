@@ -20,6 +20,11 @@ for (u in c("ha", "acre", "are", "m2", "ekari", "hekta", "string", "EKARI"))
 expect_true(grepl("Invalid or missing areaUnits", validate_request(req(FR = TRUE, areaUnits = "furlong"))))
 expect_true(grepl("Invalid or missing areaUnits", validate_request(req(FR = TRUE, areaUnits = NULL))))
 
+# The optional fertilizer subsidy selector is boolean when supplied.
+expect_null(validate_request(req(FR = TRUE, subsidisedFertilizer = TRUE)))
+expect_true(grepl("subsidisedFertilizer must be a boolean",
+                  validate_request(req(FR = TRUE, subsidisedFertilizer = "yes"))))
+
 # Scheduled planting has no planting-window data for RW or BI
 for (cc in c("RW", "BI")) {
   for (flag in c("SPP", "SPH")) {
