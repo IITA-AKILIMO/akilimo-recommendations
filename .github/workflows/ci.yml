@@ -52,6 +52,25 @@ jobs:
         id: r
         uses: ./.github/actions/setup-r-env
 
+      # --- Recommendation tests: need the runtime data (about 560 MB, public on
+      # OSF). It is cached under a key made from scripts/.env.example (which holds
+      # the OSF/Zenodo IDs), so it is downloaded only when the data release changes.
+      # translations.csv and fertilizer_npk.csv are tracked in git, so the cache never includes them.
+      - name: Restore cached runtime data
+        id: data
+        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
+        uses: actions/cache/restore@v6
+        env:
+          SEGMENT_DOWNLOAD_TIMEOUT_MINS: "5"
+        with:
+          path: |
+            data/yield
+            data/soil
+            data/input
+            !data/input/translations.csv
+            !data/input/fertilizer_npk.csv
+          key: runtime-data-v1-${{ hashFiles('scripts/.env.example') }}
+
       - name: Check R syntax
         run: Rscript tests/check_parse.R
 
@@ -91,24 +110,6 @@ jobs:
             quit(status = if (all(as.logical(r))) 0 else 1)
           '
 
-      # --- Recommendation tests: need the runtime data (about 560 MB, public on
-      # OSF). It is cached under a key made from scripts/.env.example (which holds
-      # the OSF/Zenodo IDs), so it is downloaded only when the data release changes.
-      # translations.csv and fertilizer_npk.csv are tracked in git, so the cache never includes them.
-      - name: Restore cached runtime data
-        id: data
-        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
-        uses: actions/cache/restore@v6
-        env:
-          SEGMENT_DOWNLOAD_TIMEOUT_MINS: "5"
-        with:
-          path: |
-            data/yield
-            data/soil
-            data/input
-            !data/input/translations.csv
-            !data/input/fertilizer_npk.csv
-          key: runtime-data-v1-${{ hashFiles('scripts/.env.example') }}
 
       - name: Install Python for the data download (cache miss)
         if: ${{ !cancelled() && steps.r.outcome == 'success' && steps.data.outputs.cache-hit != 'true' }}
