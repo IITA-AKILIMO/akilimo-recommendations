@@ -69,7 +69,7 @@ then [CLAUDE.md](CLAUDE.md), before changing anything.
 
   The translations sync was also dry-run against the local price service: 60 rows, no 401.
 - **Not verified:**
-  - The new pipeline on GitHub. First run after push: the OSF data download (~560 MB) on a cold cache, the `github-tag-action@v7` behaviour on `main`, and whether Windows-built `test_small.rds` matches Linux results (1% numeric tolerance, exact recommendation text).
+  - The CI workflow now runs without issues. Still confirm whether the Windows-built `test_small.rds` baseline matches Linux results (1% numeric tolerance, exact recommendation text), and verify `github-tag-action@v7` behavior when a production deploy on `main` exercises release tagging.
   - Any request over HTTP against a running server.
   - A complete `/compute` request over HTTP that uses an activated catalogue price, e.g. a draft RW labour price activated in the admin.
   - The beta server's first deploy with these changes. It removes the untracked `data/input/translations.csv` before `git pull` and migrates the DB to v6.
@@ -179,10 +179,9 @@ DATA-1 through ARCH-1 and AGR-1/AGR-2 are tracked in [docs/TECH-DEBT.md](docs/TE
 
 ## 6. Suggested next steps
 
-1. Check the first "CI" run after the workflow split, especially `test_small` and that "Deploy" appears as one box and stops after Plan on a feature branch.
-2. Refresh prices on beta (`Rscript refresh_prices.R --type all`) so it picks up the currencies, the Burundi fix and the TZ fertiliser prices.
-3. Price catalogue phase 2 PR #31 is merged into `experimental`. Before release, verify `refresh_prices()` and a `/compute` request against the deployed `/v1/prices` endpoint, including a request that uses an activated catalogue price.
-4. Start the RW part of DATA-1 ([§7](#7-next-task-sp-for-rw-and-bi-data-1)) without waiting for the BI soil decision; proceed with BI after the owner chooses its soil source. Hand DATA-2 / AGR-1 / AGR-2 to the IITA translation and agronomy owners.
+1. Refresh prices on beta (`Rscript refresh_prices.R --type all`) so it picks up the currencies, the Burundi fix and the TZ fertiliser prices.
+2. Price catalogue phase 2 PR #31 is merged into `experimental`. Before release, verify `refresh_prices()` and a `/compute` request against the deployed `/v1/prices` endpoint, including a request that uses an activated catalogue price.
+3. Start the RW part of DATA-1 ([§7](#7-next-task-sp-for-rw-and-bi-data-1)) without waiting for the BI soil decision; proceed with BI after the owner chooses its soil source. Hand DATA-2 / AGR-1 / AGR-2 to the IITA translation and agronomy owners.
 
 ## 7. Next task: SP for RW and BI (DATA-1)
 
