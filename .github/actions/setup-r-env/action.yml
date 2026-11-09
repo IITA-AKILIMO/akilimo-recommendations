@@ -1,8 +1,9 @@
 name: Set up R environment
 description: >
-  Install R and the API's R packages. The package library is cached under a
-  key made from install_packages.R, so packages are installed only when that
-  file changes or no cache exists yet; otherwise they come from the cache.
+  Install R, the system libraries and the API's R packages. The package library
+  is cached under a key made from install_packages.R, so packages are installed
+  only when that file changes or no cache exists yet; otherwise they come from
+  the cache. The system libraries are installed on every run.
 
 runs:
   using: composite
@@ -29,9 +30,10 @@ runs:
       shell: bash
       run: echo "Cache hit for install_packages.R, skipping package installation."
 
-    # --- only on a cache miss -------------------------------------------------
+    # Every run: cached packages such as ncdf4 and sf are compiled against these
+    # libraries, which a fresh runner does not have. Skipping this on a cache hit
+    # made ncdf4 fail to load, so every scheduled-planting (NetCDF) request errored.
     - name: Install system libraries (GDAL, NetCDF, SQLite)
-      if: steps.restore.outputs.cache-hit != 'true'
       shell: bash
       run: |
         sudo apt-get update
@@ -39,6 +41,7 @@ runs:
           libgdal-dev libgeos-dev libproj-dev libudunits2-dev \
           libnetcdf-dev libsqlite3-dev libcurl4-openssl-dev
 
+    # --- only on a cache miss -------------------------------------------------
     - name: Install R packages
       if: steps.restore.outputs.cache-hit != 'true'
       shell: bash

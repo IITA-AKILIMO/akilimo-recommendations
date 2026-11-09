@@ -102,7 +102,10 @@ for (name in test_files) {
     expect_true(FALSE, info = paste(name, "has no baseline: rebuild with UPDATE_BASELINE=1"))
     next
   }
-  expect_equal(x$status, y$status, info = paste(name, "status"))
+  # On a status change, show the message too (e.g. the R error), not just "R error"
+  status_info <- if (identical(x$status, y$status)) paste(name, "status")
+                 else paste(name, "status; message:", paste(x$data$message, collapse = " "))
+  expect_equal(x$status, y$status, info = status_info)
   expect_equal(x$data$recommendation, y$data$recommendation, info = paste(name, "recommendation text"))
   expect_equal(x$data$message, y$data$message, info = paste(name, "message"))
   expect_equivalent(x$data, y$data, tolerance = 0.01, info = paste(name, "data"))
