@@ -29,7 +29,7 @@ then [CLAUDE.md](CLAUDE.md), before changing anything.
 
 ## 2. Current state
 
-- `experimental` remains the beta branch. Price catalogue phase 2 is on its own branch, **`feat/price-catalogue-phase-2`**, with [PR #31](https://github.com/IITA-AKILIMO/akilimo-recommendations/pull/31) targeting `experimental`. `c052864` is pushed; the fix commit `94bdee0` is not.
+- `experimental` remains the beta branch. Price catalogue phase 2 is on its own branch, **`feat/price-catalogue`**, with [PR #31](https://github.com/IITA-AKILIMO/akilimo-recommendations/pull/31) targeting `experimental`. `c052864` is pushed; the fix commit `94bdee0` is not.
 - **Latest commits** (newest first):
 
 | Commit | What |
@@ -248,7 +248,7 @@ Limits to tell the owner:
 **Read first:** new-akilimo-api `docs/PRICE_CATALOGUE_DESIGN.md`. It holds the design, the rollout phases and the owner's decisions D1–D6.
 
 **Phase 2 (this repo). Implemented in `c052864` and fixed in `94bdee0`; [PR #31](https://github.com/IITA-AKILIMO/akilimo-recommendations/pull/31) is open against `experimental`.**
-- **Branch:** `feat/price-catalogue-phase-2`, pushed. Pushing the branch does not deploy: only `experimental` and `main` have deploy targets.
+- **Branch:** `feat/price-catalogue`, pushed. Pushing the branch does not deploy: only `experimental` and `main` have deploy targets.
 - **Release dependency:** merge and deploy it with new-akilimo-api's `feat/price-review`, which provides `GET /v1/prices`. Against an older API the engine logs the refresh failure and keeps its existing seed/cache prices.
 - **API to build against:** new-akilimo-api `feat/price-review`, run locally at `http://127.0.0.1:9100/api/v1`.
 
