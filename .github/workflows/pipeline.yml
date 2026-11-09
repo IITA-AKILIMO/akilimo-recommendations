@@ -244,6 +244,8 @@ jobs:
           Rscript -e '
             r <- tinytest::run_test_file("tests/test_small.R", verbose = 1)
             print(summary(r))
+            # Show each failing check (fixture, call and difference), not just the count
+            if (!all(as.logical(r))) print(r[!as.logical(r)])
             quit(status = if (length(r) > 0 && all(as.logical(r))) 0 else 1)
           '
 
@@ -253,6 +255,7 @@ jobs:
           Rscript -e '
             r <- tinytest::run_test_file("tests/test_rw_regressions.R", verbose = 1)
             print(summary(r))
+            if (!all(as.logical(r))) print(r[!as.logical(r)])
             quit(status = if (length(r) > 0 && all(as.logical(r))) 0 else 1)
           '
 
