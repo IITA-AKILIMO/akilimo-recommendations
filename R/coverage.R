@@ -7,7 +7,7 @@
 #   SP:           the FR grid, kept only where the planting-window NetCDF
 #                 ({CC}_WLY_LINTUL_2020SP.nc) and SoilData_4Country.RDS both
 #                 have data, the two inputs getSPrecommendations() needs.
-#                 Empty for countries without SP data (RW, BI).
+#                 Empty for countries without SP data (BI).
 #   IC and PP give the same advice anywhere in a country, so they have no
 #   footprint of their own; each feature lists them in `rec_types`.
 #

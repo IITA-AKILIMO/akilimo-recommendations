@@ -7,13 +7,12 @@ bad_request <- function(msg) {
 # Countries each recommendation type has data for. FR and PP use the per-country
 # yield/soil grids (all five countries, the same grid GET /coverage draws). IC needs
 # an intercrop model (NG: maize, TZ: sweet potato). SP needs a planting-window
-# NetCDF (data/yield/{CC}_WLY_LINTUL_2020SP.nc) plus SoilData_4Country.RDS, which
-# exist for NG, TZ and GH only.
+# NetCDF (data/yield/{CC}_WLY_LINTUL_2020SP.nc) plus SoilData_4Country.RDS.
 REC_TYPE_COUNTRIES <- list(
   FR = c("NG", "TZ", "RW", "GH", "BI"),
   IC = c("NG", "TZ"),
   PP = c("NG", "TZ", "RW", "GH", "BI"),
-  SP = c("NG", "TZ", "GH")
+  SP = c("NG", "TZ", "GH", "RW")
 )
 # Types whose result depends on the location's yield/soil data, so a point outside
 # the coverage grid is rejected. IC and PP give the same advice anywhere in a country.

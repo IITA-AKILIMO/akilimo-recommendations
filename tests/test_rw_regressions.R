@@ -18,10 +18,16 @@ run_fixture <- function(name) {
   suppressWarnings(suppressMessages(run_akilimo(json)))
 }
 
-# SP has no planting-window data for RW: a clear 400, not "success" with the fertilizer out-of-domain text
-r <- run_fixture("in_38_RW_SP_window2_not_available")
-expect_equal(as.character(r$status), "400 - bad request")
-expect_true(grepl("Scheduled planting .* not available for country: RW", r$data$message))
+# SP works for RW now that the planting-window NetCDF exists: a normal recommendation
+r <- run_fixture("in_38_RW_SP_window2_riskAtt2")
+expect_equal(as.character(r$status), "success")
+expect_equal(as.character(r$data$rec_type), "SP")
+expect_true(grepl("We recommend you plant", r$data$recommendation))
+expect_true(grepl("harvest", r$data$recommendation))
+
+# /coverage?type=SP now has an RW footprint, while BI stays empty
+expect_true(nrow(coverage_points("RW", "SP")) > 0)
+expect_equal(nrow(coverage_points("BI", "SP")), 0)
 
 # IC exists only for NG and TZ: a clear 400, not "success" with an empty recommendation
 r <- run_fixture("in_39_RW_IC_not_available")

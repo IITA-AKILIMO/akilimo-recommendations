@@ -105,7 +105,7 @@ flowchart TD
 | Source | Format | Location | Loaded by |
 |--------|--------|----------|-----------|
 | Soil NPK | RDS | `data/soil/{COUNTRY}_FCY{1-5}_soilNPK.RDS`, `SoilData_4Country.RDS`, `predicted_soil_properties.rds` | `get_soil_data()` |
-| Yield (WLY) | NetCDF (NG/TZ/GH) + RDS (all 5) | `data/yield/{COUNTRY}_WLY_LINTUL_2020SP.nc`, `{Country}_WLY_LINTUL*.RDS` | `get_yield_data()`, `get_WLY_15M_ncdf()` |
+| Yield (WLY) | NetCDF (NG/TZ/GH/RW) + RDS (all 5) | `data/yield/{COUNTRY}_WLY_LINTUL_2020SP.nc`, `{Country}_WLY_LINTUL*.RDS` | `get_yield_data()`, `get_WLY_15M_ncdf()` |
 | Coverage footprints | Derived (sf polygons) | Built from the yield RDS above, not stored on disk | `get_coverage_geojson()` |
 | Translations | CSV (wide: key × lang) | `data/input/translations.csv` | `get_input_data("TRNS")` → `tr()` |
 | Default/starch prices | CSV + SQLite | `data/input/*.csv`, `data/input/akilimo_compute.sqlite` | `get_default_prices()`, `get_starch_prices()` |

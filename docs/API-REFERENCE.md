@@ -54,7 +54,7 @@ Returns `200` on success, `400` on a bad request, `500` on an unexpected server 
 
 ### `GET /coverage`
 
-Returns a GeoJSON `FeatureCollection` with one `Feature` per supported country (NG, TZ, RW, GH, BI), each a polygon tracing the actual geographic area the yield/soil data covers (not a bounding box). Each feature's properties include `country`, `n_cells` (number of 0.05° grid cells in that country's yield data) and `rec_types`, a comma-separated list of the recommendation types `/compute` serves in that country (for example `"FR,PP"` for RW).
+Returns a GeoJSON `FeatureCollection` with one `Feature` per supported country (NG, TZ, RW, GH, BI), each a polygon tracing the actual geographic area the yield/soil data covers (not a bounding box). Each feature's properties include `country`, `n_cells` (number of 0.05° grid cells in that country's yield data) and `rec_types`, a comma-separated list of the recommendation types `/compute` serves in that country (for example `"FR,PP,SP"` for RW).
 
 Intended for other services that need to know where AKILIMO can produce a recommendation — e.g. to draw coverage overlays on a map, or to pre-filter requests before calling `/compute`. The footprint is generated from the same data `is_point_covered()` uses internally, so it matches `/compute`'s own coverage decisions exactly. Computed once per server process and cached in memory.
 
@@ -65,7 +65,7 @@ The footprint limits only the types that use location data: FR and SP requests f
 | `type` | Footprint |
 |--------|-----------|
 | `FR` (default) | Where fertilizer advice is available: the yield grid `is_point_covered()` uses. |
-| `SP` | Where scheduled planting is available: the FR footprint, kept only where planting-window yield data and soil data both exist. Empty (`n_cells` 0, no coordinates) for RW and BI, and slightly smaller than FR in GH. |
+| `SP` | Where scheduled planting is available: the FR footprint, kept only where planting-window yield data and soil data both exist. Empty (`n_cells` 0, no coordinates) for BI, and slightly smaller than FR in GH. |
 
 IC and PP do not depend on location, so they have no footprint; `?type=IC` or `?type=PP` returns `400`.
 
@@ -128,9 +128,9 @@ Not every recommendation type has data for every country. If the flag that would
 | FR | ✓ | ✓ | ✓ | ✓ | ✓ |
 | IC | ✓ | ✓ | — | — | — |
 | PP | ✓ | ✓ | ✓ | ✓ | ✓ |
-| SP (`SPP`/`SPH`) | ✓ | ✓ | — | ✓ | — |
+| SP (`SPP`/`SPH`) | ✓ | ✓ | ✓ | ✓ | — |
 
-SP needs a planting-window yield file (`data/yield/{CC}_WLY_LINTUL_2020SP.nc`), which exists only for NG, TZ and GH. The list is `REC_TYPE_COUNTRIES` in `R/AkilimoMain.R`, and `GET /coverage` reports it per country as `rec_types`. FR and SP also need the point inside the country's coverage footprint; IC and PP do not.
+SP needs a planting-window yield file (`data/yield/{CC}_WLY_LINTUL_2020SP.nc`), which exists only for NG, TZ, GH and RW. The list is `REC_TYPE_COUNTRIES` in `R/AkilimoMain.R`, and `GET /coverage` reports it per country as `rec_types`. FR and SP also need the point inside the country's coverage footprint; IC and PP do not.
 
 ### Crop and yield
 
@@ -391,7 +391,7 @@ Common causes:
 | `PD must be a valid date in YYYY-MM-DD format` | Bad date string |
 | `maizeUW must be a positive number when maizePD is 'grain'` | Missing weight for grain maize price |
 | `Intercropping (IC) recommendations are not available for country: RW — supported countries are NG, TZ` | IC only supported for NG and TZ (see [Availability by country](#availability-by-country)) |
-| `Scheduled planting (SPP/SPH) recommendations are not available for country: RW — supported countries are NG, TZ, GH` | No planting-window yield data for RW or BI |
+| `Scheduled planting (SPP/SPH) recommendations are not available for country: BI — supported countries are NG, TZ, GH, RW` | No planting-window yield data for BI yet |
 | `No scheduled planting data available for lat=X, lon=Y in CC — fertilizer (FR) advice may still be available for this location` | The point is inside the coverage footprint but has no planting-window yield or soil data (a few cells in GH) |
 | `Scheduled planting cannot be computed for PD=… and HD=… — the time from planting to harvest must be between 235 and 452 days` | `HD − PD` is outside the range the SP model covers |
 | `Invalid or missing areaUnits — must be one of: ha, acre, are, m2, ekari, hekta, string` | `areaUnits` absent or not a supported unit |
@@ -420,7 +420,7 @@ Returned for unexpected failures. Includes the `request_token` field (echoed fro
 | Tanzania (TZ) | ✓ | ✓ cassava–sweet potato | ✓ | ✓ |
 | Rwanda (RW) | ✓ | — | ✓ | ✓ |
 | Ghana (GH) | ✓ | — | ✓ | ✓ |
-| Burundi (BI) | ✓ | — | ✓ | ✓ |
+| Burundi (BI) | ✓ | — | ✓ | — |
 
 ### Default cassava prices (when `cassUP` is `0`)
 

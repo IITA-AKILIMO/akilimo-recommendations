@@ -138,7 +138,7 @@ GET /coverage, GET /coverage/<country>, optional ?type=FR|SP (api.R)
     → get_coverage_geojson() (R/coverage.R)
         → Builds (and caches, per server process) a GeoJSON polygon footprint
           per country: FR = the yield grid is_point_covered() uses; SP = that
-          grid where planting-window and soil data also exist (empty for RW, BI)
+          grid where planting-window and soil data also exist (empty for BI)
         → Each feature lists the types the country supports in rec_types
           (REC_TYPE_COUNTRIES in R/AkilimoMain.R)
         → Returns a GeoJSON FeatureCollection for consumption by other services
