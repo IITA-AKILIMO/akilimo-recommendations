@@ -10,7 +10,7 @@ assign("is_point_covered", function(country, lon, lat) TRUE, envir = globalenv()
 
 req <- function(...) {
   b <- list(country = "RW", lat = -2.325, lon = 30.075, area = 1, areaUnits = "ha",
-            FR = FALSE, IC = FALSE, PP = FALSE, SPP = FALSE, SPH = FALSE)
+            FR = FALSE, IC = FALSE, PP = FALSE, SPP = FALSE, SPH = FALSE, PDC = FALSE)
   modifyList(b, list(...))
 }
 
@@ -46,11 +46,18 @@ for (cc in c("RW", "GH", "BI"))
 for (cc in c("NG", "TZ"))
   expect_null(validate_request(req(country = cc, IC = TRUE)), info = cc)
 
-# Only the flag that is processed counts: FR wins over IC (FR -> IC -> PP -> SP)
+# Planting date and cultivar is currently NG maize only
+expect_null(validate_request(req(country = "NG", PDC = TRUE)))
+for (cc in c("TZ", "RW", "GH", "BI"))
+  expect_true(grepl(paste0("Planting date and cultivar .* not available for country: ", cc),
+                    validate_request(req(country = cc, PDC = TRUE))), info = cc)
+
+# Only the flag that is processed counts: FR wins over IC (FR -> IC -> PP -> SP -> PDC)
 expect_null(validate_request(req(FR = TRUE, IC = TRUE)))
 expect_null(validate_request(req(PP = TRUE, SPP = TRUE)))
 expect_equal(active_rec_type(req(IC = TRUE, SPH = TRUE)), "IC")
 expect_equal(active_rec_type(list(SPH = TRUE)), "SP")         # missing flags count as FALSE
+expect_equal(active_rec_type(req(PDC = TRUE)), "PDC")
 expect_true(is.na(active_rec_type(req())))
 
 # FR and PP work everywhere

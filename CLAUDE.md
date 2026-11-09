@@ -129,7 +129,8 @@ POST /compute (api.R)
             process-IC.R  — Intercropping (NG maize / TZ sweet potato)
             process-PP.R  — Post-Planting tillage
             process-SP.R  — Scheduled Planting
-        → Each processor: loads spatial data → QUEFTS → optimisation → returns result list
+            process-PDC.R — Planting Date and Cultivar (NG maize)
+        → Each processor: loads spatial/DSSAT data → QUEFTS → optimisation → returns result list
         → generate_pdfs() → build_*_pdf() → WeasyPrint → PDF files
         → sendEmailReport() if requested
         → Assembles JSON response (PDF failures never suppress the recommendation)
@@ -175,6 +176,7 @@ Spatial data lives under `./data/` (gitignored, except `data/input/translations.
 - `data/yield/` — NetCDF rasters: `{COUNTRY}_WLY_LINTUL_2020SP.nc`
 - `data/input/` — CSV lookup tables (translations, defaults, prices)
   - `translations.csv` — wide format: `key,en,sw,rw`
+- `data/dssat/planting-date-and-cultivar/{NGA}/` — DSSAT planting date × cultivar output (NG maize PDC)
 
 ### Path and Server Configuration
 `AKILIMO_ROOT` env var sets `akpath` (defaults to `"."`). `API_HOST` and `API_PORT` control the Plumber bind address and port (defaults: `0.0.0.0:8000`). All file paths are relative to `akpath`.

@@ -17,16 +17,18 @@ flowchart TD
     validate -->|OK| parse[parse_request&#40;body&#41;<br/>normalise fields, area → ha]
 
     parse --> tmp[setup_temp_dir&#40;&#41;<br/>temp/&#123;timestamp&#125;_&#123;COUNTRY&#125;_&#123;TYPE&#125;_&#123;rand&#125;/]
-    tmp --> dispatch{dispatch_recommendations&#40;&#41;<br/>FR → IC → PP → SP priority}
+    tmp --> dispatch{dispatch_recommendations&#40;&#41;<br/>FR → IC → PP → SP → PDC priority}
 
     dispatch -->|FR| procFR[process-FR.R]
     dispatch -->|IC| procIC[process-IC.R<br/>NG maize / TZ sweet potato]
     dispatch -->|PP| procPP[process-PP.R]
     dispatch -->|SP| procSP[process-SP.R]
+    dispatch -->|PDC| procPDC[process-PDC.R<br/>NG maize]
 
     subgraph dataLayer [Data Layer — get_data.R, cached per process]
         soil[(Soil NPK RDS<br/>data/soil/*.RDS)]
         yield[(Yield WLY<br/>NetCDF / RDS<br/>data/yield/*)]
+        dssat[(DSSAT output<br/>data/dssat/*.RDS)]
         prices[(Prices<br/>SQLite + CSV defaults)]
         trns[(translations.csv)]
     end
@@ -38,6 +40,7 @@ flowchart TD
     procPP --> prices
     procSP --> soil
     procSP --> yield
+    procPDC --> dssat
 
     procFR --> quefts[QUEFTS&#40;&#41;<br/>R/quefts.R<br/>yield at candidate NPK rates]
     procIC --> quefts

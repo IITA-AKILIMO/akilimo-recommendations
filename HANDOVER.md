@@ -41,6 +41,8 @@ then [CLAUDE.md](CLAUDE.md), before changing anything.
 | `2f9a168` | Tanzania `tractor_ridging` default 115,000 → 100,000 TZS per acre, matching the price service |
 | `8dd1b29` | Wrong change (weeding ×10), reverted by `d90f8b3`. Net effect of the two: none |
 | `0e20346` | Handover: DATA-1 needs no new LINTUL runs; build steps in §7 |
+| `227c2f7` | Added PDC integration: process-PDC.R, new flags, docs, tests |
+
 
 - Also pushed in this round:
   - `d95c46b`: the starch seed CSV reads an optional `currency` column.
@@ -85,6 +87,8 @@ then [CLAUDE.md](CLAUDE.md), before changing anything.
 | AGR-2 | Intercrop coefficients flagged "check with Pieter" | Agronomist review |
 | — | `main` far behind `experimental` | Owner's decision when to merge |
 | — | Coverage polygons have holes | Documented; map clients must draw interior rings |
+| DATA-PDC | DSSAT data missing for PDC (NG maize) | Owner will upload data/dssat/planting-date-and-cultivar/NGA |
+
 
 All of these are also in [docs/TECH-DEBT.md](docs/TECH-DEBT.md) ("Blocked on data or expert input").
 

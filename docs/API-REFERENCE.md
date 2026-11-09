@@ -107,7 +107,7 @@ All fields are JSON. **R** = required, **O** = optional (default shown).
 
 ### Recommendation flags
 
-At least one flag must be `true`. Only the first active flag (FR → IC → PP → SP) is processed per request.
+At least one flag must be `true`. Only the first active flag (FR → IC → PP → SP → PDC) is processed per request.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
@@ -116,6 +116,7 @@ At least one flag must be `true`. Only the first active flag (FR → IC → PP �
 | `PP` | boolean | `false` | Post-planting tillage and ridging advice |
 | `SPP` | boolean | `false` | Scheduled planting — optimise planting date |
 | `SPH` | boolean | `false` | Scheduled planting — optimise harvest date |
+| `PDC` | boolean | `false` | Planting date and cultivar recommendation (NG maize only) |
 
 > **Note:** `SPP` and `SPH` are processed together as a single SP request. Set one or both to `true`.
 
@@ -129,8 +130,9 @@ Not every recommendation type has data for every country. If the flag that would
 | IC | ✓ | ✓ | — | — | — |
 | PP | ✓ | ✓ | ✓ | ✓ | ✓ |
 | SP (`SPP`/`SPH`) | ✓ | ✓ | — | ✓ | — |
+| PDC | ✓ | — | — | — | — |
 
-SP needs a planting-window yield file (`data/yield/{CC}_WLY_LINTUL_2020SP.nc`), which exists only for NG, TZ and GH. The list is `REC_TYPE_COUNTRIES` in `R/AkilimoMain.R`, and `GET /coverage` reports it per country as `rec_types`. FR and SP also need the point inside the country's coverage footprint; IC and PP do not.
+SP needs a planting-window yield file (`data/yield/{CC}_WLY_LINTUL_2020SP.nc`), which exists only for NG, TZ and GH. PDC needs DSSAT planting-date/cultivar output, currently only for NG maize. The list is `REC_TYPE_COUNTRIES` in `R/AkilimoMain.R`, and `GET /coverage` reports it per country as `rec_types`. FR and SP also need the point inside the country's coverage footprint; IC, PP and PDC do not (PDC applies its own nearest-DSSAT-grid-point distance limit).
 
 ### Crop and yield
 
@@ -143,6 +145,7 @@ SP needs a planting-window yield file (`data/yield/{CC}_WLY_LINTUL_2020SP.nc`), 
 | `CMP` | integer | O | — | Cassava management practice class (1–5); required for IC |
 | `maxInv` | number | O | unlimited | Maximum investment the farmer will make, local currency, for the whole field. Send `0` for no cap. |
 | `riskAtt` | integer | O | `0` | Risk attitude: `0` risk-averse, `1` neutral, `2` risk-tolerant |
+| `crop` | string | O | `"maize"` | Crop for PDC; only `maize` is currently supported |
 
 ### Planting and harvest dates
 
@@ -387,11 +390,12 @@ Common causes:
 | `Invalid or missing lat — must be numeric between -90 and 90` | `lat` out of range or non-numeric |
 | `No recommendation data available for lat=X, lon=Y in CC — this location is outside the supported agricultural area for this country` | FR or SP request for a coordinate outside the country's yield/soil grid; check it against `GET /coverage/CC` |
 | `Invalid or missing area — must be a positive number` | `area` ≤ 0 or absent |
-| `At least one recommendation flag must be TRUE` | All of FR/IC/PP/SPP/SPH are false |
+| `At least one recommendation flag must be TRUE` | All of FR/IC/PP/SPP/SPH/PDC are false |
 | `PD must be a valid date in YYYY-MM-DD format` | Bad date string |
 | `maizeUW must be a positive number when maizePD is 'grain'` | Missing weight for grain maize price |
 | `Intercropping (IC) recommendations are not available for country: RW — supported countries are NG, TZ` | IC only supported for NG and TZ (see [Availability by country](#availability-by-country)) |
 | `Scheduled planting (SPP/SPH) recommendations are not available for country: RW — supported countries are NG, TZ, GH` | No planting-window yield data for RW or BI |
+| `Planting date and cultivar (PDC) recommendations are not available for country: TZ — supported countries are NG` | PDC currently has DSSAT output only for NG maize |
 | `No scheduled planting data available for lat=X, lon=Y in CC — fertilizer (FR) advice may still be available for this location` | The point is inside the coverage footprint but has no planting-window yield or soil data (a few cells in GH) |
 | `Scheduled planting cannot be computed for PD=… and HD=… — the time from planting to harvest must be between 235 and 452 days` | `HD − PD` is outside the range the SP model covers |
 | `Invalid or missing areaUnits — must be one of: ha, acre, are, m2, ekari, hekta, string` | `areaUnits` absent or not a supported unit |
@@ -414,13 +418,13 @@ Returned for unexpected failures. Includes the `request_token` field (echoed fro
 
 ## Country Coverage
 
-| Country | FR | IC | PP | SP |
-|---------|----|----|----|----|
-| Nigeria (NG) | ✓ | ✓ cassava–maize | ✓ | ✓ |
-| Tanzania (TZ) | ✓ | ✓ cassava–sweet potato | ✓ | ✓ |
-| Rwanda (RW) | ✓ | — | ✓ | ✓ |
-| Ghana (GH) | ✓ | — | ✓ | ✓ |
-| Burundi (BI) | ✓ | — | ✓ | ✓ |
+| Country | FR | IC | PP | SP | PDC |
+|---------|----|----|----|----|-----|
+| Nigeria (NG) | ✓ | ✓ cassava–maize | ✓ | ✓ | ✓ maize |
+| Tanzania (TZ) | ✓ | ✓ cassava–sweet potato | ✓ | ✓ | — |
+| Rwanda (RW) | ✓ | — | ✓ | ✓ | — |
+| Ghana (GH) | ✓ | — | ✓ | ✓ | — |
+| Burundi (BI) | ✓ | — | ✓ | ✓ | — |
 
 ### Default cassava prices (when `cassUP` is `0`)
 
@@ -581,7 +585,7 @@ curl -s -X POST http://localhost:8000/compute \
 
 ## Integration Notes
 
-**Priority order.** Only one recommendation type is returned per request. If multiple flags are `true`, the server processes the first in this order: FR → IC → PP → SP. Send separate requests for multiple recommendation types.
+**Priority order.** Only one recommendation type is returned per request. If multiple flags are `true`, the server processes the first in this order: FR → IC → PP → SP → PDC. Send separate requests for multiple recommendation types.
 
 **Currency.** All monetary values (prices, costs, revenues) are in the local currency of the `country` field. No currency conversion is performed.
 
