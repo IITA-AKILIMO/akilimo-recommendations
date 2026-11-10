@@ -1,0 +1,5 @@
+# Dockerfile.ci only copies install_packages.R, so send nothing else as build
+# context (data/, dist/ and the rest are large). BuildKit reads this file for
+# builds that use Dockerfile.ci, and leaves a future Dockerfile's context alone.
+*
+!install_packages.R

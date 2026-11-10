@@ -11,7 +11,7 @@ name: CI
 # after it. Other branches and pull requests don't wait.
 #
 # "Build CI image" builds Dockerfile.ci (R, system libraries and R packages) and
-# pushes it to GHCR, tagged with a hash of install_packages.R; it builds only
+# pushes it to GHCR, tagged with Git's ID of install_packages.R; it builds only
 # when no image with that tag exists. "R checks" runs inside that
 # image and runs every R check as its own step, with nothing left to install.
 #
@@ -93,7 +93,7 @@ jobs:
 
   # ---------------------------------------------------------------------------
   # CI image: R, system libraries and R packages (Dockerfile.ci), tagged with a
-  # hash of install_packages.R (plus a manual version for Dockerfile.ci edits).
+  # Git's ID of install_packages.R (plus a manual version for Dockerfile.ci edits).
   # Built and pushed to GHCR only when no image with that tag exists yet, so
   # most runs finish in seconds.
   # ---------------------------------------------------------------------------
@@ -126,7 +126,10 @@ jobs:
           # Dockerfile.ci (system libraries, base image), bump IMAGE_VERSION to
           # force one rebuild.
           IMAGE_VERSION=1
-          hash=$(sha256sum install_packages.R | cut -c1-16)
+          # Git's own ID of the committed file: the same on every machine
+          # (no line-ending differences), and you can get it locally with
+          #   git rev-parse HEAD:install_packages.R
+          hash=$(git rev-parse HEAD:install_packages.R | cut -c1-16)
           ref="ghcr.io/${GITHUB_REPOSITORY,,}-ci:v$IMAGE_VERSION-$hash"   # registry names are lowercase
           echo "ref=$ref" >> "$GITHUB_OUTPUT"
           echo "Image: $ref" >> "$GITHUB_STEP_SUMMARY"
