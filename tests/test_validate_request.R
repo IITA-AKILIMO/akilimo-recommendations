@@ -25,8 +25,8 @@ expect_null(validate_request(req(FR = TRUE, subsidisedFertilizer = TRUE)))
 expect_true(grepl("subsidisedFertilizer must be a boolean",
                   validate_request(req(FR = TRUE, subsidisedFertilizer = "yes"))))
 
-# Scheduled planting has no planting-window data for RW or BI
-for (cc in c("RW", "BI")) {
+# Scheduled planting has no planting-window data for BI yet
+for (cc in "BI") {
   for (flag in c("SPP", "SPH")) {
     b <- req(country = cc, PD_window = 2, HD_window = 2)
     b[[flag]] <- TRUE
@@ -36,7 +36,7 @@ for (cc in c("RW", "BI")) {
   # also with windows of 0, which would otherwise ask the user for windows that then fail
   expect_true(grepl("Scheduled planting", validate_request(req(country = cc, SPP = TRUE))), info = cc)
 }
-for (cc in c("NG", "TZ", "GH"))
+for (cc in c("NG", "TZ", "GH", "RW"))
   expect_null(validate_request(req(country = cc, SPP = TRUE, PD_window = 2, HD_window = 2)), info = cc)
 
 # Intercropping exists only for NG and TZ
@@ -70,10 +70,11 @@ for (cc in c("NG", "TZ", "RW", "GH", "BI")) {
 assign("is_point_covered", function(country, lon, lat) FALSE, envir = globalenv())
 expect_true(grepl("outside the supported agricultural area", validate_request(req(country = "NG", FR = TRUE))))
 expect_true(grepl("outside the supported agricultural area", validate_request(req(country = "NG", SPP = TRUE))))
+expect_true(grepl("outside the supported agricultural area", validate_request(req(country = "RW", SPP = TRUE))))
 expect_null(validate_request(req(country = "NG", IC = TRUE)))
 expect_null(validate_request(req(country = "NG", PP = TRUE)))
-# availability is reported before coverage: RW SP outside the grid says SP is unavailable
-expect_true(grepl("Scheduled planting", validate_request(req(SPP = TRUE))))
+# availability is reported before coverage: BI SP outside the grid says SP is unavailable
+expect_true(grepl("Scheduled planting", validate_request(req(country = "BI", SPP = TRUE))))
 assign("is_point_covered", function(country, lon, lat) TRUE, envir = globalenv())
 
 # getRFY: countries without a dry-matter curve (RW, GH, BI) use the NG curve instead of returning numeric(0)

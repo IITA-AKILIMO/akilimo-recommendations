@@ -44,7 +44,7 @@ test_files <- c(
     "in_35_NG_IC_grain_zero_prices_riskAtt1",
     "in_36_RW_FR_default_prices_riskAtt2",
     "in_37_BI_FR_default_prices_riskAtt2",
-    "in_38_RW_SP_window2_not_available",  # expect HTTP 400
+    "in_38_RW_SP_window2_riskAtt2",
     "in_39_RW_IC_not_available",          # expect HTTP 400
     "in_40_RW_FR_ekari_riskAtt2",
     "in_41_RW_FR_small_area_m2_riskAtt2",

@@ -33,9 +33,9 @@ then [CLAUDE.md](CLAUDE.md), before changing anything.
   - `experimental` (beta) has price catalogue phase 2 (PR #31, `06e88aa`), the docs PR #32 (`961902e`) and planting-date-and-cultivar (PDC) support (`4a5fdfa`). CI is green at `4a5fdfa`.
   - The local branch `feat/integrate-pdc` tracks `origin/experimental`, so a plain `git push` from it pushes to `experimental` and deploys beta.
   - Unapplied stash `stash@{0}` ("handover DATA-1 next-step update", on `feat/price-catalogue`) may hold handover text that was never committed. Check it before dropping it.
-- **PR #33:** `feat/data-1-rw-sp` adds scheduled planting for Rwanda and targets `experimental`. It is still open and is not ready to merge:
-  - GitHub reports conflicts.
-  - Its latest CI run fails in `test_small`, because the RW SP request returns 400 (`No scheduled planting data available`): the runtime RW NetCDF is not in the data bundle CI uses.
+- **PR #33:** `feat/data-1-rw-sp` adds scheduled planting for Rwanda and targets `experimental`. It is open; the conflict and the CI failure were fixed on 2026-11-10 and are waiting on a push and a green CI run:
+  - The conflict with `experimental` is resolved by merging `experimental` into the branch (PDC and RW scheduled planting sit side by side in `REC_TYPE_COUNTRIES`).
+  - CI failed because `RW_WLY_LINTUL_2020SP.nc` is not in the OSF bundle. `tools/ensure_sp_files.sh` now builds it from `data/yield/Rwanda_WLY_LINTUL.RDS` when it is missing: in CI before the checks, in the deploy's code update, and after a server data pull. A file published in the bundle always wins. Reproduced locally without the file (5 of 12 RW checks fail), then built it: `test_small` 164/164, RW regressions 12/12.
 
   Resolve the branch conflict and the CI/runtime-data issue before merging. Do not bypass these checks.
 - **Latest commits** (newest first):
@@ -81,18 +81,18 @@ then [CLAUDE.md](CLAUDE.md), before changing anything.
 | Phase 2 at `94bdee0`: live refresh | TZ refreshed twice from the running `feat/price-review` API into a DB copy: 16 rows, then 0; the cursor is kept and the country isn't stale |
 
   The translations sync was also dry-run against the local price service: 60 rows, no 401.
-- **Recently verified:** CI on the current work was reported successful, and the beta price refresh (`Rscript refresh_prices.R --type all`) completed successfully on 2026-11-09. These do not imply PR #33 is green; its latest checks fail as described above.
+- **Recently verified:** CI on `experimental` was green at `4a5fdfa`, and the beta price refresh (`Rscript refresh_prices.R --type all`) completed successfully on 2026-11-09 (as reported by the owner). PR #33 has been fixed locally (see above) but its CI has not run yet.
 - **Not verified:**
   - `github-tag-action@v7` behaviour when a production deploy on `main` exercises release tagging. (The Windows-built `test_small.rds` baseline now passes on Linux CI on `experimental`.)
   - Any request over HTTP against a running server.
   - A complete `/compute` request over HTTP that uses an activated catalogue price, e.g. a draft RW labour price activated in the admin.
-  - Whether the beta deployment and runtime-data bundle are current for all recent changes, especially PDC/RW scheduled planting. The all-prices refresh succeeded, but that does not verify an end-to-end `/compute` request using an activated catalogue price or confirm the RW NetCDF is present on the server.
+  - Whether beta has the RW scheduled-planting file once PR #33 deploys: the deploy builds it, but nobody has run it on the server. Also that an end-to-end `/compute` request using an activated catalogue price works.
 
 ## 3. Open gaps
 
 | ID | Gap | Status / next step |
 |----|-----|--------------------|
-| DATA-1 | Scheduled planting is unavailable for RW and BI on `experimental`. PR #33 adds RW support and builds its NetCDF from the existing yield RDS, but its CI currently lacks the generated/runtime RW NetCDF; BI also has no points in `SoilData_4Country.RDS` | Resolve PR #33's branch conflict and make the RW runtime file available to CI/deploy before merging. BI remains blocked on the owner's soil-source decision; see [§7](#7-next-task-sp-for-rw-and-bi-data-1) |
+| DATA-1 | Scheduled planting is unavailable for BI on `experimental`; RW is added by PR #33 (merged with `experimental` and fixed, awaiting CI). BI has no planting-window file and no points in `SoilData_4Country.RDS` | RW: push PR #33, check CI, merge, then check the beta deploy built the RW file. BI remains blocked on the owner's soil-source decision; see [§7](#7-next-task-sp-for-rw-and-bi-data-1) |
 | DATA-2 | Kinyarwanda (`rw`) text empty | Needs a translator; fill the `rw` column of `translations.csv` |
 | DATA-3 | Price service data gaps | **Mostly done in new-akilimo-api:**<br>- Burundi `BU`→`BI` (`3681ce2`, pushed).<br>- Currency set on every default and starch price (`2bd8760`).<br>- GH/RW starch factories added **inactive** with estimated prices; inactive factories are hidden from `/starch-prices` (`d80ccf5`, pushed).<br>Left: confirm the GH/RW starch prices, then activate them in the admin. BI has no starch buyer |
 | DATA-4 | Prices are stale (fertiliser 1.3–7× below market in all five countries, both the defaults and the app's price options; Burundi FOMI is per 25 kg bag) | Reviewed with sources in new-akilimo-api `docs/data/price-review-2026-11.md`. Tanzania fertiliser updated to TFRA Sep 2025 (`87721bc`). The rest waits for the price catalogue (§8) and country-team review in the admin |
@@ -194,13 +194,13 @@ These data and expert-input gaps are tracked in [docs/TECH-DEBT.md](docs/TECH-DE
 ## 6. Suggested next steps
 
 1. **Completed:** CI on the current work runs successfully; the beta all-prices refresh succeeded on 2026-11-09. PR #32 (documentation) is merged as `961902e`.
-2. **Next:** resolve PR #33's merge conflict and failing CI. The latest `test_small` failure is caused by the RW SP request receiving 400 because CI's runtime data bundle lacks `RW_WLY_LINTUL_2020SP.nc`. Confirm the correct data-publishing/CI approach, rerun CI, then merge only when checks pass.
+2. **Next:** push PR #33 (`feat/data-1-rw-sp`, already merged with `experimental` and fixed) and check its CI. CI builds the RW file with `tools/ensure_sp_files.sh`, so no data bundle upload is needed for RW. Merge only when checks pass.
 3. Before release, verify a `/compute` request against the deployed `/v1/prices` endpoint that uses an activated catalogue price.
 4. BI scheduled planting remains blocked on the owner's soil-source decision. Hand DATA-2 / AGR-1 / AGR-2 to the IITA translation and agronomy owners.
 
 ## 7. Next task: SP for RW and BI (DATA-1)
 
-PR #33 (`feat/data-1-rw-sp`) implements scheduled planting for Rwanda from the existing yield RDS files; it is not yet merged. Its generator is `tools/build_sp_nc.R`. The PR is currently blocked by a merge conflict and by CI's missing RW SP NetCDF runtime data (see §2 and §6). BI remains unimplemented pending the owner's soil-source decision.
+PR #33 (`feat/data-1-rw-sp`) implements scheduled planting for Rwanda from the existing yield RDS files. Its generator is `tools/build_sp_nc.R`; `tools/ensure_sp_files.sh` runs it where the file is missing (CI, deploy, data pull). On 2026-11-10 the branch was merged with `experimental` and fixed; it needs a push and a green CI run before it can merge. BI remains unimplemented pending the owner's soil-source decision.
 
 **No new LINTUL runs are needed.** `data/yield/Rwanda_WLY_LINTUL.RDS` and `Burundi_WLY_LINTUL.RDS`, the files FR uses, are the same LINTUL output in wide form:
 - Columns: `plantingDate, lat, long, WLY_235 … WLY_452`. That is 32 harvest ages, the same as the `.nc` `daysOnField` dimension.
@@ -239,20 +239,20 @@ Steps:
    build_sp_nc("RW", "Rwanda_WLY_LINTUL.RDS")
    build_sp_nc("BI", "Burundi_WLY_LINTUL.RDS")
    ```
-  The script also verifies the output by reading sample cells through `get_WLY_15M_ncdf()` and comparing with the RDS. The generated `.nc` is runtime data, not a tracked source file; make it available in CI and publish it with the runtime bundle before enabling RW on beta.
+  The script also verifies the output by reading sample cells through `get_WLY_15M_ncdf()` and comparing with the RDS. The generated `.nc` is not a tracked source file and needn't be published: `tools/ensure_sp_files.sh` rebuilds it, identically (checked byte for byte), wherever it is missing and `Rwanda_WLY_LINTUL.RDS` is present.
 2. **BI soil: the owner decides (pending).** Either:
    - (a) the producer of `SoilData_4Country.RDS` adds BI, which keeps one method for all countries; or
    - (b) `getSPrecommendations()` (`R/process-SP.R`) uses `BI_FCY{1..5}_soilNPK.RDS`, picking the class from FCY the way FR does.
 
    RW can go ahead without waiting for this.
 3. **RW code — included in PR #33; BI code remains pending:** the PR enables RW in `REC_TYPE_COUNTRIES$SP`, removes the unconditional BI early return from `get_WLY_15M_ncdf()`, and relies on data/soil coverage for availability. Add BI only after its soil source is settled.
-4. **Tests and docs — updates included in PR #33, but CI is not green:**
+4. **Tests and docs, included in PR #33:**
    - Update `tests/test_validate_request.R`.
    - Fixtures `in_38` (RW SP, now expected to succeed) and `in_39`.
    - `tests/test_rw_regressions.R`.
-  - Rebuild `tests/test_small.rds` with `UPDATE_BASELINE=1` (done on the PR branch; CI still fails because the RW runtime NetCDF is missing).
+  - Rebuild `tests/test_small.rds` with `UPDATE_BASELINE=1` (done on the PR branch; it still passes after merging `experimental`).
    - In `docs/API-REFERENCE.md`, update the "Availability by country" table and the error list.
-5. **Ship the data (owner only; this publishes data):** include the generated RW NetCDF in the runtime bundle, upload to OSF, then run "Data setup" with target `beta`. Coordinate the CI data source as well; do not merge until the PR conflict is resolved and CI passes.
+5. **Data: nothing to publish for RW.** CI and the deploy build the file (step 1). Publishing a real LINTUL-run file in the bundle later is still possible and wins over the generated one. BI needs its own file and a soil decision first.
 
 Limits to tell the owner:
 - RW SP only works when PD ± `PD_window` falls in planting weeks 6–14 or 37–44. Other dates get the existing `SP_DATES_OUT_OF_RANGE` 400 ("Scheduled planting cannot be computed for PD=… and HD=…"). Full-year RW would need new LINTUL runs.
