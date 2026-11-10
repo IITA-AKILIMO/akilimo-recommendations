@@ -32,7 +32,7 @@ then [CLAUDE.md](CLAUDE.md), before changing anything.
 - **Branches (2026-11-10):**
   - `experimental` (beta) has price catalogue phase 2 (PR #31, `06e88aa`), the docs PR #32 (`961902e`), planting-date-and-cultivar (PDC) support (`4a5fdfa`) and, as a local merge awaiting your push, PR #33 (scheduled planting for Rwanda, merge `acb76be`). CI was green at `4a5fdfa` and on PR #33's branch at `94adc6e`.
   - A plain `git push` from any branch that tracks `origin/experimental` pushes to `experimental` and deploys beta. Local `experimental` is ahead of origin until the owner pushes it.
-  - Unapplied stash `stash@{0}` ("handover DATA-1 next-step update", on `feat/price-catalogue`) may hold handover text that was never committed. Check it before dropping it.
+  - Old stashes remain in the repo. `stash@{0}` ("handover DATA-1 next-step update") holds only an earlier draft of the §6 next steps, now superseded, so it is safe to drop (`git stash drop 'stash@{0}'`). Check the older ones before dropping them.
 - **PR #33** (`feat/data-1-rw-sp`, scheduled planting for Rwanda) is **merged locally into `experimental`** (`acb76be`, 2026-11-10). It becomes merged on GitHub when the owner pushes `experimental`, because its commits are then part of that branch. Before that, GitHub CI on the PR was green (push and pull-request runs at `94adc6e`), and the PR was clean and mergeable:
   - The conflict with `experimental` is resolved by merging `experimental` into the branch (PDC and RW scheduled planting sit side by side in `REC_TYPE_COUNTRIES`).
   - CI failed because `RW_WLY_LINTUL_2020SP.nc` is not in the OSF bundle. `tools/ensure_sp_files.sh` now builds it from `data/yield/Rwanda_WLY_LINTUL.RDS` when it is missing: in CI before the checks, in the deploy's code update, and after a server data pull. A file published in the bundle always wins. Reproduced locally without the file (5 of 12 RW checks fail), then built it: `test_small` 164/164, RW regressions 12/12.
@@ -170,7 +170,6 @@ These data and expert-input gaps are tracked in [docs/TECH-DEBT.md](docs/TECH-DE
   - **Starch factories:** it keeps only rows with `factory_active` true (`dao/StarchFactoryDao.kt`), so inactive factories stay hidden even though the unfiltered `/v1/starch-factories` returns them.
   - **Labour costs** are only what the farmer types; there is no price list for them in the app.
   - **When to check it:** any change to the shape of a price or factory endpoint, or to what a `0`/negative price means, must be checked against these files.
-- **Branch `claude/vigilant-mclean-c38063`** is fully merged into `experimental` (fast-forward) and can be deleted.
 
 ## 5. How to work here
 
