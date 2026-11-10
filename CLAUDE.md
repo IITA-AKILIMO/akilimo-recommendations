@@ -207,12 +207,12 @@ Full field reference with types and examples: [docs/API-REFERENCE.md](docs/API-R
 
 Two instances run in parallel on the same server:
 
-| Instance | Branch | Directory | Service | Workflow |
-|----------|--------|-----------|---------|----------|
-| Production | `main` | `/mnt/data/extra_storage/projects/new_akilimo` | `akilimo-api.service` | `ci.yml` → `deploy.yml` |
-| Beta | `experimental` | `/data/extra_storage/projects/akilimo-beta` | `akilimo-api-beta.service` | `ci.yml` → `deploy.yml` |
+| Instance | Branch | Service | Workflow |
+|----------|--------|---------|----------|
+| Production | `main` | `akilimo-api.service` | `ci.yml` → `deploy.yml` |
+| Beta | `experimental` | `akilimo-api-beta.service` | `ci.yml` → `deploy.yml` |
 
-Branch, directory and service per instance are defined once in `.github/deploy-targets.json` (read by the `.github/actions/resolve-target` action) — edit them there, not in the workflows.
+Branch, directory (`app_dir`) and service per instance are defined once in `.github/deploy-targets.json` (read by the `.github/actions/resolve-target` action) — edit them there, not in the workflows, and don't copy the paths into other docs. The service's `WorkingDirectory` must be that same `app_dir`. On a server, `sh tools/check_service.sh beta` (or `production`) checks this, reading the paths from that file.
 
 Two workflows. `ci.yml` ("CI") runs on every push and pull request. On pushes, once every check has passed, it calls `deploy.yml` ("Deploy") as a reusable workflow, which GitHub shows as one collapsible box:
 
