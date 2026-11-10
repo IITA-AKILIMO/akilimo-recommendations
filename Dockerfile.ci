@@ -2,8 +2,9 @@
 # "R checks" job in .github/workflows/ci.yml starts with nothing left to install.
 #
 # Built and pushed by the "Build CI image" job in ci.yml, tagged with a hash of
-# this file and install_packages.R: change either one and the next run builds
-# a fresh image; otherwise the existing image is reused.
+# install_packages.R: change that file and the next run builds a fresh image;
+# otherwise the existing image is reused. Editing THIS file does not rebuild
+# it by itself: bump IMAGE_VERSION in ci.yml.
 #
 # Not used by the servers: they update and install packages over SSH (deploy.yml).
 FROM rocker/r-ver:4
