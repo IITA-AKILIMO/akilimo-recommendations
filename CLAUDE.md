@@ -223,7 +223,7 @@ CI:      Wait for more pushes (deploy branches only)
            → Deploy (pushes only)
 Deploy:  Plan → Deploy to server (steps: update code and packages
            → pull runtime data (optional) → restart service → check health)
-           → Tag release (production only)
+           → Tag release (production: 1.2.3; beta: pre-release beta-1.2.3)
 ```
 
 The wait comes first, so a burst of pushes to `main` or `experimental` runs the checks and the deploy once, for the last push: a newer push cancels the older run's wait (60 seconds after the last commit), and with it that run's checks and deploy. Runs on those branches are never cancelled once past the wait, so a deploy always finishes; deploys take turns through a per-server lock.

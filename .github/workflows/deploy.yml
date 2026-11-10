@@ -3,7 +3,7 @@ name: Deploy
 # Deploys the branch to its server in three jobs (kept few so the run graph
 # stays readable):
 #
-#   Plan -> Deploy to server -> Tag release (production only)
+#   Plan -> Deploy to server -> Tag release (beta tags are "beta-" pre-releases)
 #
 # "Deploy to server" runs these steps in order: update code and packages,
 # pull runtime data (optional), restart the service, check health.
@@ -210,7 +210,10 @@ jobs:
             exit 1
 
   # ---------------------------------------------------------------------------
-  # Release: production only, and only once the deploy is healthy
+  # Release: every deploy target, once the deploy is healthy. main and
+  # experimental are separate lines of work that will not be merged, so each
+  # keeps its own version sequence: production tags are plain (1.2.3), beta
+  # tags carry a "beta-" prefix (beta-1.2.3) and are published as pre-releases.
   # ---------------------------------------------------------------------------
   tag:
     name: Tag release
@@ -218,13 +221,13 @@ jobs:
     # Only after the deploy job, which includes the health check, succeeded
     if: >-
       !cancelled() &&
-      needs.plan.outputs.target == 'production' &&
+      needs.plan.outputs.deploy == 'true' &&
       needs.deploy.result == 'success'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
     concurrency:
-      group: tag-release
+      group: tag-release-${{ needs.plan.outputs.target }}
       cancel-in-progress: false
     steps:
       - name: Check out code
@@ -240,8 +243,10 @@ jobs:
         uses: mathieudutour/github-tag-action@v7
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          release_branches: main
-          tag_prefix: ""
+          # The branch being deployed is the release branch (main or experimental)
+          release_branches: ${{ github.ref_name }}
+          # cond && 'beta-' || '' (not the other way round: '' is falsy)
+          tag_prefix: ${{ needs.plan.outputs.target != 'production' && 'beta-' || '' }}
           create_annotated_tag: true
 
       - name: Publish the GitHub release
@@ -252,7 +257,9 @@ jobs:
           tag: ${{ steps.tag_version.outputs.new_tag }}
           name: Version ${{ steps.tag_version.outputs.new_tag }}
           body: ${{ steps.tag_version.outputs.changelog }}
-          makeLatest: true
+          # Beta releases never become the repository's "latest" release
+          makeLatest: ${{ needs.plan.outputs.target == 'production' }}
+          prerelease: ${{ needs.plan.outputs.target != 'production' }}
           allowUpdates: true
           generateReleaseNotes: true
           skipIfReleaseExists: false
