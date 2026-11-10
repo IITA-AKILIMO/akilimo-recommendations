@@ -166,6 +166,11 @@ jobs:
       needs.image.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    # The workflow default is contents: read only, which leaves the token
+    # without access to GHCR packages, so pulling the image below is "denied"
+    permissions:
+      contents: read
+      packages: read
     container:
       image: ${{ needs.image.outputs.ref }}
       credentials:
