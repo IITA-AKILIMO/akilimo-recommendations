@@ -83,6 +83,7 @@ then [CLAUDE.md](CLAUDE.md), before changing anything.
   The translations sync was also dry-run against the local price service: 60 rows, no 401.
 - **Recently verified:** CI on `experimental` was green at `4a5fdfa`, CI on the PR #33 branch was green at `94adc6e` (the `Build the Rwanda scheduled-planting file` step ran on the Linux runner: 782 cells, verified), and the beta price refresh (`Rscript refresh_prices.R --type all`) completed successfully on 2026-11-09 (as reported by the owner).
 - **Not verified:**
+  - **CI image.** Written (`Dockerfile.ci`, the `Build CI image` job, the container on `R checks`) but never built or run; see §5.
   - **Health check and release tag.** Until the fix in `deploy.yml` (2026-11-10), `Check health` and `Tag release` were skipped on every push deploy, because the skipped optional data pull upstream made GitHub's implicit `success()` false. Both now name the restart/health result explicitly. Not verified: the first deploy after the fix is the first time the health check runs for real, and the first push to `main` is the first time `github-tag-action@v7` and the GitHub release run. Look at those two jobs. (The Windows-built `test_small.rds` baseline now passes on Linux CI on `experimental`.)
   - Any request over HTTP against a running server.
   - A complete `/compute` request over HTTP that uses an activated catalogue price, e.g. a draft RW labour price activated in the admin.
@@ -184,9 +185,15 @@ These data and expert-input gaps are tracked in [docs/TECH-DEBT.md](docs/TECH-DE
   - watchexec 2.7 needs absolute `--watch` paths (`%CD%\R`).
   - Git converts LF to CRLF in the working copy; that's harmless.
 - **CI and deploy** (split on 2026-11-09; was `pipeline.yml`):
-  - `ci.yml` ("CI"): Wait for more pushes (deploy branches only) → R checks on every push and PR. On pushes it then calls `deploy.yml` as a reusable workflow, which runs from the pushed branch, not from `main`.
+  - `ci.yml` ("CI"): Wait for more pushes (deploy branches only) → Build CI image → R checks on every push and PR. On pushes it then calls `deploy.yml` as a reusable workflow, which runs from the pushed branch, not from `main`.
+  - **CI image** (added 2026-11-10): `Dockerfile.ci` holds R, the system libraries and every R package. The `Build CI image` job pushes it to GHCR as `ghcr.io/iita-akilimo/akilimo-recommendations-ci:<sha>`, where `<sha>` is the full output of `git rev-parse HEAD:install_packages.R`, and builds only when that tag does not exist. `R checks` runs inside it (`container:` in `ci.yml`), so nothing is installed per run; the old `setup-r-env` action and R package cache are gone.
+    - Only `install_packages.R` changes the tag. Editing `Dockerfile.ci` alone rebuilds nothing: also change `install_packages.R` (even a comment) or delete the tag in GHCR.
+    - Use the full ID and never pipe it through `cut`: a shell that adds a byte-order mark gave 13 and 14 characters on two machines. Hashing the working file differs too, because Windows git converts line endings; the Git ID does not.
+    - `docker-compose.yml` builds the same `Dockerfile.ci` locally (`docker compose build ci`, `docker compose run --rm ci`), tagged `local`, or whatever `GITHUB_SHA` holds if set. Nothing in CI uses it.
+    - **Not verified yet:** no run has built or pulled the image. Watch the first run for GHCR pull permissions (set the package public if the pull is refused), `git` safe-directory warnings and file permissions on the restored data cache inside the container. The data download still uses `setup-python` 3.13 on a cache miss.
+    - `tests/run_ci_test.R` runs one tinytest file the way CI does and fails if the file ran no checks.
   - The wait is first on purpose (changed 2026-11-10): a newer push cancels the older run's wait, so a burst of pushes runs the checks and deploy once. For that to work, runs on `main`/`experimental` get their own concurrency group; with one shared group GitHub queues the new run behind the old one, and it never reaches its wait. Don't put a shared workflow-level `concurrency` group back on deploy branches. Deploys still take turns through the per-server lock in `deploy.yml`.
-  - `deploy.yml` ("Deploy"): Plan → Update code → Pull data (optional) → Restart → Health → Tag (production only). It can be run by hand from the Actions tab, but a manual run does **not** run the R checks. Jobs after an optional one need an explicit `if` naming the results they accept (`needs.X.result == 'success'`); the default "all upstream jobs succeeded" skips them whenever the optional job is skipped.
+  - `deploy.yml` ("Deploy"): Plan → Deploy to server → Tag release (production only). Since 2026-11-10 the server work is one job with ordered steps (update code and packages, pull runtime data when `setup_data` is ticked, restart, check health) so the run graph stays readable; a failed health check fails the job and blocks the tag. A step that is skipped does not skip the steps after it. A required-check rule that names the old `Check health` job would need updating. It can be run by hand from the Actions tab, but a manual run does **not** run the R checks. Jobs after an optional job still need an explicit `if` naming the results they accept (`needs.X.result == 'success'`), as `Tag release` does.
   - `data-setup.yml` ("Data setup"): pulls OSF data onto a server on its own.
   - Deploy targets live in `.github/deploy-targets.json`.
   - Composite actions are in `.github/actions/`.
@@ -204,7 +211,9 @@ Run `sh tools/check_service.sh beta` in the beta checkout on the server (it exis
 
 The repo used to name three different beta paths (`deploy-targets.json`: `/data/extra_storage/projects/akilimo-beta`; the README, `docs/SETUP.md` and the unit example: `/home/akilimo/projects/akilimo-beta`, stale; the owner reports `/home/akilimo/extra_storage/projects/akilimo-beta` on the server). `deploy-targets.json` is the source of truth; the README, SETUP and the unit examples now say so.
 
-Until beta is fixed, the Deploy job's `Check health` will fail on every push to `experimental`: that failure is real, not a flaky check. A health check that follows the service's real port (from the unit file as well as `.env`) would be a safer check, because today it can pass against the wrong service.
+**Update 2026-11-10:** the owner has set `API_PORT=8001` in beta's `.env`, because production holds 8000. That matches the symptom (beta was binding production's port), but nobody has confirmed it yet: restart the service, then run the script above and `curl http://127.0.0.1:8001/health`. The deploy's health check already reads `API_PORT` from `$APP_DIR/.env` (default 8000), so it follows the `.env` value as long as `app_dir` is the folder the service runs from.
+
+Until beta is fixed, the Deploy job's `Check health` step will fail on every push to `experimental`: that failure is real, not a flaky check. A health check that follows the service's real port (from the unit file as well as `.env`) would be a safer check, because today it can pass against the wrong service.
 
 
 1. **Completed:** CI on the current work runs successfully; the beta all-prices refresh succeeded on 2026-11-09. PR #32 (documentation) is merged as `961902e`.
