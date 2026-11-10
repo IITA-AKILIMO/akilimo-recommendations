@@ -193,6 +193,15 @@ These data and expert-input gaps are tracked in [docs/TECH-DEBT.md](docs/TECH-DE
 
 ## 6. Suggested next steps
 
+**Urgent (2026-11-10): the beta service is crash-looping.** The first deploy where `Check health` really ran (run `42758918609`, after the fix in `549a97f`) failed: `akilimo-api-beta.service` exits at start with `createTcpServer: address already in use`, and systemd's restart counter was at **6691** (a restart about every 18 seconds, so it has been failing for roughly a day and a half). Earlier green deploys hid this because the health check was being skipped. The cause is not known; nobody has looked on the server. Things to check there:
+
+- Which process holds the port: `sudo ss -ltnp | grep -E ':(8000|8001)\b'`. Beta is meant to use 8001 and production 8000 (README, "Beta Instance"). A leftover R process from an earlier run would explain a port that stays taken.
+- Where beta's port comes from: `grep API_PORT /home/akilimo/projects/akilimo-beta/.env`, and `systemctl cat akilimo-api-beta.service`. The README never says to set `API_PORT=8001` in beta's `.env`. The health check read no port there and polled 8000, which is production's port.
+- `sudo journalctl -u akilimo-api-beta -n 50 --no-pager`, and `systemctl status akilimo-api.service` to confirm production is fine.
+
+Until beta is fixed, the Deploy job's `Check health` will fail on every push to `experimental`: that failure is real, not a flaky check. A health check that follows the service's real port (from the unit file as well as `.env`) would be a safer check, because today it can pass against the wrong service.
+
+
 1. **Completed:** CI on the current work runs successfully; the beta all-prices refresh succeeded on 2026-11-09. PR #32 (documentation) is merged as `961902e`.
 2. **Completed 2026-11-10:** PR #33 (RW scheduled planting) is merged (`adbc7a5`) and beta's deploy built `RW_WLY_LINTUL_2020SP.nc`. Still to do: send a RW scheduled-planting request to beta.
 3. Before release, verify a `/compute` request against the deployed `/v1/prices` endpoint that uses an activated catalogue price.
