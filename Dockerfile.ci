@@ -1,0 +1,33 @@
+# CI image: R, every system library and every R package the API needs, so the
+# "R checks" job in .github/workflows/ci.yml starts with nothing left to install.
+#
+# Built and pushed by the "Build CI image" job in ci.yml, tagged with a hash of
+# this file and install_packages.R: change either one and the next run builds
+# a fresh image; otherwise the existing image is reused.
+#
+# Not used by the servers: they update and install packages over SSH (deploy.yml).
+FROM rocker/r-ver:4
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# System libraries: GDAL/GEOS/PROJ/udunits for sf, NetCDF for ncdf4, SQLite,
+# curl, a JRE for rJava (mailR), WeasyPrint for the PDF tests, and the tools
+# the workflow steps use (git, jq, zstd for actions/cache, pipx for the OSF
+# data download).
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      ca-certificates curl git jq zstd pipx python3-pip \
+      weasyprint \
+      libgdal-dev libgeos-dev libproj-dev libudunits2-dev libabsl-dev cmake \
+      libnetcdf-dev libsqlite3-dev libcurl4-openssl-dev \
+      default-jre-headless \
+ && R CMD javareconf \
+ && rm -rf /var/lib/apt/lists/*
+
+# Same script the servers and the old CI cache step ran; it exits non-zero if
+# any package fails to install, which fails the image build.
+COPY install_packages.R /tmp/install_packages.R
+RUN Rscript /tmp/install_packages.R && rm /tmp/install_packages.R
+
+# Lets GHCR link the package to this repository (and its Actions permissions)
+LABEL org.opencontainers.image.source="https://github.com/IITA-AKILIMO/akilimo-recommendations"

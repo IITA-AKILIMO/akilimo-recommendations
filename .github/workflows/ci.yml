@@ -2,16 +2,18 @@ name: CI
 
 # Every push and pull request:
 #
-#   Wait for more pushes -> R checks -> Deploy (pushes only; see deploy.yml)
+#   Wait for more pushes -> Build CI image -> R checks -> Deploy (pushes only;
+#   see deploy.yml)
 #
 # "Wait for more pushes" comes first, so a burst of pushes to a deploy branch
 # (main, experimental) runs the checks and the deploy once, for the last push:
 # a newer push cancels the older run's wait, and with it the checks and deploy
 # after it. Other branches and pull requests don't wait.
 #
-# "R checks" sets up R once and runs every R check as its own step. Its R
-# packages are cached under a key made from install_packages.R: while that
-# file is unchanged they come from the cache and nothing is installed.
+# "Build CI image" builds Dockerfile.ci (R, system libraries and R packages) and
+# pushes it to GHCR, tagged with a hash of Dockerfile.ci and install_packages.R;
+# it builds only when no image with that tag exists. "R checks" runs inside that
+# image and runs every R check as its own step, with nothing left to install.
 #
 # Deploy is a separate, reusable workflow (deploy.yml) called once every check
 # has passed. It decides from .github/deploy-targets.json whether the branch
@@ -90,27 +92,87 @@ jobs:
           fi
 
   # ---------------------------------------------------------------------------
-  # Checks: one job, R set up once; every check must pass before anything
-  # deploys. Each check still runs (and reports) if an earlier one failed.
+  # CI image: R, system libraries and R packages (Dockerfile.ci), tagged with a
+  # hash of Dockerfile.ci + install_packages.R. Built and pushed to GHCR only
+  # when no image with that tag exists yet, so most runs finish in seconds.
   # ---------------------------------------------------------------------------
-  checks:
-    name: R checks
+  image:
+    name: Build CI image
     needs: [ debounce ]
-    # Pull requests skip the wait; a wait cancelled by a newer push skips the run
     if: >-
       !cancelled() &&
       (needs.debounce.result == 'success' || needs.debounce.result == 'skipped')
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      ref: ${{ steps.tag.outputs.ref }}
+    steps:
+      - name: Check out the image inputs
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            Dockerfile.ci
+            install_packages.R
+          sparse-checkout-cone-mode: false
+
+      - name: Work out the image tag
+        id: tag
+        run: |
+          hash=$(cat Dockerfile.ci install_packages.R | sha256sum | cut -c1-16)
+          ref="ghcr.io/${GITHUB_REPOSITORY,,}-ci:$hash"   # registry names are lowercase
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "Image: $ref" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Check whether the image already exists
+        id: exists
+        run: |
+          if docker manifest inspect "${{ steps.tag.outputs.ref }}" >/dev/null 2>&1; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            echo "Image exists, nothing to build." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and push the image
+        if: steps.exists.outputs.found != 'true'
+        run: |
+          docker build -f Dockerfile.ci -t "${{ steps.tag.outputs.ref }}" .
+          docker push "${{ steps.tag.outputs.ref }}"
+          echo "Built and pushed the image." >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  # Checks: one job, run inside the CI image; every check must pass before
+  # anything deploys. Each check still runs (and reports) if an earlier one
+  # failed.
+  # ---------------------------------------------------------------------------
+  checks:
+    name: R checks
+    needs: [ image ]
+    # Skipped when the wait was cancelled by a newer push, or the image failed
+    if: >-
+      !cancelled() &&
+      needs.image.result == 'success'
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
-    env:
-      AKILIMO_ROOT: ${{ github.workspace }}
+    container:
+      image: ${{ needs.image.outputs.ref }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Check out code
         uses: actions/checkout@v7
 
-      - name: Set up R and packages (cached)
-        id: r
-        uses: ./.github/actions/setup-r-env
+      # github.workspace is the host path inside a container job; the runtime
+      # variable is the path the steps actually see
+      - name: Point AKILIMO_ROOT at the checkout
+        run: echo "AKILIMO_ROOT=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
 
       # --- Runtime data, ready before any R script runs: the recommendation tests
       # need it (about 560 MB, public on OSF), and the price database test seeds
@@ -121,7 +183,7 @@ jobs:
       # translations.csv and fertilizer_npk.csv are tracked in git, so the cache never includes them.
       - name: Restore cached runtime data
         id: data
-        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
+        if: ${{ !cancelled() }}
         uses: actions/cache/restore@v6
         env:
           SEGMENT_DOWNLOAD_TIMEOUT_MINS: "5"
@@ -135,13 +197,13 @@ jobs:
           key: runtime-data-v1-${{ hashFiles('scripts/.env.example') }}
 
       - name: Install Python for the data download (cache miss)
-        if: ${{ !cancelled() && steps.r.outcome == 'success' && steps.data.outputs.cache-hit != 'true' }}
+        if: ${{ !cancelled() && steps.data.outputs.cache-hit != 'true' }}
         uses: actions/setup-python@v7
         with:
           python-version: "3.13"
 
       - name: Download runtime data from OSF (cache miss)
-        if: ${{ !cancelled() && steps.r.outcome == 'success' && steps.data.outputs.cache-hit != 'true' }}
+        if: ${{ !cancelled() && steps.data.outputs.cache-hit != 'true' }}
         working-directory: scripts
         run: |
           cp .env.example .env
@@ -150,7 +212,7 @@ jobs:
           poetry run setup-data --source osf
 
       - name: Save runtime data to the cache
-        if: ${{ !cancelled() && steps.r.outcome == 'success' && steps.data.outputs.cache-hit != 'true' }}
+        if: ${{ !cancelled() && steps.data.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v6
         with:
           path: |
@@ -164,70 +226,38 @@ jobs:
       # Not in the OSF bundle: derived from the RW yield data that is. Built every
       # run, never cached, and skipped when the bundle already has the file.
       - name: Build the Rwanda scheduled-planting file
-        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
+        if: ${{ !cancelled() }}
         run: sh tools/ensure_sp_files.sh
 
       - name: Check R syntax
         run: Rscript tests/check_parse.R
 
       - name: Test price database
-        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
-        run: |
-          Rscript -e '
-            r <- tinytest::run_test_file("tests/test_akilimo_db.R", verbose = 1)
-            print(summary(r))
-            quit(status = if (all(as.logical(r))) 0 else 1)
-          '
+        if: ${{ !cancelled() }}
+        run: Rscript tests/run_ci_test.R tests/test_akilimo_db.R
 
       - name: Test request validation
-        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
-        run: |
-          Rscript -e '
-            r <- tinytest::run_test_file("tests/test_validate_request.R", verbose = 1)
-            print(summary(r))
-            quit(status = if (all(as.logical(r))) 0 else 1)
-          '
+        if: ${{ !cancelled() }}
+        run: Rscript tests/run_ci_test.R tests/test_validate_request.R
 
       - name: Test PDF templates
-        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
-        run: |
-          Rscript -e '
-            r <- tinytest::run_test_file("tests/test_pdf_template.R", verbose = 1)
-            print(summary(r))
-            quit(status = if (all(as.logical(r))) 0 else 1)
-          '
+        if: ${{ !cancelled() }}
+        run: Rscript tests/run_ci_test.R tests/test_pdf_template.R
 
       - name: Test intercrop field-size scaling
-        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
-        run: |
-          Rscript -e '
-            r <- tinytest::run_test_file("tests/test_ic_units.R", verbose = 1)
-            print(summary(r))
-            quit(status = if (all(as.logical(r))) 0 else 1)
-          '
+        if: ${{ !cancelled() }}
+        run: Rscript tests/run_ci_test.R tests/test_ic_units.R
 
       - name: Test recommendations against the saved baseline
-        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
+        if: ${{ !cancelled() }}
         run: |
           # The test skips itself without data; in CI missing data is a failure
           test -f data/yield/Nigeria_WLY_LINTUL_2020.RDS || { echo "::error::runtime data missing"; exit 1; }
-          Rscript -e '
-            r <- tinytest::run_test_file("tests/test_small.R", verbose = 1)
-            print(summary(r))
-            # Show each failing check (fixture, call and difference), not just the count
-            if (!all(as.logical(r))) print(r[!as.logical(r)])
-            quit(status = if (length(r) > 0 && all(as.logical(r))) 0 else 1)
-          '
+          Rscript tests/run_ci_test.R tests/test_small.R
 
       - name: Test Rwanda regressions
-        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
-        run: |
-          Rscript -e '
-            r <- tinytest::run_test_file("tests/test_rw_regressions.R", verbose = 1)
-            print(summary(r))
-            if (!all(as.logical(r))) print(r[!as.logical(r)])
-            quit(status = if (length(r) > 0 && all(as.logical(r))) 0 else 1)
-          '
+        if: ${{ !cancelled() }}
+        run: Rscript tests/run_ci_test.R tests/test_rw_regressions.R
 
   # ---------------------------------------------------------------------------
   # Deploy: a separate workflow (deploy.yml), run only for pushes once every
