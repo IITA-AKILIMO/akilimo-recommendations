@@ -51,4 +51,9 @@ runs:
 
           # OSF is the single source for runtime data on the servers
           poetry run setup-data --source osf
+
+          # Derived data that is not in the OSF bundle (the Rwanda
+          # scheduled-planting file), built from the yield data just pulled
+          cd "$APP_DIR"
+          sh tools/ensure_sp_files.sh
           echo "Data setup complete (source: osf, dir: $APP_DIR)"

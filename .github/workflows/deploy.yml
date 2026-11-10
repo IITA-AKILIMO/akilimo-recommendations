@@ -169,6 +169,10 @@ jobs:
             echo "Installing R packages..."
             sudo Rscript install_packages.R
 
+            # Derived data that is not in the OSF bundle, e.g. the Rwanda
+            # scheduled-planting file; does nothing if it is built or can't be yet
+            sh tools/ensure_sp_files.sh
+
   # Optional (setup_data). Runs after the code update so it uses the latest
   # scripts/, and before the restart so the API loads the new data.
   setup-data:

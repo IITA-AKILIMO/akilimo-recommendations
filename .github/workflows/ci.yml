@@ -101,6 +101,12 @@ jobs:
             !data/input/fertilizer_npk.csv
           key: runtime-data-v1-${{ hashFiles('scripts/.env.example') }}
 
+      # Not in the OSF bundle: derived from the RW yield data that is. Built every
+      # run, never cached, and skipped when the bundle already has the file.
+      - name: Build the Rwanda scheduled-planting file
+        if: ${{ !cancelled() && steps.r.outcome == 'success' }}
+        run: sh tools/ensure_sp_files.sh
+
       - name: Check R syntax
         run: Rscript tests/check_parse.R
 
