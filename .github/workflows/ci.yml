@@ -92,8 +92,8 @@ jobs:
           fi
 
   # ---------------------------------------------------------------------------
-  # CI image: R, system libraries and R packages (Dockerfile.ci), tagged with a
-  # Git's ID of install_packages.R (plus a manual version for Dockerfile.ci edits).
+  # CI image: R, system libraries and R packages (Dockerfile.ci), tagged with
+  # Git's ID (sha) of install_packages.R.
   # Built and pushed to GHCR only when no image with that tag exists yet, so
   # most runs finish in seconds.
   # ---------------------------------------------------------------------------
@@ -122,15 +122,13 @@ jobs:
       - name: Work out the image tag
         id: tag
         run: |
-          # Only install_packages.R decides when to rebuild. After editing
-          # Dockerfile.ci (system libraries, base image), bump IMAGE_VERSION to
-          # force one rebuild.
-          IMAGE_VERSION=1
-          # Git's own ID of the committed file: the same on every machine
-          # (no line-ending differences), and you can get it locally with
+          # The tag is Git's own ID of the committed install_packages.R, the full
+          # 40 characters: the same on every machine (no line-ending differences),
+          # and you can get it locally with
           #   git rev-parse HEAD:install_packages.R
-          hash=$(git rev-parse HEAD:install_packages.R | cut -c1-16)
-          ref="ghcr.io/${GITHUB_REPOSITORY,,}-ci:v$IMAGE_VERSION-$hash"   # registry names are lowercase
+          # Only that file decides when to rebuild.
+          sha=$(git rev-parse HEAD:install_packages.R)
+          ref="ghcr.io/${GITHUB_REPOSITORY,,}-ci:$sha"   # registry names are lowercase
           echo "ref=$ref" >> "$GITHUB_OUTPUT"
           echo "Image: $ref" >> "$GITHUB_STEP_SUMMARY"
 

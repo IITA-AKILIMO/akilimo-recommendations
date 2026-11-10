@@ -1,10 +1,11 @@
 # CI image: R, every system library and every R package the API needs, so the
 # "R checks" job in .github/workflows/ci.yml starts with nothing left to install.
 #
-# Built and pushed by the "Build CI image" job in ci.yml, tagged with a hash of
-# install_packages.R: change that file and the next run builds a fresh image;
-# otherwise the existing image is reused. Editing THIS file does not rebuild
-# it by itself: bump IMAGE_VERSION in ci.yml.
+# Built and pushed by the "Build CI image" job in ci.yml, tagged with Git's ID
+# (sha) of install_packages.R: change that file and the next run builds a fresh
+# image; otherwise the existing image is reused. Editing THIS file does not
+# rebuild it by itself: also change install_packages.R (even a comment), or
+# delete the image's tag in GHCR.
 #
 # Not used by the servers: they update and install packages over SSH (deploy.yml).
 FROM rocker/r-ver:4

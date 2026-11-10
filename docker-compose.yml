@@ -1,6 +1,6 @@
 # Build and use the CI image on your own machine (same Dockerfile.ci as CI).
 #
-#   docker compose build ci            # build akilimo-ci:local
+#   docker compose build ci            # build the image as ...-ci:local
 #   docker compose run --rm ci         # shell inside it, repo mounted at /work
 #   docker compose run --rm ci Rscript tests/check_parse.R
 #   docker compose run --rm ci Rscript tests/run_ci_test.R tests/test_ic_units.R
@@ -15,9 +15,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.ci
-    # Local tag by default. To name it like CI's image, set CI_IMAGE_TAG to
-    # v<IMAGE_VERSION>-<first 16 characters of `git rev-parse HEAD:install_packages.R`>
-    image: ${CI_IMAGE_TAG:+ghcr.io/iita-akilimo/akilimo-recommendations-ci:}${CI_IMAGE_TAG:-akilimo-ci:local}
+    # Same name as the image CI pushes to GHCR. The tag is "local" unless
+    # GITHUB_SHA is set, so a plain local build never replaces a pulled CI image.
+    # To match CI's tag, set GITHUB_SHA to the output of
+    #   git rev-parse HEAD:install_packages.R
+    image: ghcr.io/iita-akilimo/akilimo-recommendations-ci:${GITHUB_SHA:-local}
     working_dir: /work
     volumes:
       - .:/work
