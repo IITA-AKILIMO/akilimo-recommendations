@@ -52,9 +52,12 @@ jobs:
         id: r
         uses: ./.github/actions/setup-r-env
 
-      # --- Recommendation tests: need the runtime data (about 560 MB, public on
-      # OSF). It is cached under a key made from scripts/.env.example (which holds
-      # the OSF/Zenodo IDs), so it is downloaded only when the data release changes.
+      # --- Runtime data, ready before any R script runs: the recommendation tests
+      # need it (about 560 MB, public on OSF), and the price database test seeds
+      # from its CSVs. It is cached under a key made from scripts/.env.example
+      # (which holds the OSF node ID), so it is downloaded only when the data
+      # release changes; on a cache miss the three steps below fetch it from OSF
+      # and save it.
       # translations.csv and fertilizer_npk.csv are tracked in git, so the cache never includes them.
       - name: Restore cached runtime data
         id: data
@@ -62,6 +65,33 @@ jobs:
         uses: actions/cache/restore@v6
         env:
           SEGMENT_DOWNLOAD_TIMEOUT_MINS: "5"
+        with:
+          path: |
+            data/yield
+            data/soil
+            data/input
+            !data/input/translations.csv
+            !data/input/fertilizer_npk.csv
+          key: runtime-data-v1-${{ hashFiles('scripts/.env.example') }}
+
+      - name: Install Python for the data download (cache miss)
+        if: ${{ !cancelled() && steps.r.outcome == 'success' && steps.data.outputs.cache-hit != 'true' }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Download runtime data from OSF (cache miss)
+        if: ${{ !cancelled() && steps.r.outcome == 'success' && steps.data.outputs.cache-hit != 'true' }}
+        working-directory: scripts
+        run: |
+          cp .env.example .env
+          pipx install poetry
+          poetry install --no-interaction
+          poetry run setup-data --source osf
+
+      - name: Save runtime data to the cache
+        if: ${{ !cancelled() && steps.r.outcome == 'success' && steps.data.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
         with:
           path: |
             data/yield
@@ -109,34 +139,6 @@ jobs:
             print(summary(r))
             quit(status = if (all(as.logical(r))) 0 else 1)
           '
-
-
-      - name: Install Python for the data download (cache miss)
-        if: ${{ !cancelled() && steps.r.outcome == 'success' && steps.data.outputs.cache-hit != 'true' }}
-        uses: actions/setup-python@v7
-        with:
-          python-version: "3.13"
-
-      - name: Download runtime data from OSF (cache miss)
-        if: ${{ !cancelled() && steps.r.outcome == 'success' && steps.data.outputs.cache-hit != 'true' }}
-        working-directory: scripts
-        run: |
-          cp .env.example .env
-          pipx install poetry
-          poetry install --no-interaction
-          poetry run setup-data --source osf
-
-      - name: Save runtime data to the cache
-        if: ${{ !cancelled() && steps.r.outcome == 'success' && steps.data.outputs.cache-hit != 'true' }}
-        uses: actions/cache/save@v6
-        with:
-          path: |
-            data/yield
-            data/soil
-            data/input
-            !data/input/translations.csv
-            !data/input/fertilizer_npk.csv
-          key: runtime-data-v1-${{ hashFiles('scripts/.env.example') }}
 
       - name: Test recommendations against the saved baseline
         if: ${{ !cancelled() && steps.r.outcome == 'success' }}

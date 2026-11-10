@@ -1,6 +1,6 @@
 # Technical Debt & Open Issues
 
-**Last reviewed:** 2026-11-08
+**Last reviewed:** 2026-11-09
 
 This file tracks only open and deferred items. Resolved items are removed — see git log for history.
 
@@ -26,13 +26,16 @@ This file tracks only open and deferred items. Resolved items are removed — se
 | PERF-4 | `AkilimoMain.R` | `setup_temp_dir` global temp deletion — concurrent requests can delete a live request's temp dir. *Partially improved (2026-04-04): NA mtime guard, `force=TRUE`, millisecond timestamp, `dir.create` failure check. Race window narrowed but not eliminated.* | Per-request scoped cleanup or explicit "done" signal needed |
 | MNT-6 | `misc.R` | `getRDY` defined but has no call sites in active code | Kept as inverse of `getRFY`; underlying bug (LOG-16) already fixed |
 
-## Blocked on data or expert input (no code fix possible yet)
+## Open gaps: data, expert input, or planned implementation
 
 | ID | Area | Gap | What unblocks it |
 |----|------|-----|------------------|
 | DATA-1 | SP | **RW done (2026-11-09):** `tools/build_sp_nc.R` builds `RW_WLY_LINTUL_2020SP.nc` from `Rwanda_WLY_LINTUL.RDS`; RW is enabled in `REC_TYPE_COUNTRIES$SP` and covered by fixtures/tests. Burundi still has no planting-window file and `SoilData_4Country.RDS` has no BI points, so BI requests get a clear 400 and `GET /coverage?type=SP` is empty for BI. | Build `BI_WLY_LINTUL_2020SP.nc` after the owner chooses the BI soil source (`SoilData_4Country.RDS` or `BI_FCY*_soilNPK.RDS`) |
 | DATA-2 | Translations | The `rw` (Kinyarwanda) column of `data/input/translations.csv` is empty; `lang: "rw"` falls back to English key by key. | A Kinyarwanda translator filling in the column |
-| DATA-3 | Prices | The price service has no currency on any default price and no starch prices for BI, RW or GH. (Its Burundi default prices, stored as `BU`, were fixed to `BI` in new-akilimo-api `3681ce2`.) | Real currency and starch-price data from IITA, entered in new-akilimo-api |
+| DATA-3 | Prices | Currency is now set on default and starch prices, and Burundi's default-price code was corrected from `BU` to `BI` (`3681ce2`). GH/RW starch factories have estimated prices but remain inactive pending confirmation; BI has no starch buyer. | Confirm GH/RW estimates with country teams, then activate them in new-akilimo-api. |
+| DATA-4 | Prices | Fertiliser prices remain below reviewed market references in all five countries; Burundi FOMI is priced per 25 kg bag. Research and sources are in new-akilimo-api `docs/data/price-review-2026-11.md`; Tanzania fertiliser was updated to TFRA Sep 2025 (`87721bc`). | Country-team review and confirmation of remaining prices through the price catalogue/admin. |
+| DATA-5 | Post-planting labour | The engine checks the catalogue for all countries, but has built-in fallback values only for NG/TZ. Low-confidence RW/GH/BI estimates are documented in new-akilimo-api `docs/data/labour-costs-rw-gh-bi.md`. | Review/activate country estimates in the price catalogue. |
+| ARCH-1 | Price catalogue | Phase 1 is complete on new-akilimo-api `feat/price-review`; this repo's phase 2 is in PR #31. As of 2026-11-09, its follow-up fixes are local in `94bdee0` and are not yet in the PR branch. Phase 3 (generating mobile price options from the catalogue) remains. | Update PR #31 with `94bdee0`, review/deploy the R and Laravel changes together, then plan phase 3. |
 | AGR-1 | `process-PP.R` | PP returns only the tillage recommendation. Candidate additions (from a former TODO): a caution that flat planting may not suit water-logged, weedy, very clayey or dry-season-harvest fields; that harrowing costs/benefits are not modelled; the reason behind the recommendation (cost saving vs revenue gain); that a farmer may prefer a cheaper option with a smaller gain; warnings about unrealistic input prices. | Agronomist-approved wording (en/sw/rw) for each message |
 | AGR-2 | `process-IC.R` | `getCISrecommendations()` now computes every revenue and cost for the whole field (cassava revenue used to stay per hectare while sweet potato and fertilizer cost were per field; 1 ha results are unchanged). The coefficients themselves (0.7 sweet potato yield ratio, 0.8 / 0.6 intercrop shares, 40 % / 20 % fertilizer gains) were flagged "check with Pieter". | Agronomist review of the coefficients |
 
@@ -50,9 +53,9 @@ Managed by `R/akilimo_db.R`. Tables:
 | `starch_prices` | `starchPrices.csv` | `key` (`{factory}{class}`) |
 | `translations` | `translations.csv` | `key` |
 | `price_refresh_log` | — | `id` (autoincrement) |
+| `country_price_settings` | — | `country` (price basis and incremental-sync state) |
 
-Schema version tracked via `PRAGMA user_version` (current: 4; v4 adds
-`translations.source`). Migrations run automatically at startup via
+Schema version tracked via `PRAGMA user_version` (current: 6; v5 adds price-catalogue metadata and country price settings, and v6 adds per-country refresh timestamps and API cursors). Migrations run automatically at startup via
 `migrate_akilimo_db()`. The CSV files in `data/input/` are the seed source: on
 every start `sync_seed_data()` adds rows missing from the database and updates
 rows whose `source` is still `seed`, but never touches rows refreshed from the
@@ -63,11 +66,11 @@ Refresh endpoints (all share `AKILIMO_API_URL` base URL):
 
 | Data | Endpoint | Staleness env var | Default |
 |------|----------|-------------------|---------|
-| Default prices | `GET /default-prices?country=XX` | `PRICE_MAX_AGE_DAYS` | 7 days |
+| Catalogue prices | `GET /prices?country=XX[&updated_since=…]` | `PRICE_MAX_AGE_DAYS` | 7 days |
 | Starch prices | `GET /starch-prices?country=XX` | `STARCH_PRICE_MAX_AGE_DAYS` | 30 days |
 | Translations | `GET /translations` | `TRANSLATIONS_MAX_AGE_DAYS` | 30 days |
 
-Manual refresh: `Rscript refresh_prices.R [--country XX] [--type default|starch|translations|all] [--dry-run]`
+The engine refreshes active catalogue prices from `/prices` (including incremental updates via `updated_since`); the `default` selector remains the CLI name for this feed. Manual refresh: `Rscript refresh_prices.R [--country XX] [--type default|starch|translations|all] [--dry-run]`
 
 Auto-refresh: runs before each request when `AKILIMO_API_URL` is set and data is
 stale. Failure is logged as WARN and never blocks the recommendation.

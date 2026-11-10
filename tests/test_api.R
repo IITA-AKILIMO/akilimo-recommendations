@@ -47,7 +47,11 @@ test_files <- c(
     "in_38_RW_SP_window2_riskAtt2",
     "in_39_RW_IC_not_available",          # expect HTTP 400
     "in_40_RW_FR_ekari_riskAtt2",
-    "in_41_RW_FR_small_area_m2_riskAtt2"
+    "in_41_RW_FR_small_area_m2_riskAtt2",
+    "in_42_NG_PDC_maize_riskAtt0_v1",
+    "in_43_NG_PDC_maize_riskAtt0_v2",
+    "in_44_NG_PDC_maize_riskAtt0_v3",
+    "in_45_NG_PDC_maize_riskAtt0_v4"
 )
 
 cmd <- 'curl -X POST http://localhost:8000/compute --data "@./tests/input/FILE.json"'

@@ -33,7 +33,7 @@ for (f in c("misc.R", "logging.R", "get_data.R", "coverage.R", "akilimo_db.R", "
             "quefts.R", "optimize_fert.R", "markdown.R", "html_helpers.R",
             "pdf_builders.R", "email.R",
             "process-FR.R", "process-IC.R", "process-PP.R", "process-SP.R",
-            "AkilimoMain.R")) {
+            "process-PDC.R", "AkilimoMain.R")) {
   source(file.path(srcdir, f))
 }
 
