@@ -1,9 +1,12 @@
 name: Deploy
 
-# Deploys the branch to its server, one job per stage:
+# Deploys the branch to its server in three jobs (kept few so the run graph
+# stays readable):
 #
-#   Plan -> Update code and packages -> Pull runtime data (optional)
-#        -> Restart service -> Check health -> Tag release (production only)
+#   Plan -> Deploy to server -> Tag release (production only)
+#
+# "Deploy to server" runs these steps in order: update code and packages,
+# pull runtime data (optional), restart the service, check health.
 #
 # Called by CI (ci.yml) after every check has passed, so it runs this file's
 # version from the pushed branch. Plan matches the branch to a target in
@@ -85,22 +88,28 @@ jobs:
           service_override: ${{ steps.pick.outputs.target == 'production' && vars.SERVICE_NAME_OVERRIDE || '' }}
 
   # ---------------------------------------------------------------------------
-  # Server steps, strictly in order. They share a per-target lock so two runs
-  # never work on the same server at once.
+  # All server work in one job, so the run graph stays compact. The steps run
+  # strictly in order, and the per-target lock keeps two runs from working on
+  # the same server at once.
   # ---------------------------------------------------------------------------
-  update:
-    name: Update code and packages
+  deploy:
+    name: Deploy to server
     needs: [ plan ]
     if: >-
       !cancelled() &&
       needs.plan.outputs.deploy == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 90
     concurrency:
       group: server-${{ needs.plan.outputs.target }}
       cancel-in-progress: false
     steps:
-      - name: Pull code, clear temp files and install R packages
+      - name: Check out actions
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github
+
+      - name: Update code and install R packages
         uses: appleboy/ssh-action@v1.2.5
         env:
           APP_DIR: ${{ needs.plan.outputs.app_dir }}
@@ -142,27 +151,10 @@ jobs:
             # scheduled-planting file; does nothing if it is built or can't be yet
             sh tools/ensure_sp_files.sh
 
-  # Optional (setup_data). Runs after the code update so it uses the latest
-  # scripts/, and before the restart so the API loads the new data.
-  setup-data:
-    name: Pull runtime data
-    needs: [ plan, update ]
-    if: >-
-      !cancelled() &&
-      needs.update.result == 'success' &&
-      inputs.setup_data
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    concurrency:
-      group: server-${{ needs.plan.outputs.target }}
-      cancel-in-progress: false
-    steps:
-      - name: Check out actions
-        uses: actions/checkout@v7
-        with:
-          sparse-checkout: .github
-
-      - name: Download data on the server
+      # Optional (setup_data). After the code update so it uses the latest
+      # scripts/, and before the restart so the API loads the new data.
+      - name: Pull runtime data (optional)
+        if: inputs.setup_data
         uses: ./.github/actions/pull-data
         with:
           host: ${{ vars.SERVER_HOST }}
@@ -171,21 +163,7 @@ jobs:
           app_dir: ${{ needs.plan.outputs.app_dir }}
           osf_node_id: ${{ secrets.OSF_NODE_ID }}
 
-  restart:
-    name: Restart service
-    needs: [ plan, update, setup-data ]
-    # Data pull is optional: restart when it passed or was not requested
-    if: >-
-      !cancelled() &&
-      needs.update.result == 'success' &&
-      (needs.setup-data.result == 'success' || needs.setup-data.result == 'skipped')
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    concurrency:
-      group: server-${{ needs.plan.outputs.target }}
-      cancel-in-progress: false
-    steps:
-      - name: Reload systemd and restart the API
+      - name: Restart service
         uses: appleboy/ssh-action@v1.2.5
         env:
           SERVICE_NAME: ${{ needs.plan.outputs.service_name }}
@@ -200,18 +178,7 @@ jobs:
             sudo systemctl restart "$SERVICE_NAME"
             echo "Restarted $SERVICE_NAME"
 
-  health:
-    name: Check health
-    needs: [ plan, restart ]
-    # Without this, GitHub's implicit success() also looks at the skipped optional
-    # data pull further up the chain and skips this job on every normal push
-    if: >-
-      !cancelled() &&
-      needs.restart.result == 'success'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - name: Wait for GET /health (up to 180s)
+      - name: Check health (GET /health, up to 180s)
         uses: appleboy/ssh-action@v1.2.5
         env:
           APP_DIR: ${{ needs.plan.outputs.app_dir }}
@@ -247,13 +214,12 @@ jobs:
   # ---------------------------------------------------------------------------
   tag:
     name: Tag release
-    needs: [ plan, health ]
-    # Same reason as the health check: name the result explicitly, so a skipped
-    # data pull upstream no longer skips the release
+    needs: [ plan, deploy ]
+    # Only after the deploy job, which includes the health check, succeeded
     if: >-
       !cancelled() &&
       needs.plan.outputs.target == 'production' &&
-      needs.health.result == 'success'
+      needs.deploy.result == 'success'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
