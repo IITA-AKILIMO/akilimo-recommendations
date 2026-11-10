@@ -218,6 +218,7 @@ Two workflows. `ci.yml` ("CI") runs on every push and pull request. On pushes, o
 
 ```
 CI:      Wait for more pushes (deploy branches only)
+           → Build CI image (only when Dockerfile.ci or install_packages.R changed)
            → R checks (syntax, price database, validation, PDF template, regression tests)
            → Deploy (pushes only)
 Deploy:  Plan → Deploy to server (steps: update code and packages
@@ -227,7 +228,7 @@ Deploy:  Plan → Deploy to server (steps: update code and packages
 
 The wait comes first, so a burst of pushes to `main` or `experimental` runs the checks and the deploy once, for the last push: a newer push cancels the older run's wait (60 seconds after the last commit), and with it that run's checks and deploy. Runs on those branches are never cancelled once past the wait, so a deploy always finishes; deploys take turns through a per-server lock.
 
-`Plan` matches the branch to a target in `deploy-targets.json`; any other branch stops after `Plan`, and pull requests never call Deploy. Deploy runs from the pushed branch's own `deploy.yml`. It can also be run by hand from the Actions tab on a deploy branch; a manual run does **not** run the R checks. The server work is one job, `Deploy to server`, run over SSH using the repo variables `SERVER_HOST`, `SERVER_USER` and the secret `SERVER_SSH_KEY`, and share a per-target lock. Its `Check health` step fails the job if `GET /health` does not respond within 180s. `R checks` sets up R once and runs each check as its own step. Its R packages are cached under a key made from `install_packages.R`: they are installed only when that file changes or no cache exists, otherwise they come from the cache; the system libraries they need are installed on every run. Shared steps live in composite actions under `.github/actions/` (`resolve-target`, `setup-r-env`, `pull-data`).
+`Plan` matches the branch to a target in `deploy-targets.json`; any other branch stops after `Plan`, and pull requests never call Deploy. Deploy runs from the pushed branch's own `deploy.yml`. It can also be run by hand from the Actions tab on a deploy branch; a manual run does **not** run the R checks. The server work is one job, `Deploy to server`, run over SSH using the repo variables `SERVER_HOST`, `SERVER_USER` and the secret `SERVER_SSH_KEY`, and share a per-target lock. Its `Check health` step fails the job if `GET /health` does not respond within 180s. `Build CI image` builds `Dockerfile.ci` (R, system libraries, R packages) and pushes it to GHCR, tagged with a hash of `Dockerfile.ci` and `install_packages.R`; it builds only when no image with that tag exists. `R checks` runs inside that image and runs each check as its own step. Shared steps live in composite actions under `.github/actions/` (`resolve-target`, `pull-data`).
 
 Runtime data is always pulled from **OSF** on the servers and in CI. Servers get it from Deploy's `Pull runtime data` step when "Deploy" is run by hand with `setup_data` ticked, or on their own from `data-setup.yml` ("Data setup") with a `target` of `production` or `beta`. Both targets share the `OSF_NODE_ID` secret, which "Data setup" can override per run. Zenodo stays available only for manual use (`poetry run setup-data --source zenodo`).
 
