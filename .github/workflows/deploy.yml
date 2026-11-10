@@ -2,14 +2,14 @@ name: Deploy
 
 # Deploys the branch to its server, one job per stage:
 #
-#   Plan -> Wait for more pushes -> Update code and packages
-#        -> Pull runtime data (optional) -> Restart service -> Check health
-#        -> Tag release (production only)
+#   Plan -> Update code and packages -> Pull runtime data (optional)
+#        -> Restart service -> Check health -> Tag release (production only)
 #
 # Called by CI (ci.yml) after every check has passed, so it runs this file's
 # version from the pushed branch. Plan matches the branch to a target in
 # .github/deploy-targets.json (main -> production, experimental -> beta); any
-# other branch stops after Plan.
+# other branch stops after Plan. The wait for more pushes happens in CI, before
+# the checks, so it is not repeated here.
 #
 # It can also be run by hand ("Run workflow" on a deploy branch), e.g. with
 # setup_data ticked to pull the runtime data from OSF. A manual run does NOT
@@ -30,9 +30,6 @@ on:
 
 permissions:
   contents: read
-
-env:
-  QUIET_PERIOD: "60" # seconds to wait after the last commit before deploying
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -88,43 +85,15 @@ jobs:
           service_override: ${{ steps.pick.outputs.target == 'production' && vars.SERVICE_NAME_OVERRIDE || '' }}
 
   # ---------------------------------------------------------------------------
-  # Debounce: a newer push to the same deploy branch cancels this wait, and
-  # with it everything after it in this run
-  # ---------------------------------------------------------------------------
-  wait:
-    name: Wait for more pushes
-    needs: [ plan ]
-    if: needs.plan.outputs.deploy == 'true' && github.event_name == 'push'
-    runs-on: ubuntu-24.04
-    concurrency:
-      group: deploy-${{ needs.plan.outputs.target }}-wait
-      cancel-in-progress: true
-    steps:
-      - name: Wait until 60s after the last commit
-        env:
-          COMMIT_TIME: ${{ github.event.head_commit.timestamp }}
-        run: |
-          elapsed=$(( $(date +%s) - $(date -d "$COMMIT_TIME" +%s) ))
-          wait_time=$((QUIET_PERIOD - elapsed))
-
-          if [ $wait_time -gt 0 ]; then
-            echo "Last commit was ${elapsed}s ago, waiting ${wait_time}s..."
-            sleep $wait_time
-          else
-            echo "Last commit was ${elapsed}s ago, no wait needed."
-          fi
-
-  # ---------------------------------------------------------------------------
   # Server steps, strictly in order. They share a per-target lock so two runs
   # never work on the same server at once.
   # ---------------------------------------------------------------------------
   update:
     name: Update code and packages
-    needs: [ plan, wait ]
+    needs: [ plan ]
     if: >-
       !cancelled() &&
-      needs.plan.outputs.deploy == 'true' &&
-      (needs.wait.result == 'success' || needs.wait.result == 'skipped')
+      needs.plan.outputs.deploy == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     concurrency:

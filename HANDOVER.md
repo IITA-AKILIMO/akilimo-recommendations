@@ -184,8 +184,9 @@ These data and expert-input gaps are tracked in [docs/TECH-DEBT.md](docs/TECH-DE
   - watchexec 2.7 needs absolute `--watch` paths (`%CD%\R`).
   - Git converts LF to CRLF in the working copy; that's harmless.
 - **CI and deploy** (split on 2026-11-09; was `pipeline.yml`):
-  - `ci.yml` ("CI"): R checks on every push and PR. On pushes it then calls `deploy.yml` as a reusable workflow, which runs from the pushed branch, not from `main`.
-  - `deploy.yml` ("Deploy"): Plan → Wait → Update code → Pull data (optional) → Restart → Health → Tag (production only). It can be run by hand from the Actions tab, but a manual run does **not** run the R checks. Jobs after an optional one need an explicit `if` naming the results they accept (`needs.X.result == 'success'`); the default "all upstream jobs succeeded" skips them whenever the optional job is skipped.
+  - `ci.yml` ("CI"): Wait for more pushes (deploy branches only) → R checks on every push and PR. On pushes it then calls `deploy.yml` as a reusable workflow, which runs from the pushed branch, not from `main`.
+  - The wait is first on purpose (changed 2026-11-10): a newer push cancels the older run's wait, so a burst of pushes runs the checks and deploy once. For that to work, runs on `main`/`experimental` get their own concurrency group; with one shared group GitHub queues the new run behind the old one, and it never reaches its wait. Don't put a shared workflow-level `concurrency` group back on deploy branches. Deploys still take turns through the per-server lock in `deploy.yml`.
+  - `deploy.yml` ("Deploy"): Plan → Update code → Pull data (optional) → Restart → Health → Tag (production only). It can be run by hand from the Actions tab, but a manual run does **not** run the R checks. Jobs after an optional one need an explicit `if` naming the results they accept (`needs.X.result == 'success'`); the default "all upstream jobs succeeded" skips them whenever the optional job is skipped.
   - `data-setup.yml` ("Data setup"): pulls OSF data onto a server on its own.
   - Deploy targets live in `.github/deploy-targets.json`.
   - Composite actions are in `.github/actions/`.

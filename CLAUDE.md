@@ -217,12 +217,15 @@ Branch, directory and service per instance are defined once in `.github/deploy-t
 Two workflows. `ci.yml` ("CI") runs on every push and pull request. On pushes, once every check has passed, it calls `deploy.yml` ("Deploy") as a reusable workflow, which GitHub shows as one collapsible box:
 
 ```
-CI:      R checks (syntax, price database, validation, PDF template, regression tests)
+CI:      Wait for more pushes (deploy branches only)
+           → R checks (syntax, price database, validation, PDF template, regression tests)
            → Deploy (pushes only)
-Deploy:  Plan → Wait for more pushes → Update code and packages
+Deploy:  Plan → Update code and packages
            → Pull runtime data (optional) → Restart service → Check health
            → Tag release (production only)
 ```
+
+The wait comes first, so a burst of pushes to `main` or `experimental` runs the checks and the deploy once, for the last push: a newer push cancels the older run's wait (60 seconds after the last commit), and with it that run's checks and deploy. Runs on those branches are never cancelled once past the wait, so a deploy always finishes; deploys take turns through a per-server lock.
 
 `Plan` matches the branch to a target in `deploy-targets.json`; any other branch stops after `Plan`, and pull requests never call Deploy. Deploy runs from the pushed branch's own `deploy.yml`. It can also be run by hand from the Actions tab on a deploy branch; a manual run does **not** run the R checks. Server jobs run over SSH using the repo variables `SERVER_HOST`, `SERVER_USER` and the secret `SERVER_SSH_KEY`, and share a per-target lock. `Check health` fails if `GET /health` does not respond within 180s. `R checks` sets up R once and runs each check as its own step. Its R packages are cached under a key made from `install_packages.R`: they are installed only when that file changes or no cache exists, otherwise they come from the cache; the system libraries they need are installed on every run. Shared steps live in composite actions under `.github/actions/` (`resolve-target`, `setup-r-env`, `pull-data`).
 
@@ -230,6 +233,6 @@ Runtime data is always pulled from **OSF** on the servers and in CI. Servers get
 
 Service templates: `systemd/akilimo-api.service.example` (production), `systemd/akilimo-api-beta.service.example` (beta). Resource limits: 2GB RAM, 2 CPU cores, 65536 FDs.
 
-On pull requests and feature-branch pushes, CI runs only `R checks` (plus Deploy's `Plan` on feature-branch pushes); a newer push cancels the older run. `R checks` downloads the public runtime data from OSF on a cache miss (cached under the IDs in `scripts/.env.example`) so it can run the recommendation regression tests.
+On pull requests and feature-branch pushes, CI runs only `R checks` (plus a quick wait step that returns at once, and Deploy's `Plan` on feature-branch pushes); a newer push cancels the older run. `R checks` downloads the public runtime data from OSF on a cache miss (cached under the IDs in `scripts/.env.example`) so it can run the recommendation regression tests.
 
 Workflow actions use version tags (e.g. `actions/checkout@v7`), not commit SHAs, and runners are pinned to `ubuntu-24.04`.

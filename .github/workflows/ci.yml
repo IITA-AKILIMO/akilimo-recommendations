@@ -2,7 +2,12 @@ name: CI
 
 # Every push and pull request:
 #
-#   R checks -> Deploy (pushes only; see deploy.yml)
+#   Wait for more pushes -> R checks -> Deploy (pushes only; see deploy.yml)
+#
+# "Wait for more pushes" comes first, so a burst of pushes to a deploy branch
+# (main, experimental) runs the checks and the deploy once, for the last push:
+# a newer push cancels the older run's wait, and with it the checks and deploy
+# after it. Other branches and pull requests don't wait.
 #
 # "R checks" sets up R once and runs every R check as its own step. Its R
 # packages are cached under a key made from install_packages.R: while that
@@ -28,18 +33,73 @@ permissions:
   contents: read
 
 # Feature branches and PRs: a newer push cancels the older run.
-# Deploy branches are never cut short, so a deploy always finishes.
+# Deploy branches: every run gets its own group, so a run is never cut short
+# (a deploy always finishes) and a new run is not queued behind the old one.
+# Queuing would keep a new run from ever reaching its wait job, which is what
+# cancels the superseded runs. Deploys still take turns through the per-server
+# lock in deploy.yml.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/experimental') && format('ci-{0}', github.run_id) || format('ci-{0}', github.ref) }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/experimental' }}
 
+env:
+  QUIET_PERIOD: "60" # seconds to wait after the last commit before checking and deploying
+
 jobs:
+  # ---------------------------------------------------------------------------
+  # Debounce, before any real work: a newer push to the same branch cancels
+  # this job, and with it the checks and the deploy of this older run. Only
+  # branches with a deploy target (see deploy-targets.json) actually wait.
+  # ---------------------------------------------------------------------------
+  debounce:
+    name: Wait for more pushes
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    concurrency:
+      group: debounce-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Check out deploy settings
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github
+
+      - name: Wait until 60s after the last commit
+        env:
+          BRANCH: ${{ github.ref_name }}
+          COMMIT_TIME: ${{ github.event.head_commit.timestamp }}
+        run: |
+          target=$(jq -r --arg b "$BRANCH" \
+            'to_entries[] | select(.value.branch == $b) | .key' \
+            .github/deploy-targets.json | head -n1)
+
+          if [ -z "$target" ]; then
+            echo "$BRANCH has no deploy target, no wait needed."
+            exit 0
+          fi
+
+          elapsed=$(( $(date +%s) - $(date -d "$COMMIT_TIME" +%s) ))
+          wait_time=$((QUIET_PERIOD - elapsed))
+
+          if [ $wait_time -gt 0 ]; then
+            echo "Last commit was ${elapsed}s ago, waiting ${wait_time}s..."
+            sleep $wait_time
+          else
+            echo "Last commit was ${elapsed}s ago, no wait needed."
+          fi
+
   # ---------------------------------------------------------------------------
   # Checks: one job, R set up once; every check must pass before anything
   # deploys. Each check still runs (and reports) if an earlier one failed.
   # ---------------------------------------------------------------------------
   checks:
     name: R checks
+    needs: [ debounce ]
+    # Pull requests skip the wait; a wait cancelled by a newer push skips the run
+    if: >-
+      !cancelled() &&
+      (needs.debounce.result == 'success' || needs.debounce.result == 'skipped')
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
