@@ -234,6 +234,11 @@ jobs:
   health:
     name: Check health
     needs: [ plan, restart ]
+    # Without this, GitHub's implicit success() also looks at the skipped optional
+    # data pull further up the chain and skips this job on every normal push
+    if: >-
+      !cancelled() &&
+      needs.restart.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -274,7 +279,12 @@ jobs:
   tag:
     name: Tag release
     needs: [ plan, health ]
-    if: needs.plan.outputs.target == 'production'
+    # Same reason as the health check: name the result explicitly, so a skipped
+    # data pull upstream no longer skips the release
+    if: >-
+      !cancelled() &&
+      needs.plan.outputs.target == 'production' &&
+      needs.health.result == 'success'
     runs-on: ubuntu-24.04
     permissions:
       contents: write
