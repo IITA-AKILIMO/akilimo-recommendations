@@ -259,6 +259,8 @@ The API runs as a systemd service under a dedicated `akilimo` user. Two service 
 | Production | `main` | `/home/akilimo/projects/new_akilimo` | `akilimo-api.service` | 8000 |
 | Beta | `experimental` | `/home/akilimo/projects/akilimo-beta` | `akilimo-api-beta.service` | 8001 |
 
+> The folder the deploy updates is `app_dir` in `.github/deploy-targets.json`, which is the source of truth: the paths in this section are examples. The service's `WorkingDirectory` must be that same folder, because the API reads `.env` (including `API_PORT`) from the folder it starts in. Beta's port comes from `API_PORT=8001` in that `.env`; the unit file does not set it. To check a server: `sh tools/check_service.sh beta`.
+
 ### Install or update the production service
 
 ```bash

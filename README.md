@@ -110,6 +110,8 @@ A parallel beta instance runs alongside production using a separate directory an
 | Port | 8000 | 8001 |
 | Branch | `main` | `experimental` |
 
+> The folder the deploy updates is `app_dir` in `.github/deploy-targets.json`, which is the source of truth: the paths in this section are examples. The service's `WorkingDirectory` must be that same folder, because the API reads `.env` (including `API_PORT`) from the folder it starts in. Beta's port comes from `API_PORT=8001` in that `.env`; the unit file does not set it. To check a server: `sh tools/check_service.sh beta`.
+
 ### 1. Create the Beta Service File
 
 ```bash

@@ -6,6 +6,7 @@ After=network.target
 Type=simple
 User=akilimo
 Group=akilimo
+# Must be this instance's app_dir in .github/deploy-targets.json: the deploy updates that folder, and the API reads .env from here
 WorkingDirectory=/home/akilimo/projects/akilimo-beta
 
 # Enhanced PATH to include pipx binaries and venvs
