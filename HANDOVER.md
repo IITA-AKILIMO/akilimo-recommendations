@@ -30,10 +30,10 @@ then [CLAUDE.md](CLAUDE.md), before changing anything.
 ## 2. Current state
 
 - **Branches (2026-11-10):**
-  - `experimental` (beta) has price catalogue phase 2 (PR #31, `06e88aa`), the docs PR #32 (`961902e`) and planting-date-and-cultivar (PDC) support (`4a5fdfa`). CI is green at `4a5fdfa`.
-  - The local branch `feat/integrate-pdc` tracks `origin/experimental`, so a plain `git push` from it pushes to `experimental` and deploys beta.
+  - `experimental` (beta) has price catalogue phase 2 (PR #31, `06e88aa`), the docs PR #32 (`961902e`), planting-date-and-cultivar (PDC) support (`4a5fdfa`) and, as a local merge awaiting your push, PR #33 (scheduled planting for Rwanda, merge `acb76be`). CI was green at `4a5fdfa` and on PR #33's branch at `94adc6e`.
+  - A plain `git push` from any branch that tracks `origin/experimental` pushes to `experimental` and deploys beta. Local `experimental` is ahead of origin until the owner pushes it.
   - Unapplied stash `stash@{0}` ("handover DATA-1 next-step update", on `feat/price-catalogue`) may hold handover text that was never committed. Check it before dropping it.
-- **PR #33:** `feat/data-1-rw-sp` adds scheduled planting for Rwanda and targets `experimental`. It is open; the conflict and the CI failure were fixed on 2026-11-10 and are waiting on a push and a green CI run:
+- **PR #33** (`feat/data-1-rw-sp`, scheduled planting for Rwanda) is **merged locally into `experimental`** (`acb76be`, 2026-11-10). It becomes merged on GitHub when the owner pushes `experimental`, because its commits are then part of that branch. Before that, GitHub CI on the PR was green (push and pull-request runs at `94adc6e`), and the PR was clean and mergeable:
   - The conflict with `experimental` is resolved by merging `experimental` into the branch (PDC and RW scheduled planting sit side by side in `REC_TYPE_COUNTRIES`).
   - CI failed because `RW_WLY_LINTUL_2020SP.nc` is not in the OSF bundle. `tools/ensure_sp_files.sh` now builds it from `data/yield/Rwanda_WLY_LINTUL.RDS` when it is missing: in CI before the checks, in the deploy's code update, and after a server data pull. A file published in the bundle always wins. Reproduced locally without the file (5 of 12 RW checks fail), then built it: `test_small` 164/164, RW regressions 12/12.
 
@@ -81,18 +81,18 @@ then [CLAUDE.md](CLAUDE.md), before changing anything.
 | Phase 2 at `94bdee0`: live refresh | TZ refreshed twice from the running `feat/price-review` API into a DB copy: 16 rows, then 0; the cursor is kept and the country isn't stale |
 
   The translations sync was also dry-run against the local price service: 60 rows, no 401.
-- **Recently verified:** CI on `experimental` was green at `4a5fdfa`, and the beta price refresh (`Rscript refresh_prices.R --type all`) completed successfully on 2026-11-09 (as reported by the owner). PR #33 has been fixed locally (see above) but its CI has not run yet.
+- **Recently verified:** CI on `experimental` was green at `4a5fdfa`, CI on the PR #33 branch was green at `94adc6e` (the `Build the Rwanda scheduled-planting file` step ran on the Linux runner: 782 cells, verified), and the beta price refresh (`Rscript refresh_prices.R --type all`) completed successfully on 2026-11-09 (as reported by the owner).
 - **Not verified:**
   - `github-tag-action@v7` behaviour when a production deploy on `main` exercises release tagging. (The Windows-built `test_small.rds` baseline now passes on Linux CI on `experimental`.)
   - Any request over HTTP against a running server.
   - A complete `/compute` request over HTTP that uses an activated catalogue price, e.g. a draft RW labour price activated in the admin.
-  - Whether beta has the RW scheduled-planting file once PR #33 deploys: the deploy builds it, but nobody has run it on the server. Also that an end-to-end `/compute` request using an activated catalogue price works.
+  - Whether beta has the RW scheduled-planting file after PR #33 deploys: CI builds it, and the deploy's code update does too, but the deploy step has not run on the server yet. Also that an end-to-end `/compute` request using an activated catalogue price works.
 
 ## 3. Open gaps
 
 | ID | Gap | Status / next step |
 |----|-----|--------------------|
-| DATA-1 | Scheduled planting is unavailable for BI on `experimental`; RW is added by PR #33 (merged with `experimental` and fixed, awaiting CI). BI has no planting-window file and no points in `SoilData_4Country.RDS` | RW: push PR #33, check CI, merge, then check the beta deploy built the RW file. BI remains blocked on the owner's soil-source decision; see [§7](#7-next-task-sp-for-rw-and-bi-data-1) |
+| DATA-1 | Scheduled planting is unavailable for BI on `experimental`; RW is added by PR #33 (merged locally, awaiting the owner's push). BI has no planting-window file and no points in `SoilData_4Country.RDS` | RW: push `experimental`, then check the beta deploy built the RW file. BI remains blocked on the owner's soil-source decision; see [§7](#7-next-task-sp-for-rw-and-bi-data-1) |
 | DATA-2 | Kinyarwanda (`rw`) text empty | Needs a translator; fill the `rw` column of `translations.csv` |
 | DATA-3 | Price service data gaps | **Mostly done in new-akilimo-api:**<br>- Burundi `BU`→`BI` (`3681ce2`, pushed).<br>- Currency set on every default and starch price (`2bd8760`).<br>- GH/RW starch factories added **inactive** with estimated prices; inactive factories are hidden from `/starch-prices` (`d80ccf5`, pushed).<br>Left: confirm the GH/RW starch prices, then activate them in the admin. BI has no starch buyer |
 | DATA-4 | Prices are stale (fertiliser 1.3–7× below market in all five countries, both the defaults and the app's price options; Burundi FOMI is per 25 kg bag) | Reviewed with sources in new-akilimo-api `docs/data/price-review-2026-11.md`. Tanzania fertiliser updated to TFRA Sep 2025 (`87721bc`). The rest waits for the price catalogue (§8) and country-team review in the admin |
@@ -194,13 +194,13 @@ These data and expert-input gaps are tracked in [docs/TECH-DEBT.md](docs/TECH-DE
 ## 6. Suggested next steps
 
 1. **Completed:** CI on the current work runs successfully; the beta all-prices refresh succeeded on 2026-11-09. PR #32 (documentation) is merged as `961902e`.
-2. **Next:** push PR #33 (`feat/data-1-rw-sp`, already merged with `experimental` and fixed) and check its CI. CI builds the RW file with `tools/ensure_sp_files.sh`, so no data bundle upload is needed for RW. Merge only when checks pass.
+2. **Next:** push `experimental` (it holds the local merge of PR #33; this deploys beta), then check that beta built `RW_WLY_LINTUL_2020SP.nc` (the deploy's code update runs `tools/ensure_sp_files.sh`) and that a RW scheduled-planting request works there. No data bundle upload is needed for RW.
 3. Before release, verify a `/compute` request against the deployed `/v1/prices` endpoint that uses an activated catalogue price.
 4. BI scheduled planting remains blocked on the owner's soil-source decision. Hand DATA-2 / AGR-1 / AGR-2 to the IITA translation and agronomy owners.
 
 ## 7. Next task: SP for RW and BI (DATA-1)
 
-PR #33 (`feat/data-1-rw-sp`) implements scheduled planting for Rwanda from the existing yield RDS files. Its generator is `tools/build_sp_nc.R`; `tools/ensure_sp_files.sh` runs it where the file is missing (CI, deploy, data pull). On 2026-11-10 the branch was merged with `experimental` and fixed; it needs a push and a green CI run before it can merge. BI remains unimplemented pending the owner's soil-source decision.
+PR #33 (`feat/data-1-rw-sp`) implements scheduled planting for Rwanda from the existing yield RDS files. Its generator is `tools/build_sp_nc.R`; `tools/ensure_sp_files.sh` runs it where the file is missing (CI, deploy, data pull). On 2026-11-10 it was merged with `experimental`, passed CI, and was merged locally into `experimental` (`acb76be`); it ships when the owner pushes. BI remains unimplemented pending the owner's soil-source decision.
 
 **No new LINTUL runs are needed.** `data/yield/Rwanda_WLY_LINTUL.RDS` and `Burundi_WLY_LINTUL.RDS`, the files FR uses, are the same LINTUL output in wide form:
 - Columns: `plantingDate, lat, long, WLY_235 … WLY_452`. That is 32 harvest ages, the same as the `.nc` `daysOnField` dimension.
