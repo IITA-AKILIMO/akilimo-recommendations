@@ -30,10 +30,10 @@ then [CLAUDE.md](CLAUDE.md), before changing anything.
 ## 2. Current state
 
 - **Branches (2026-11-10):**
-  - `experimental` (beta) has price catalogue phase 2 (PR #31, `06e88aa`), the docs PR #32 (`961902e`), planting-date-and-cultivar (PDC) support (`4a5fdfa`) and, as a local merge awaiting your push, PR #33 (scheduled planting for Rwanda, merge `acb76be`). CI was green at `4a5fdfa` and on PR #33's branch at `94adc6e`.
-  - A plain `git push` from any branch that tracks `origin/experimental` pushes to `experimental` and deploys beta. Local `experimental` is ahead of origin until the owner pushes it.
+  - `experimental` (beta) has price catalogue phase 2 (PR #31, `06e88aa`), the docs PR #32 (`961902e`), planting-date-and-cultivar (PDC) support (`4a5fdfa`) and scheduled planting for Rwanda (PR #33, merged as `adbc7a5` on 2026-11-10). Its CI run and the beta deploy that followed (run `42758184761`) succeeded.
+  - A plain `git push` from any branch that tracks `origin/experimental` pushes to `experimental` and deploys beta.
   - Old stashes remain in the repo. `stash@{0}` ("handover DATA-1 next-step update") holds only an earlier draft of the §6 next steps, now superseded, so it is safe to drop (`git stash drop 'stash@{0}'`). Check the older ones before dropping them.
-- **PR #33** (`feat/data-1-rw-sp`, scheduled planting for Rwanda) is **merged locally into `experimental`** (`acb76be`, 2026-11-10). It becomes merged on GitHub when the owner pushes `experimental`, because its commits are then part of that branch. Before that, GitHub CI on the PR was green (push and pull-request runs at `94adc6e`), and the PR was clean and mergeable:
+- **PR #33** (`feat/data-1-rw-sp`, scheduled planting for Rwanda) is **merged** (`adbc7a5`, 2026-11-10). Its CI was green, including the step that builds the RW NetCDF on the runner, and the beta deploy built the file too (log: "Wrote data/yield/RW_WLY_LINTUL_2020SP.nc: 782 cells… Verified"). Details:
   - The conflict with `experimental` is resolved by merging `experimental` into the branch (PDC and RW scheduled planting sit side by side in `REC_TYPE_COUNTRIES`).
   - CI failed because `RW_WLY_LINTUL_2020SP.nc` is not in the OSF bundle. `tools/ensure_sp_files.sh` now builds it from `data/yield/Rwanda_WLY_LINTUL.RDS` when it is missing: in CI before the checks, in the deploy's code update, and after a server data pull. A file published in the bundle always wins. Reproduced locally without the file (5 of 12 RW checks fail), then built it: `test_small` 164/164, RW regressions 12/12.
 
@@ -83,16 +83,16 @@ then [CLAUDE.md](CLAUDE.md), before changing anything.
   The translations sync was also dry-run against the local price service: 60 rows, no 401.
 - **Recently verified:** CI on `experimental` was green at `4a5fdfa`, CI on the PR #33 branch was green at `94adc6e` (the `Build the Rwanda scheduled-planting file` step ran on the Linux runner: 782 cells, verified), and the beta price refresh (`Rscript refresh_prices.R --type all`) completed successfully on 2026-11-09 (as reported by the owner).
 - **Not verified:**
-  - `github-tag-action@v7` behaviour when a production deploy on `main` exercises release tagging. (The Windows-built `test_small.rds` baseline now passes on Linux CI on `experimental`.)
+  - **Health check and release tag.** Until the fix in `deploy.yml` (2026-11-10), `Check health` and `Tag release` were skipped on every push deploy, because the skipped optional data pull upstream made GitHub's implicit `success()` false. Both now name the restart/health result explicitly. Not verified: the first deploy after the fix is the first time the health check runs for real, and the first push to `main` is the first time `github-tag-action@v7` and the GitHub release run. Look at those two jobs. (The Windows-built `test_small.rds` baseline now passes on Linux CI on `experimental`.)
   - Any request over HTTP against a running server.
   - A complete `/compute` request over HTTP that uses an activated catalogue price, e.g. a draft RW labour price activated in the admin.
-  - Whether beta has the RW scheduled-planting file after PR #33 deploys: CI builds it, and the deploy's code update does too, but the deploy step has not run on the server yet. Also that an end-to-end `/compute` request using an activated catalogue price works.
+  - A RW scheduled-planting `/compute` request against beta (the file is built there, but no request has been sent), and an end-to-end `/compute` request using an activated catalogue price.
 
 ## 3. Open gaps
 
 | ID | Gap | Status / next step |
 |----|-----|--------------------|
-| DATA-1 | Scheduled planting is unavailable for BI on `experimental`; RW is added by PR #33 (merged locally, awaiting the owner's push). BI has no planting-window file and no points in `SoilData_4Country.RDS` | RW: push `experimental`, then check the beta deploy built the RW file. BI remains blocked on the owner's soil-source decision; see [§7](#7-next-task-sp-for-rw-and-bi-data-1) |
+| DATA-1 | Scheduled planting is unavailable for BI. RW is done: PR #33 merged and beta built its file. BI has no planting-window file and no points in `SoilData_4Country.RDS` | RW: send a scheduled-planting request to beta to confirm. BI remains blocked on the owner's soil-source decision; see [§7](#7-next-task-sp-for-rw-and-bi-data-1) |
 | DATA-2 | Kinyarwanda (`rw`) text empty | Needs a translator; fill the `rw` column of `translations.csv` |
 | DATA-3 | Price service data gaps | **Mostly done in new-akilimo-api:**<br>- Burundi `BU`→`BI` (`3681ce2`, pushed).<br>- Currency set on every default and starch price (`2bd8760`).<br>- GH/RW starch factories added **inactive** with estimated prices; inactive factories are hidden from `/starch-prices` (`d80ccf5`, pushed).<br>Left: confirm the GH/RW starch prices, then activate them in the admin. BI has no starch buyer |
 | DATA-4 | Prices are stale (fertiliser 1.3–7× below market in all five countries, both the defaults and the app's price options; Burundi FOMI is per 25 kg bag) | Reviewed with sources in new-akilimo-api `docs/data/price-review-2026-11.md`. Tanzania fertiliser updated to TFRA Sep 2025 (`87721bc`). The rest waits for the price catalogue (§8) and country-team review in the admin |
@@ -185,7 +185,7 @@ These data and expert-input gaps are tracked in [docs/TECH-DEBT.md](docs/TECH-DE
   - Git converts LF to CRLF in the working copy; that's harmless.
 - **CI and deploy** (split on 2026-11-09; was `pipeline.yml`):
   - `ci.yml` ("CI"): R checks on every push and PR. On pushes it then calls `deploy.yml` as a reusable workflow, which runs from the pushed branch, not from `main`.
-  - `deploy.yml` ("Deploy"): Plan → Wait → Update code → Pull data (optional) → Restart → Health → Tag (production only). It can be run by hand from the Actions tab, but a manual run does **not** run the R checks.
+  - `deploy.yml` ("Deploy"): Plan → Wait → Update code → Pull data (optional) → Restart → Health → Tag (production only). It can be run by hand from the Actions tab, but a manual run does **not** run the R checks. Jobs after an optional one need an explicit `if` naming the results they accept (`needs.X.result == 'success'`); the default "all upstream jobs succeeded" skips them whenever the optional job is skipped.
   - `data-setup.yml` ("Data setup"): pulls OSF data onto a server on its own.
   - Deploy targets live in `.github/deploy-targets.json`.
   - Composite actions are in `.github/actions/`.
@@ -193,13 +193,13 @@ These data and expert-input gaps are tracked in [docs/TECH-DEBT.md](docs/TECH-DE
 ## 6. Suggested next steps
 
 1. **Completed:** CI on the current work runs successfully; the beta all-prices refresh succeeded on 2026-11-09. PR #32 (documentation) is merged as `961902e`.
-2. **Next:** push `experimental` (it holds the local merge of PR #33; this deploys beta), then check that beta built `RW_WLY_LINTUL_2020SP.nc` (the deploy's code update runs `tools/ensure_sp_files.sh`) and that a RW scheduled-planting request works there. No data bundle upload is needed for RW.
+2. **Completed 2026-11-10:** PR #33 (RW scheduled planting) is merged (`adbc7a5`) and beta's deploy built `RW_WLY_LINTUL_2020SP.nc`. Still to do: send a RW scheduled-planting request to beta.
 3. Before release, verify a `/compute` request against the deployed `/v1/prices` endpoint that uses an activated catalogue price.
 4. BI scheduled planting remains blocked on the owner's soil-source decision. Hand DATA-2 / AGR-1 / AGR-2 to the IITA translation and agronomy owners.
 
 ## 7. Next task: SP for RW and BI (DATA-1)
 
-PR #33 (`feat/data-1-rw-sp`) implements scheduled planting for Rwanda from the existing yield RDS files. Its generator is `tools/build_sp_nc.R`; `tools/ensure_sp_files.sh` runs it where the file is missing (CI, deploy, data pull). On 2026-11-10 it was merged with `experimental`, passed CI, and was merged locally into `experimental` (`acb76be`); it ships when the owner pushes. BI remains unimplemented pending the owner's soil-source decision.
+PR #33 (`feat/data-1-rw-sp`) implemented scheduled planting for Rwanda from the existing yield RDS files and is merged (`adbc7a5`). Its generator is `tools/build_sp_nc.R`; `tools/ensure_sp_files.sh` runs it where the file is missing (CI, deploy, data pull); beta built the file on 2026-11-10. BI remains unimplemented pending the owner's soil-source decision.
 
 **No new LINTUL runs are needed.** `data/yield/Rwanda_WLY_LINTUL.RDS` and `Burundi_WLY_LINTUL.RDS`, the files FR uses, are the same LINTUL output in wide form:
 - Columns: `plantingDate, lat, long, WLY_235 … WLY_452`. That is 32 harvest ages, the same as the `.nc` `daysOnField` dimension.
