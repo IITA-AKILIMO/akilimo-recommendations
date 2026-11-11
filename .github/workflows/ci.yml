@@ -270,6 +270,11 @@ jobs:
         if: ${{ !cancelled() }}
         run: Rscript tests/run_ci_test.R tests/test_rw_regressions.R
 
+      # The deploy's health check finds the service's own port; this tests how, with fake systemctl and ss
+      - name: Test the deploy health check script
+        if: ${{ !cancelled() }}
+        run: sh tests/test_check_health.sh
+
   # ---------------------------------------------------------------------------
   # Deploy: a separate workflow (deploy.yml), run only for pushes once every
   # check has passed. On branches without a deploy target it stops after Plan.

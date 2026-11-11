@@ -178,7 +178,7 @@ jobs:
             sudo systemctl restart "$SERVICE_NAME"
             echo "Restarted $SERVICE_NAME"
 
-      - name: Check health (GET /health, up to 180s)
+      - name: Check health (GET /health on the service's own port, up to 180s)
         uses: appleboy/ssh-action@v1.2.5
         env:
           APP_DIR: ${{ needs.plan.outputs.app_dir }}
@@ -192,22 +192,12 @@ jobs:
           script: |
             cd "$APP_DIR"
 
-            # The API takes a while to load its data
-            PORT=$(grep -E '^API_PORT=' .env 2>/dev/null | tail -n1 | cut -d= -f2 | tr -d '"'"'"' \r')
-            PORT=${PORT:-8000}
-            echo "Waiting for http://127.0.0.1:$PORT/health ..."
-            for i in $(seq 1 36); do
-              if curl -fsS "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; then
-                echo "Service healthy after ~$((i * 5))s"
-                exit 0
-              fi
-              sleep 5
-            done
-
-            echo "ERROR: $SERVICE_NAME did not become healthy within 180s"
-            sudo systemctl status "$SERVICE_NAME" --no-pager || true
-            sudo journalctl -u "$SERVICE_NAME" -n 50 --no-pager || true
-            exit 1
+            # The API takes a while to load its data. The script finds the port the
+            # service itself listens on (its systemd cgroup, then ss) and accepts a
+            # /health answer only from there, so another instance answering on the
+            # port this one was meant to use cannot make a crashed service look
+            # healthy; see tools/check_health.sh
+            sh tools/check_health.sh "$SERVICE_NAME" "$APP_DIR" 180
 
   # ---------------------------------------------------------------------------
   # Release: every deploy target, once the deploy is healthy. main and
