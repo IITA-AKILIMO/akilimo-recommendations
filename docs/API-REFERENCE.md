@@ -842,6 +842,7 @@ If the env var is unset the header is omitted (useful for local development with
 | `AKILIMO_API_URL` | _(none)_ | Versioned base URL for all data-feed endpoints, e.g. `https://api.example.com/api/v1`. No trailing slash. If unset, all refreshes are skipped silently |
 | `AKILIMO_API_TOKEN` | _(none)_ | Bearer token sent with every request |
 | `PRICE_MAX_AGE_DAYS` | `7` | Days before fertilizer prices are considered stale |
+| `PRICE_FULL_SYNC_HOURS` | `24` | Hours between full price fetches, which also remove prices the price service has deactivated |
 | `STARCH_PRICE_MAX_AGE_DAYS` | `30` | Days before starch prices are considered stale |
 | `TRANSLATIONS_MAX_AGE_DAYS` | `30` | Days before translations are considered stale |
 

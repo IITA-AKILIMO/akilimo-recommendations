@@ -159,6 +159,7 @@ Neither file is committed (both matched by `.gitignore`).
 | `AKILIMO_API_URL` | — | Base URL of the external price service (unset = auto-refresh disabled) |
 | `AKILIMO_API_TOKEN` | — | Bearer token for the price API |
 | `PRICE_MAX_AGE_DAYS` | `7` | Days before fertilizer/cassava prices trigger an auto-refresh |
+| `PRICE_FULL_SYNC_HOURS` | `24` | Hours between full price fetches, which also remove prices the service has deactivated (a refresh in between fetches only what changed; `refresh_prices.R --full` forces one) |
 | `STARCH_PRICE_MAX_AGE_DAYS` | `30` | Days before starch factory prices trigger an auto-refresh |
 
 ### Price database (SQLite)

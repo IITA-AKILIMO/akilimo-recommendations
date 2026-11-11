@@ -98,13 +98,13 @@ expect_true("price_refresh_log" %in% tables, info = "price_refresh_log table exi
 expect_true("translations"     %in% tables, info = "translations table exists")
 
 ver <- DBI::dbGetQuery(ctx$conn, "PRAGMA user_version;")[[1]]
-expect_equal(ver, 6L, info = "schema version is 6")
+expect_equal(ver, 7L, info = "schema version is 7")
 expect_true(all(c("subsidised_price", "bag_kg", "min_price", "max_price") %in%
                 DBI::dbListFields(ctx$conn, "default_prices")),
             info = "catalogue metadata columns exist")
 expect_true("country_price_settings" %in% tables,
             info = "country_price_settings table exists")
-expect_true(all(c("refreshed_at", "api_cursor") %in%
+expect_true(all(c("refreshed_at", "api_cursor", "full_synced_at") %in%
                 DBI::dbListFields(ctx$conn, "country_price_settings")),
             info = "country_price_settings keeps the sync state")
 
@@ -309,6 +309,136 @@ expect_true(starch_prices_are_stale(), info = "starch_prices_are_stale: TRUE whe
 cleanup_test_db(ctx)
 
 # ---------------------------------------------------------------------------
+# 6b. Deactivated prices — a full fetch removes what the service no longer lists
+# ---------------------------------------------------------------------------
+
+# When is a full fetch due?
+now <- as.POSIXct("2026-11-11 12:00:00", tz = "UTC")
+stamp <- function(hours_ago) strftime(now - hours_ago * 3600, "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
+cursor <- "2026-11-10 09:00:00"
+
+expect_true(price_sync_needs_full(cursor, stamp(1), force = TRUE, now = now),
+            info = "full fetch: forced")
+expect_true(price_sync_needs_full(NA_character_, stamp(1), now = now),
+            info = "full fetch: no cursor yet")
+expect_true(price_sync_needs_full(cursor, NA_character_, now = now),
+            info = "full fetch: never fetched in full")
+expect_false(price_sync_needs_full(cursor, stamp(1), now = now, max_hours = 24),
+             info = "full fetch: not due an hour after the last one")
+expect_true(price_sync_needs_full(cursor, stamp(25), now = now, max_hours = 24),
+            info = "full fetch: due after a day")
+expect_true(price_sync_needs_full(cursor, stamp(2), now = now, max_hours = 1),
+            info = "full fetch: the interval is configurable")
+expect_true(price_sync_needs_full(cursor, "not a date", now = now),
+            info = "full fetch: an unreadable time counts as never")
+
+# Removing what is no longer listed
+ctx <- new_empty_test_db()
+insert_default_prices(ctx$conn, list(
+    list(country = "NG", item = "urea", price = 10, source = "api"),
+    list(country = "NG", item = "DAP",  price = 20, source = "manual"),
+    list(country = "NG", item = "MOP",  price = 30, source = "seed"),
+    list(country = "TZ", item = "urea", price = 40, source = "api")
+))
+
+gone <- .remove_unlisted_prices(ctx$conn, "NG", "urea", dry_run = TRUE)
+expect_equal(gone, "DAP", info = "dry run names what would go")
+expect_equal(nrow(DBI::dbGetQuery(ctx$conn, "SELECT * FROM default_prices")), 4L,
+             info = "dry run deletes nothing")
+
+gone <- .remove_unlisted_prices(ctx$conn, "NG", "urea")
+left <- DBI::dbGetQuery(ctx$conn, "SELECT country, item FROM default_prices ORDER BY country, item")
+expect_equal(gone, "DAP", info = "an unlisted price from the service is removed")
+expect_equal(paste(left$country, left$item), c("NG MOP", "NG urea", "TZ urea"),
+             info = "seed rows and other countries are left alone")
+cleanup_test_db(ctx)
+
+# The whole refresh, with the price service's answers faked
+price_page <- function(country, items, prices = rep(100, length(items)), more = NULL) {
+    rows <- Map(function(i, p) list(country = country, item = i, price = p, unit = "per_bag",
+                                    currency = "NGN", updated_at = "2026-11-10 10:00:00"),
+                items, prices)
+    list(resp = list(data = unname(rows), default_price_basis = "open_market",
+                     links = if (is.null(more)) list() else list(`next` = more)),
+         err = NULL)
+}
+asked <- character(0)
+serve <- function(...) {
+    pages <- list(...)
+    function(page_url, token) {
+        asked <<- c(asked, page_url)
+        pages[[min(length(asked), length(pages))]]
+    }
+}
+items_of <- function(conn, country = "NG")
+    DBI::dbGetQuery(conn, sprintf("SELECT item FROM default_prices WHERE country = '%s' ORDER BY item", country))$item
+
+ctx <- new_empty_test_db()
+conn <- ctx$conn
+
+# first refresh: no cursor, so it is a full fetch
+asked <- character(0)
+r <- .refresh_default_one(conn, "http://x", "NG", "api", FALSE,
+                          fetch_page = serve(price_page("NG", c("urea", "DAP"))))
+expect_equal(r$status, "ok", info = "refresh: first fetch ok")
+expect_equal(items_of(conn), c("DAP", "urea"), info = "refresh: first fetch stores both prices")
+expect_false(grepl("updated_since", asked[1]), info = "refresh: the first fetch is a full one")
+expect_false(is.na(DBI::dbGetQuery(conn, "SELECT full_synced_at FROM country_price_settings WHERE country='NG'")$full_synced_at),
+             info = "refresh: a full fetch is noted")
+
+# next refresh: incremental, brings only the change, and removes nothing
+asked <- character(0)
+r <- .refresh_default_one(conn, "http://x", "NG", "api", FALSE,
+                          fetch_page = serve(price_page("NG", "urea", 150)))
+expect_true(grepl("updated_since", asked[1]), info = "refresh: later fetches are incremental")
+expect_equal(items_of(conn), c("DAP", "urea"), info = "refresh: an incremental fetch never removes a price")
+expect_equal(r$rows_removed, 0L, info = "refresh: nothing removed by an incremental fetch")
+expect_equal(DBI::dbGetQuery(conn, "SELECT price FROM default_prices WHERE item='urea' AND country='NG'")$price, 150,
+             info = "refresh: the changed price is updated")
+
+# a full fetch that no longer lists DAP: it was deactivated
+asked <- character(0)
+r <- .refresh_default_one(conn, "http://x", "NG", "api", FALSE, full = TRUE,
+                          fetch_page = serve(price_page("NG", "urea", 150)))
+expect_false(grepl("updated_since", asked[1]), info = "refresh: --full asks for everything")
+expect_equal(items_of(conn), "urea", info = "refresh: a deactivated price is removed")
+expect_equal(r$rows_removed, 1L, info = "refresh: the removal is counted")
+
+# a price the service lists but that cannot be used is skipped, not removed
+insert_default_prices(conn, list(list(country = "NG", item = "DAP", price = 20, source = "api")))
+r <- .refresh_default_one(conn, "http://x", "NG", "api", FALSE, full = TRUE,
+                          fetch_page = serve(price_page("NG", c("urea", "DAP"), c(150, 0))))
+expect_equal(items_of(conn), c("DAP", "urea"), info = "refresh: a listed but invalid row is not removed")
+
+# an empty full answer proves nothing: keep the last good prices
+r <- .refresh_default_one(conn, "http://x", "NG", "api", FALSE, full = TRUE,
+                          fetch_page = serve(price_page("NG", character(0))))
+expect_equal(r$status, "ok", info = "refresh: an empty answer is not an error")
+expect_equal(items_of(conn), c("DAP", "urea"), info = "refresh: an empty full answer removes nothing")
+
+# a page that cannot be fetched leaves the list incomplete: remove nothing
+page1 <- price_page("NG", "urea", 150, more = "http://x/prices?page=2")
+failed <- list(resp = NULL, err = "timeout")
+r <- .refresh_default_one(conn, "http://x", "NG", "api", FALSE, full = TRUE,
+                          fetch_page = serve(page1, failed))
+expect_equal(items_of(conn), c("DAP", "urea"), info = "refresh: an incomplete full fetch removes nothing")
+
+# seed rows are never removed, whatever the service says
+insert_default_prices(conn, list(list(country = "NG", item = "TSP", price = 5, source = "seed")))
+r <- .refresh_default_one(conn, "http://x", "NG", "api", FALSE, full = TRUE,
+                          fetch_page = serve(price_page("NG", "urea", 150)))
+expect_equal(items_of(conn), c("TSP", "urea"), info = "refresh: seed prices stay; the API-sourced DAP goes")
+
+# a dry run reports the removal and changes nothing
+insert_default_prices(conn, list(list(country = "NG", item = "DAP", price = 20, source = "api")))
+r <- .refresh_default_one(conn, "http://x", "NG", "api", TRUE, full = TRUE,
+                          fetch_page = serve(price_page("NG", "urea", 150)))
+expect_equal(r$rows_removed, 1L, info = "dry run: counts what would be removed")
+expect_true("DAP" %in% items_of(conn), info = "dry run: removes nothing")
+
+cleanup_test_db(ctx)
+
+# ---------------------------------------------------------------------------
 # 7. refresh_prices — skipped when AKILIMO_API_URL not set
 # ---------------------------------------------------------------------------
 
@@ -407,8 +537,8 @@ Sys.setenv(AKILIMO_DB_PATH = old_db)
 conn2 <- open_akilimo_db()
 
 ver2 <- DBI::dbGetQuery(conn2, "PRAGMA user_version;")[[1]]
-expect_equal(ver2, 6L, info = "v1→v6 migration sets user_version to 6")
-expect_true(all(c("refreshed_at", "api_cursor") %in% DBI::dbListFields(conn2, "country_price_settings")),
+expect_equal(ver2, 7L, info = "v1→v7 migration sets user_version to 7")
+expect_true(all(c("refreshed_at", "api_cursor", "full_synced_at") %in% DBI::dbListFields(conn2, "country_price_settings")),
             info = "v1→v6 migration adds the sync state columns")
 
 tabs2 <- DBI::dbListTables(conn2)
@@ -449,7 +579,7 @@ Sys.setenv(AKILIMO_DB_PATH = v2_db)
 conn3 <- open_akilimo_db()
 
 ver3 <- DBI::dbGetQuery(conn3, "PRAGMA user_version;")[[1]]
-expect_equal(ver3, 6L, info = "v2→v6 migration sets user_version to 6")
+expect_equal(ver3, 7L, info = "v2→v7 migration sets user_version to 7")
 
 cols3 <- DBI::dbListFields(conn3, "translations")
 expect_true("rw" %in% cols3, info = "rw column present after v2→v3 migration")
