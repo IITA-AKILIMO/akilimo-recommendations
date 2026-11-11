@@ -15,3 +15,10 @@ if [ ! -f data/yield/RW_WLY_LINTUL_2020SP.nc ] && [ -f data/yield/Rwanda_WLY_LIN
   echo "Building the Rwanda scheduled-planting file..."
   Rscript tools/build_sp_nc.R RW
 fi
+
+# Burundi uses the same LINTUL output (53 weekly planting dates, all year); its
+# scheduled-planting soil is the FR soil by yield class (R/get_data.R, get_sp_soil)
+if [ ! -f data/yield/BI_WLY_LINTUL_2020SP.nc ] && [ -f data/yield/Burundi_WLY_LINTUL.RDS ]; then
+  echo "Building the Burundi scheduled-planting file..."
+  Rscript tools/build_sp_nc.R BI
+fi

@@ -8,8 +8,8 @@
 # that file without a new LINTUL run.
 #
 # Usage:
-#   Rscript tools/build_sp_nc.R          # Rwanda only (BI waits for its soil decision)
-#   Rscript tools/build_sp_nc.R RW BI    # explicit countries
+#   Rscript tools/build_sp_nc.R          # Rwanda and Burundi
+#   Rscript tools/build_sp_nc.R RW       # explicit countries
 #
 # Published data is owner-only: after building, run scripts/bundle-assets and
 # upload to OSF/Zenodo, then run the "Data setup" workflow.
@@ -44,7 +44,7 @@ yield_files <- c(
 )
 
 args <- toupper(commandArgs(trailingOnly = TRUE))
-countries <- if (length(args) > 0) args else "RW"
+countries <- if (length(args) > 0) args else c("RW", "BI")
 unknown <- setdiff(countries, names(yield_files))
 if (length(unknown) > 0) {
     stop("Unknown country code(s): ", paste(unknown, collapse = ", "))

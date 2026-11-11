@@ -14,7 +14,9 @@ REC_TYPE_COUNTRIES <- list(
   FR = c("NG", "TZ", "RW", "GH", "BI"),
   IC = c("NG", "TZ"),
   PP = c("NG", "TZ", "RW", "GH", "BI"),
-  SP = c("NG", "TZ", "GH", "RW"),
+  # BI uses the FR soil by yield class (get_sp_soil() in get_data.R); its planting-window
+  # file is built by tools/ensure_sp_files.sh. Remove BI here to switch it off.
+  SP = c("NG", "TZ", "GH", "RW", "BI"),
   PDC = "NG"
 )
 # Types whose result depends on the location's yield/soil data, so a point outside

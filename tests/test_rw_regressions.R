@@ -25,9 +25,23 @@ expect_equal(as.character(r$data$rec_type), "SP")
 expect_true(grepl("We recommend you plant", r$data$recommendation))
 expect_true(grepl("harvest", r$data$recommendation))
 
-# /coverage?type=SP now has an RW footprint, while BI stays empty
+# /coverage?type=SP has an RW footprint, and a BI one once its planting-window file is built
+# (tools/ensure_sp_files.sh does that in CI and in the deploy)
 expect_true(nrow(coverage_points("RW", "SP")) > 0)
-expect_equal(nrow(coverage_points("BI", "SP")), 0)
+if (file.exists("data/yield/BI_WLY_LINTUL_2020SP.nc")) {
+  bi_sp <- nrow(coverage_points("BI", "SP"))
+  expect_true(bi_sp > 0, info = "BI SP footprint is not empty")
+  expect_true(bi_sp <= nrow(coverage_points("BI", "FR")), info = "BI SP footprint lies inside the FR grid")
+} else {
+  expect_equal(nrow(coverage_points("BI", "SP")), 0, info = "BI SP footprint is empty without its file")
+}
+
+# BI scheduled planting: the soil is the FR soil by yield class, and it is a normal recommendation
+r <- run_fixture("in_42_BI_SP_window2_riskAtt2")
+expect_equal(as.character(r$status), "success")
+expect_equal(as.character(r$data$rec_type), "SP")
+expect_true(grepl("We recommend you plant", r$data$recommendation))
+expect_true(grepl("BIF", r$data$recommendation), info = "BI SP values are in Burundian francs")
 
 # IC exists only for NG and TZ: a clear 400, not "success" with an empty recommendation
 r <- run_fixture("in_39_RW_IC_not_available")

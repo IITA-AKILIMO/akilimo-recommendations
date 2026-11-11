@@ -25,18 +25,8 @@ expect_null(validate_request(req(FR = TRUE, subsidisedFertilizer = TRUE)))
 expect_true(grepl("subsidisedFertilizer must be a boolean",
                   validate_request(req(FR = TRUE, subsidisedFertilizer = "yes"))))
 
-# Scheduled planting has no planting-window data for BI yet
-for (cc in "BI") {
-  for (flag in c("SPP", "SPH")) {
-    b <- req(country = cc, PD_window = 2, HD_window = 2)
-    b[[flag]] <- TRUE
-    expect_true(grepl(paste0("Scheduled planting .* not available for country: ", cc),
-                      validate_request(b)), info = paste(cc, flag))
-  }
-  # also with windows of 0, which would otherwise ask the user for windows that then fail
-  expect_true(grepl("Scheduled planting", validate_request(req(country = cc, SPP = TRUE))), info = cc)
-}
-for (cc in c("NG", "TZ", "GH", "RW"))
+# Scheduled planting is available in every supported country (BI uses the FR soil by yield class)
+for (cc in c("NG", "TZ", "GH", "RW", "BI"))
   expect_null(validate_request(req(country = cc, SPP = TRUE, PD_window = 2, HD_window = 2)), info = cc)
 
 # Intercropping exists only for NG and TZ
@@ -73,8 +63,10 @@ expect_true(grepl("outside the supported agricultural area", validate_request(re
 expect_true(grepl("outside the supported agricultural area", validate_request(req(country = "RW", SPP = TRUE))))
 expect_null(validate_request(req(country = "NG", IC = TRUE)))
 expect_null(validate_request(req(country = "NG", PP = TRUE)))
-# availability is reported before coverage: BI SP outside the grid says SP is unavailable
-expect_true(grepl("Scheduled planting", validate_request(req(country = "BI", SPP = TRUE))))
+# BI has scheduled planting now, so outside the grid it is the coverage gate that refuses it;
+# availability is still reported before coverage (IC is not available for BI)
+expect_true(grepl("outside the supported agricultural area", validate_request(req(country = "BI", SPP = TRUE))))
+expect_true(grepl("Intercropping", validate_request(req(country = "BI", IC = TRUE))))
 assign("is_point_covered", function(country, lon, lat) TRUE, envir = globalenv())
 
 # getRFY: countries without a dry-matter curve (RW, GH, BI) use the NG curve instead of returning numeric(0)

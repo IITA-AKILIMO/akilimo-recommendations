@@ -65,7 +65,7 @@ The footprint limits only the types that use location data: FR and SP requests f
 | `type` | Footprint |
 |--------|-----------|
 | `FR` (default) | Where fertilizer advice is available: the yield grid `is_point_covered()` uses. |
-| `SP` | Where scheduled planting is available: the FR footprint, kept only where planting-window yield data and soil data both exist. Empty (`n_cells` 0, no coordinates) for BI, and slightly smaller than FR in GH. |
+| `SP` | Where scheduled planting is available: the FR footprint, kept only where planting-window yield data and soil data both exist. Empty (`n_cells` 0, no coordinates) for a country whose planting-window file has not been built, and slightly smaller than FR in GH. BI uses the FR soil by yield class. |
 
 IC and PP do not depend on location, so they have no footprint; `?type=IC` or `?type=PP` returns `400`.
 
@@ -394,7 +394,7 @@ Common causes:
 | `PD must be a valid date in YYYY-MM-DD format` | Bad date string |
 | `maizeUW must be a positive number when maizePD is 'grain'` | Missing weight for grain maize price |
 | `Intercropping (IC) recommendations are not available for country: RW — supported countries are NG, TZ` | IC only supported for NG and TZ (see [Availability by country](#availability-by-country)) |
-| `Scheduled planting (SPP/SPH) recommendations are not available for country: BI — supported countries are NG, TZ, GH, RW` | No planting-window yield data for BI yet |
+| `Scheduled planting (SPP/SPH) recommendations are not available for country: XX — supported countries are NG, TZ, GH, RW, BI` | Only a country outside that list; every supported country has scheduled planting |
 | `Planting date and cultivar (PDC) recommendations are not available for country: TZ — supported countries are NG` | PDC currently has DSSAT output only for NG maize |
 | `No scheduled planting data available for lat=X, lon=Y in CC — fertilizer (FR) advice may still be available for this location` | The point is inside the coverage footprint but has no planting-window yield or soil data (a few cells in GH) |
 | `Scheduled planting cannot be computed for PD=… and HD=… — the time from planting to harvest must be between 235 and 452 days` | `HD − PD` is outside the range the SP model covers |
@@ -424,7 +424,7 @@ Returned for unexpected failures. Includes the `request_token` field (echoed fro
 | Tanzania (TZ) | ✓ | ✓ cassava–sweet potato | ✓ | ✓ | — |
 | Rwanda (RW) | ✓ | — | ✓ | ✓ | — |
 | Ghana (GH) | ✓ | — | ✓ | ✓ | — |
-| Burundi (BI) | ✓ | — | ✓ | — | — |
+| Burundi (BI) | ✓ | — | ✓ | ✓ | — |
 
 ### Default cassava prices (when `cassUP` is `0`)
 
