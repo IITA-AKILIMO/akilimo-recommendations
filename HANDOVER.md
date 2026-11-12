@@ -3,7 +3,71 @@
 For the next AI agent (or developer) picking up this repository. Read this,
 then [CLAUDE.md](CLAUDE.md), before changing anything.
 
-**IITA Internal Use.** Last updated: 2026-11-10.
+**IITA Internal Use.** Last updated: 2026-11-12.
+
+---
+
+## 0. Start here: what changed on 2026-11-11 and 2026-11-12
+
+The rest of this file was last fully revised on 2026-11-10. This section is newer; where they disagree, this one wins.
+
+### 0.1 Engine (this repo): logging rewrite, on `fix/engine-price-sync-and-health-port`
+
+- **Where it is:** pushed to `origin/fix/engine-price-sync-and-health-port` (tip `9f602bb`), which is 12 commits ahead of `experimental` (`8968f08`). It is **not on `experimental`**, so beta does not have it. Pushing this branch deploys nothing; merging it into `experimental` and pushing that does (the owner's call). Commit hashes were rewritten when the branch was rebased: the logging commits are `a862602`, `47b91d5`, `c35a44c` and `923ebb5`.
+- **What it does** (`R/logging.R`, tests in `tests/test_logging.R`, settings in `.env.example` and CLAUDE.md "Path and Server Configuration"):
+  - **Channel stack, like Laravel's:** a log line goes to the channels in `LOG_STACK` (`file`, `stderr`, `stdout`; default `file,stderr`); `LOG_CHANNEL=stderr` uses one channel alone; `LOG_STACK=null` logs nothing. Each channel has its own level (`LOG_FILE_LEVEL`, `LOG_STDERR_LEVEL`, `LOG_STDOUT_LEVEL`, else `LOG_LEVEL`) and format (`LOG_FILE_FORMAT`, ... else `LOG_FORMAT`, `text` or `json`). The older `LOG_STDERR=false` still works: it means `LOG_STDERR_LEVEL=INFO`.
+  - **Request id on every line** (`[req=...]`: the `requestId` the API sends, else a short one) and one `REQUEST DONE status=... type=... country=... duration_ms=...` line per request; slower than `LOG_SLOW_MS` (30 s) it is a WARN.
+  - **Personal data is kept out of the log:** `redact_request()` replaces every `user*` and phone field with `<redacted>`; the email senders log the recipient through `mask_email()` (before this, seven log lines printed the farmer's address); `reports[].content` (base64 PDFs from `returnPdf`) is replaced by a size note (`redact_reports()`); `LOG_MAX_CHARS` (20000) cuts any single line.
+  - **Logging never fails a request** (an unwritable `LOG_DIR` falls back to stderr). R warnings raised while serving a request become WARN lines with the request id; a warning the code already logged is not logged twice. DEBUG logs a short result summary, TRACE the whole result. `LOG_KEEP_DAYS` deletes old daily files. A `STARTUP` line lists the settings (never keys).
+- **Why it was done:** the engine crashed when a very large line was logged (the `returnPdf` base64 PDFs). Reproduction attempts did not crash R itself, even with 264 KB lines; the cause may be the terminal or tool showing the output (a Rust panic `crates\events\src\process.rs ... not implemented` was in the crash text, not from R). `LOG_STACK`/levels give a way to keep large output off the console.
+- **Verified (2026-11-12):** `test_logging` 165, `test_validate_request` 62, `test_akilimo_db` 82, `test_pdf_template` 48, `test_ic_units` 12, `test_small` 168, `test_rw_regressions` 17, parse check 36 files. Real-server runs of several stack configurations (file TRACE as JSON + console INFO as text; stdout only).
+- **Pitfalls:**
+  - `logging.R` loads the project's `.env` with `dotenv::load_dot_env()`, which **overrides variables already set in the environment** (so a systemd `Environment=LOG_...` loses to `.env`). Not changed; flag it to the owner before changing it.
+  - `tests/test_logging.R` pins its own `LOG_*` settings after loading (`pin_log_settings()`), so it passes under any `.env`; keep that when adding tests. State lives in `.log_ctx`, which every `source()` of the file recreates: use the `ctx_reset()` helper in tests.
+  - `logging.R` defines nothing called `mask_email`; `R/html_helpers.R` does, and `R/email.R` uses it.
+- **Also on that branch, by the owner (not this session):** `de90819` and `d4ae52b` validate that a FR or IC request offers at least one fertilizer (`has_available_fertilizer()` in `R/AkilimoMain.R`), plus two `dev.bat` debounce commits.
+
+### 0.2 new-akilimo-api (Laravel, `D:\Dev\php\new-akilimo-api`): PDF reports on S3
+
+Branch `feat/price-catalogue-views`, 8 commits not pushed, newest `fc6f8b9` (the owner's own `eadcb60` adds the Flysystem S3 adapter to `composer.json`).
+
+- **Reports go to S3 now (Alarik, `https://s3.munywele.co.ke`, bucket `akilimo-rec`, path-style).** The reports disk is `AKILIMO_REPORTS_DISK` if set, otherwise the app default `FILESYSTEM_DISK` (a `public` default becomes `local`, because a report holds the farmer's name, masked phone and location). Before this the reports setting defaulted to `local`, so PDFs kept landing in `storage/app/private/reports` even with `FILESYSTEM_DISK=s3`. `RecommendationReportService::resolveDisk()` is the rule.
+- **Layout (flat):** `reports/{kind}-{request_id}.pdf`, e.g. `reports/fertilizer_advice-<uuid>.pdf`; `request_id` is the computation's row in `api_requests`. The engine makes four kinds (`RecommendationReportService::FILES`: `fertilizer_advice`, `intercrop_advice`, `PP_advice`, `SP_advice`); a report is found by those names, not by listing the folder, and a new kind must be added to `FILES` (otherwise it is skipped with a warning). Download links and the API answer are unchanged (`/v1/recommendations/reports/{id}/{file}`). Reports kept the old way (`reports/{id}/{file}`) are still read, never written. `links($id, $files)` takes the names `store()` returned, and the cached answer keeps them, so no lookup is needed per response.
+- **Alarik quirks (found by testing against the real bucket):** it answers `exists()`'s HEAD request with **403** even for a file it holds, so the code asks with `size()` instead; and a lookup made within a few milliseconds of a write fails, so `reports:check-storage` waits up to 3 s. Reads, listing, size and downloads work. Alarik was briefly unreachable once (`cURL error 7`); retry before debugging code.
+- **S3 disk defaults** (`config/filesystems.php`): `visibility private`, `throw true`, region `us-east-1`, path-style on, 5 s connect / 30 s timeout, 2 retries, endpoint and bucket defaulted. `RecommendationReportService::store()` catches a storage error, logs the message (never the PDF) and skips the file, so a storage outage cannot fail a recommendation.
+- **`php artisan reports:check-storage`:** saves a tiny fake report the way a recommendation does, reads it back, makes a signed link, streams the download, fails if an S3 object is readable without credentials, deletes the test files (`--disk=`, `--keep`). Never prints keys. **Run it on every server after changing the env.**
+- **To switch a server to S3:** `composer install` (adapter), set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` and `FILESYSTEM_DISK=s3` (or `AKILIMO_REPORTS_DISK=s3`), leave `AWS_BUCKET`/`AWS_ENDPOINT` at their defaults (`.env.example` has them commented out on purpose: an empty value there would override the defaults), clear cached config, run `reports:check-storage`. Reports already on the local disk are **not moved** (the owner declined a migration command); their links keep working only while the disk is `local`.
+- **Tests:** whole suite **379 passed** (2026-11-12), including 19 Feature report tests and `tests/Unit/RecommendationReportServiceTest.php` / `tests/Unit/Console/CheckReportStorageTest.php` (no database needed).
+- **Test database trap:** Laravel's `migrate:fresh` skips the wipe when the `migrations` table is missing. A failed schema load left `akilimo_test` with views and no `migrations` table, so every run failed with "Table 'cassava_prices' already exists" and `$dropViews = true` never got a chance. Fix: `php artisan db:wipe --env=testing --drop-views --force` (the owner ran it). A self-healing hook in `tests/TestCase.php` was proposed, **not done**.
+- **Moved:** `ComputePayloadTypesTest` is now in `tests/Feature` (it seeds and posts to the API, so it needs the database reset that `tests/Pest.php` gives only `Feature`).
+- **Not mine, left alone:** `composer.lock` and other owner changes.
+
+### 0.3 Sessions (all of them, including forks)
+
+Seven Claude Code sessions worked in this family. They form a tree; the notes folder `C:\Users\masgeek\AppData\Local\Claude-Data\claude_pzs8sxrjxfjjc\side-session-notes\local_fd7b1fcd-cc6d-45f9-9bab-efff8b3a7f84` holds shared notes (an older engine note there is superseded by this file). To see what a session did, read its transcript (`search_session_transcripts`, `list_events`); only metadata is recorded here. Session ids are in the app, not secrets.
+
+| Session (name) | Id | Folder | Started by | State on 2026-11-12 |
+|---|---|---|---|---|
+| **R akilimo** (root) | `local_fd7b1fcd-cc6d-45f9-9bab-efff8b3a7f84` | repo root | the owner | idle; started the sessions below and a Rwanda-coverage task |
+| **Rwanda requests rejected as outside coverage** (this one) | `local_249e466c-2862-4629-addd-a86a859176c7` | worktree `.claude/worktrees/vigilant-mclean-c38063` (detached HEAD; its branch was merged and deleted) | R akilimo | running; did §0.1, §0.2 and the Rwanda/Burundi fixes below |
+| **Show API key once after creation in new-akilimo admin** (`show-api-key-once-after`) | `local_69d0f50c-254a-4af6-b5ad-dbb9c30a8923` | repo root | R akilimo | idle; new-akilimo-api API-key work (§4) |
+| **JSON payload troubleshooting** (`payload-debug`) | `local_a881294c-0ca2-423d-9f82-406e96764287` | repo root | show-api-key-once-after | idle |
+| **Mobile app: adapt to API breaking changes** (`mobile-api-updates`) | `local_b268e454-4a06-42ed-850d-41ee4827df0f` | `D:\Dev\android\akilimo-mobile` | show-api-key-once-after | done; akilimo-mobile PR #554 **merged** |
+| **Mobile app UI review** (`ui-review`) | `local_e452191d-022a-4d34-b9e3-a517b78d6826` | akilimo-mobile | mobile-api-updates | done; akilimo-mobile PR #558 **merged** |
+| **Mobile app UI review (fork)** (`mobile-app-ui-review-for`) | `local_98c08994-ad9b-4959-9cdd-2c3e32b09aa1` | akilimo-mobile | mobile-api-updates | idle; a **fork** of the UI review, no PR |
+
+Tree: R akilimo → { this session; show-api-key-once-after → { payload-debug; mobile-api-updates → { ui-review; the UI-review fork } } }. None is archived. The three mobile sessions touch only `akilimo-mobile`; check its `AGENTS.md` (§4) before continuing that work.
+
+What this session did earlier, in short (all merged into the owner's branches; see git history):
+- **Rwanda `/compute` errors:** the cause was scheduled planting and intercropping returning `success` with the fertilizer "out of domain" text or an empty recommendation, while `/coverage` showed the point as covered. They now return clear 400s (`REC_TYPE_COUNTRIES` in `R/AkilimoMain.R`), `ekari`/`hekta`/`string` area units are accepted, `getRFY()` falls back to the NG curve for RW/GH/BI (a small-field FR crash), the coverage gate applies only to FR and SP, and `/coverage` features list `rec_types`.
+- The real failing request was never received; the SP fix is the likely cause, not a confirmed one.
+
+### 0.4 Open items, in order
+
+1. **Owner:** merge `fix/engine-price-sync-and-health-port` into `experimental` when ready (beta then gets the logging rewrite); push `feat/price-catalogue-views` in new-akilimo-api (8 commits).
+2. **On each server that should use S3:** set the env, `composer install`, clear config, run `php artisan reports:check-storage` (§0.2).
+3. **Optional:** a self-healing hook in `tests/TestCase.php` for the `migrations`-table trap (§0.2); decide whether real environment variables should beat `.env` in `logging.R` (§0.1).
+4. Everything from §6 and §7 below still stands (beta crash-loop follow-up, RW scheduled-planting request against beta, BI soil decision).
 
 ---
 
