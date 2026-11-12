@@ -182,7 +182,7 @@ Spatial data lives under `./data/` (gitignored, except `data/input/translations.
 ### Path and Server Configuration
 `AKILIMO_ROOT` env var sets `akpath` (defaults to `"."`). `API_HOST` and `API_PORT` control the Plumber bind address and port (defaults: `0.0.0.0:8000`). All file paths are relative to `akpath`.
 
-Logging: `LOG_LEVEL` (default `INFO`), `LOG_DIR`, `LOG_FILE_PREFIX`, and `LOG_MAX_CHARS` (default 20000; cuts any single log line, `0` = no limit). The `reports[].content` PDFs returned with `returnPdf` are replaced by a size note before logging (`redact_reports()` in `R/logging.R`).
+Logging: `LOG_LEVEL` (default `INFO`), `LOG_DIR`, `LOG_FILE_PREFIX`, `LOG_STDERR` (default `true`; `false`, `0`, `no` or `off` keep the log in the file only, nothing on the console or in the journal) and `LOG_MAX_CHARS` (default 20000; cuts any single log line, `0` = no limit). The `reports[].content` PDFs returned with `returnPdf` are replaced by a size note before logging (`redact_reports()` in `R/logging.R`).
 
 ## Required R Packages
 ```r

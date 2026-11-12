@@ -28,7 +28,7 @@
 #' Individual PDF failures are caught and logged; other PDFs are still attempted.
 generate_pdfs <- function(user, FR, IC, PP, SP, country, result = NULL, params = NULL) {
 
-  message(paste("Generating PDFs: FR=", FR, "IC=", IC, "PP=", PP, "SP=", SP, "country=", country))
+  log_write("INFO", paste("Generating PDFs: FR=", FR, "IC=", IC, "PP=", PP, "SP=", SP, "country=", country))
 
   PDFs <- character(0)
 

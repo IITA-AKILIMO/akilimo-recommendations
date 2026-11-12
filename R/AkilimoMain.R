@@ -445,8 +445,8 @@ run_akilimo <- function(json) {
   set_temp_dir(setup_temp_dir(country = params$country,
                               rec_type = paste(params$selected_key, collapse = "_")))
 
-  message(paste0(params$selected_key, ": ", params$country,
-                 ", planting: ", params$PD, ", harvest: ", params$HD))
+  log_write("INFO", paste0(params$selected_key, ": ", params$country,
+                           ", planting: ", params$PD, ", harvest: ", params$HD))
 
   # Auto-refresh stale data when external APIs are configured.
   # Failures are logged as WARN and never block the recommendation.

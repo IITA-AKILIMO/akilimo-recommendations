@@ -70,4 +70,48 @@ expect_equal(log_max_chars(), 20000)
 Sys.unsetenv("LOG_MAX_CHARS")
 expect_equal(log_max_chars(), 20000)
 
+# LOG_STDERR: the file is always written; stderr only when enabled (default on)
+stderr_lines <- function(...) {
+  seen <- character(0)
+  withCallingHandlers(
+    log_write("INFO", ...),
+    message = function(m) { seen <<- c(seen, conditionMessage(m)); invokeRestart("muffleMessage") }
+  )
+  seen
+}
+Sys.unsetenv("LOG_STDERR")
+expect_true(log_to_stderr())
+unlink(get_log_file())
+expect_equal(length(stderr_lines("to the console")), 1)        # default: printed
+expect_true(grepl("to the console", log_text(), fixed = TRUE))
+
+for (off in c("false", "FALSE", "0", "no", "off", " Off ")) {
+  Sys.setenv(LOG_STDERR = off)
+  expect_false(log_to_stderr(), info = off)
+  unlink(get_log_file())
+  expect_equal(length(stderr_lines("file only")), 0, info = off)   # nothing on stderr
+  expect_true(grepl("file only", log_text(), fixed = TRUE), info = off)  # still in the file
+}
+for (on in c("true", "1", "yes", "", "garbage")) {
+  Sys.setenv(LOG_STDERR = on)
+  expect_true(log_to_stderr(), info = on)                       # anything else keeps stderr on
+}
+Sys.setenv(LOG_STDERR = "true")
+expect_equal(length(stderr_lines("back on")), 1)
+Sys.unsetenv("LOG_STDERR")
+
+# loading the file prints the level to stderr by default, and nothing when LOG_STDERR is off
+startup_messages <- function() {
+  seen <- character(0)
+  withCallingHandlers(
+    source(file.path(akpath, "R", "logging.R")),
+    message = function(m) { seen <<- c(seen, conditionMessage(m)); invokeRestart("muffleMessage") }
+  )
+  seen
+}
+expect_true(any(grepl("Current log level", startup_messages(), fixed = TRUE)))
+Sys.setenv(LOG_STDERR = "false")
+expect_equal(length(startup_messages()), 0)
+Sys.unsetenv("LOG_STDERR")
+
 unlink(log_dir, recursive = TRUE)

@@ -98,7 +98,7 @@ get_fertilizers2 <- function(js, country) {
 	rownames(fd) <- NULL
 	na <- rowSums(is.na(fd)) > 0
 	if (any(na)) {
-		message("missing values for fertilizer type: ", paste(fd$type[na], collapse=", "))
+		log_write("WARN", "missing values for fertilizer type:", paste(fd$type[na], collapse=", "))
 		fd <- fd[!na, ]
 	}
 
