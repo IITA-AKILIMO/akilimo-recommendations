@@ -125,7 +125,8 @@ pr$handle(
       if (!is.null(status_str) && grepl("^400", status_str)) res$status <- 400L
 
       log_write("TRACE", "REQUEST:", prettify(req$postBody))
-      log_write("DEBUG", "RESULT:", result)
+      # Never log the PDF content that returnPdf adds: it is base64 and can be very large
+      log_write("DEBUG", "RESULT:", redact_reports(result))
 
       result
     }, error = function(e) {

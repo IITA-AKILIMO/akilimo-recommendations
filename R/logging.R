@@ -37,6 +37,25 @@ get_log_file <- function() {
   file.path(logs_dir, paste0(prefix, "-", format(Sys.Date(), "%Y%m%d"), ".log"))
 }
 
+# One log line longer than this is cut (LOG_MAX_CHARS in .env; 0 turns the cap off). Keeps a huge value, such as
+# a base64 PDF, from filling the log file or crashing message().
+log_max_chars <- function() {
+  n <- suppressWarnings(as.numeric(Sys.getenv("LOG_MAX_CHARS", unset = "20000")))
+  if (is.na(n) || n < 0) 20000 else n
+}
+
+# The response with the content of each attached report replaced by a short note (name and size stay), for logging.
+# The PDFs returned with returnPdf are base64 and can be megabytes, which has crashed the server when logged.
+redact_reports <- function(result) {
+  if (is.list(result) && is.list(result$reports)) {
+    result$reports <- lapply(result$reports, function(r) {
+      if (!is.null(r$content)) r$content <- sprintf("<omitted: %d base64 chars>", nchar(as.character(r$content)))
+      r
+    })
+  }
+  result
+}
+
 log_write <- function(level = "INFO", ..., sep = " ", append = TRUE) {
   if (!should_log(level)) return(invisible(NULL))
 
@@ -58,6 +77,10 @@ log_write <- function(level = "INFO", ..., sep = " ", append = TRUE) {
 
   msg_parts <- vapply(args, stringify, FUN.VALUE = character(1))
   msg <- paste(msg_parts, collapse = sep)
+
+  max_chars <- log_max_chars()
+  if (max_chars > 0 && nchar(msg) > max_chars)
+    msg <- paste0(substr(msg, 1, max_chars), "... [truncated, ", nchar(msg) - max_chars, " more characters]")
 
   timestamp <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
   line <- paste0("[", timestamp, "] [", toupper(level), "] ", msg)

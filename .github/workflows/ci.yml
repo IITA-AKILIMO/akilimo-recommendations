@@ -251,6 +251,10 @@ jobs:
         if: ${{ !cancelled() }}
         run: Rscript tests/run_ci_test.R tests/test_validate_request.R
 
+      - name: Test logging
+        if: ${{ !cancelled() }}
+        run: Rscript tests/run_ci_test.R tests/test_logging.R
+
       - name: Test PDF templates
         if: ${{ !cancelled() }}
         run: Rscript tests/run_ci_test.R tests/test_pdf_template.R
