@@ -10,9 +10,23 @@ assign("is_point_covered", function(country, lon, lat) TRUE, envir = globalenv()
 
 req <- function(...) {
   b <- list(country = "RW", lat = -2.325, lon = 30.075, area = 1, areaUnits = "ha",
-            FR = FALSE, IC = FALSE, PP = FALSE, SPP = FALSE, SPH = FALSE, PDC = FALSE)
+            FR = FALSE, IC = FALSE, PP = FALSE, SPP = FALSE, SPH = FALSE, PDC = FALSE,
+            ureaavailable = TRUE)
   modifyList(b, list(...))
 }
+
+# FR and IC need at least one fertilizer; the Android app sent none when its database had
+# no fertilizers, and the engine answered 500 instead of 400.
+for (flag in c("FR", "IC")) {
+  none <- req(country = "NG"); none[[flag]] <- TRUE; none$ureaavailable <- NULL
+  expect_true(grepl("No fertilizer is available", validate_request(none)), info = flag)
+  off <- modifyList(none, list(ureaavailable = FALSE, MOPavailable = FALSE))
+  expect_true(grepl("No fertilizer is available", validate_request(off)), info = flag)
+}
+expect_null(validate_request(modifyList(req(FR = TRUE), list(ureaavailable = NULL, newFert1name = "newFert1x"))))
+# PP and SP use no fertilizers
+expect_null(validate_request(modifyList(req(PP = TRUE), list(ureaavailable = NULL))))
+expect_null(validate_request(modifyList(req(SPP = TRUE), list(ureaavailable = NULL))))
 
 # areaUnits: everything parse_request() converts is accepted, anything else is not
 for (u in c("ha", "acre", "are", "m2", "ekari", "hekta", "string", "EKARI"))
