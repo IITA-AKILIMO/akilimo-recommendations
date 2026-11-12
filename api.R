@@ -119,14 +119,26 @@ pr$handle(
   method = "POST",
   path = "/compute",
   handler = function(req, res) {
+    started <- Sys.time()
+    meta <- request_meta(req$postBody)
+    set_log_context(meta$request_id)   # the id goes on every log line until this request is done
+    on.exit(clear_log_context(), add = TRUE)
+
     tryCatch({
-      result <- run_akilimo(req$postBody)
+      # The request first, so that a crash can still be traced to it. The farmer's name, email and phone
+      # are redacted: personal data does not go in the log.
+      log_write("TRACE", "REQUEST:", redact_request(req$postBody))
+
+      # R warnings become WARN lines with the request id instead of bare text on stderr
+      result <- with_logged_warnings(run_akilimo(req$postBody))
       status_str <- result[["status"]]
       if (!is.null(status_str) && grepl("^400", status_str)) res$status <- 400L
 
-      log_write("TRACE", "REQUEST:", prettify(req$postBody))
-      # Never log the PDF content that returnPdf adds: it is base64 and can be very large
-      log_write("DEBUG", "RESULT:", redact_reports(result))
+      # A few lines at DEBUG; the whole result at TRACE, without the PDF content that returnPdf adds
+      # (it is base64 and can be very large)
+      log_write("DEBUG", "RESULT:", summarize_result(result))
+      log_write("TRACE", "RESULT (full):", redact_reports(result))
+      log_request_done(meta$country, result, started)
 
       result
     }, error = function(e) {
@@ -134,6 +146,7 @@ pr$handle(
       log_write("ERROR", "Message:", e$message)
       log_write("ERROR", "STACK:", e)
       log_write("ERROR", "Trace:", paste(capture.output(traceback()), collapse = "\n"))
+      log_request_done(meta$country, NULL, started, status = "500", reason = e$message)
 
       token <- tryCatch(
         jsonlite::unbox(jsonlite::fromJSON(req$postBody)[["request_token"]]),
@@ -154,5 +167,6 @@ pr$handle(
 
 api_host <- Sys.getenv("API_HOST", unset = "0.0.0.0")
 api_port <- as.integer(Sys.getenv("API_PORT", unset = "8000"))
+log_startup_summary(version = AKI_VERSION, port = api_port)
 pr_run(pr, host = api_host, port = api_port)
 

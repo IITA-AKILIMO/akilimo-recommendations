@@ -191,7 +191,7 @@ sendEmailReport <- function(user, PDFs, lang = "en") {
   provider <- tolower(trimws(Sys.getenv("EMAIL_PROVIDER", unset = "smtp")))
 
   log_write("INFO", sprintf("Email: sending via '%s' to %s (%d attachment(s): %s)",
-                            provider, to, length(PDFs),
+                            provider, mask_email(to), length(PDFs),
                             paste(basename(PDFs), collapse = ", ")))
 
   tryCatch(
@@ -225,7 +225,7 @@ sendEmailReport <- function(user, PDFs, lang = "en") {
   }
 
   from_addr <- if (nzchar(from)) from else user
-  log_write("DEBUG", sprintf("SMTP: host=%s port=%d from=%s to=%s", host, port, from_addr, to))
+  log_write("DEBUG", sprintf("SMTP: host=%s port=%d from=%s to=%s", host, port, from_addr, mask_email(to)))
 
   mailR::send.mail(
     from         = from_addr,
@@ -237,7 +237,7 @@ sendEmailReport <- function(user, PDFs, lang = "en") {
     smtp         = list(host.name = host, port = port,
                         user.name = user, passwd = pass, tls = TRUE)
   )
-  log_write("INFO", sprintf("SMTP: email sent to %s", to))
+  log_write("INFO", sprintf("SMTP: email sent to %s", mask_email(to)))
 }
 
 
@@ -252,7 +252,7 @@ sendEmailReport <- function(user, PDFs, lang = "en") {
   }
 
   from_addr <- if (nzchar(from)) from else "akilimo@example.com"
-  log_write("DEBUG", sprintf("Mailtrap: endpoint=%s from=%s to=%s", host, from_addr, to))
+  log_write("DEBUG", sprintf("Mailtrap: endpoint=%s from=%s to=%s", host, from_addr, mask_email(to)))
 
   attachments <- lapply(PDFs, function(f) {
     raw <- readBin(f, "raw", n = file.info(f)$size)
@@ -288,7 +288,7 @@ sendEmailReport <- function(user, PDFs, lang = "en") {
     log_write("ERROR", sprintf("Mailtrap API error: HTTP %d — %s", status, body))
     warning("Mailtrap API error: ", status, " — ", body)
   } else {
-    log_write("INFO", sprintf("Mailtrap: email sent to %s (HTTP %d)", to, status))
+    log_write("INFO", sprintf("Mailtrap: email sent to %s (HTTP %d)", mask_email(to), status))
   }
 }
 
@@ -309,7 +309,7 @@ sendEmailReport <- function(user, PDFs, lang = "en") {
   base_url  <- if (region == "eu") "https://api.eu.mailgun.net/v3" else "https://api.mailgun.net/v3"
   url       <- paste0(base_url, "/", domain, "/messages")
 
-  log_write("DEBUG", sprintf("Mailgun: endpoint=%s from=%s to=%s", url, from_addr, to))
+  log_write("DEBUG", sprintf("Mailgun: endpoint=%s from=%s to=%s", url, from_addr, mask_email(to)))
 
   body_parts <- list(from = from_addr, to = to, subject = subject, text = body_txt)
   if (length(PDFs) > 0) {
@@ -331,6 +331,6 @@ sendEmailReport <- function(user, PDFs, lang = "en") {
     log_write("ERROR", sprintf("Mailgun API error: HTTP %d — %s", status, body))
     warning("Mailgun API error: ", status, " — ", body)
   } else {
-    log_write("INFO", sprintf("Mailgun: email sent to %s (HTTP %d)", to, status))
+    log_write("INFO", sprintf("Mailgun: email sent to %s (HTTP %d)", mask_email(to), status))
   }
 }
