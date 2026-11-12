@@ -11,25 +11,29 @@ then [CLAUDE.md](CLAUDE.md), before changing anything.
 
 The rest of this file was last fully revised on 2026-11-10. This section is newer; where they disagree, this one wins.
 
-### 0.1 Engine (this repo): logging rewrite, on `fix/engine-price-sync-and-health-port`
+### 0.1 Engine (this repo): logging rewrite, BI scheduled planting, price deactivation, health check — on `fix/engine-price-sync-and-health-port`
 
-- **Where it is:** pushed to `origin/fix/engine-price-sync-and-health-port` (tip `9f602bb`), which is 12 commits ahead of `experimental` (`8968f08`). It is **not on `experimental`**, so beta does not have it. Pushing this branch deploys nothing; merging it into `experimental` and pushing that does (the owner's call). Commit hashes were rewritten when the branch was rebased: the logging commits are `a862602`, `47b91d5`, `c35a44c` and `923ebb5`.
+- **Where it is:** pushed to `origin/fix/engine-price-sync-and-health-port`, 13 commits ahead of `experimental` (`8968f08`) including this handover commit. It is **not on `experimental`**, so beta does not have it. Pushing this branch deploys nothing; merging it into `experimental` and pushing that does (the owner's call). Commit hashes were rewritten when the branch was rebased: the logging commits are `c085244`, `a862602`, `47b91d5`, `c35a44c` and `923ebb5`.
+- **The branch also carries three non-logging fixes** (all by the owner, 2026-11-11/12):
+  - `49bb594` **BI scheduled planting**, using the FR yield-class soil (`get_sp_soil()` in `R/get_data.R`) until the owner confirms a dedicated SP soil; `REC_TYPE_COUNTRIES$SP` now includes `"BI"` (§7).
+  - `393bee3` **removes prices the price service has deactivated**: a refresh is a full fetch when there is no cursor, `--full` is passed, or the last full fetch is older than `PRICE_FULL_SYNC_HOURS` (24 h). After a complete fetch it deletes API-sourced rows the service no longer lists, with guards (empty/failed answer removes nothing, seed rows and other countries untouched). Schema **v7** adds `country_price_settings.full_synced_at`; this replaces the old "clear `api_cursor` by hand" limitation (§8).
+  - `564bd6f` **health check on the port the service really listens on**: `tools/check_health.sh` reads the service's systemd cgroup and `ss` (unit `Environment=`/`EnvironmentFile=` and `.env` fallback) instead of trusting `API_PORT`; `tests/test_check_health.sh` runs in CI. This is the "check against the wrong service" gap in §6.
 - **What it does** (`R/logging.R`, tests in `tests/test_logging.R`, settings in `.env.example` and CLAUDE.md "Path and Server Configuration"):
   - **Channel stack, like Laravel's:** a log line goes to the channels in `LOG_STACK` (`file`, `stderr`, `stdout`; default `file,stderr`); `LOG_CHANNEL=stderr` uses one channel alone; `LOG_STACK=null` logs nothing. Each channel has its own level (`LOG_FILE_LEVEL`, `LOG_STDERR_LEVEL`, `LOG_STDOUT_LEVEL`, else `LOG_LEVEL`) and format (`LOG_FILE_FORMAT`, ... else `LOG_FORMAT`, `text` or `json`). The older `LOG_STDERR=false` still works: it means `LOG_STDERR_LEVEL=INFO`.
   - **Request id on every line** (`[req=...]`: the `requestId` the API sends, else a short one) and one `REQUEST DONE status=... type=... country=... duration_ms=...` line per request; slower than `LOG_SLOW_MS` (30 s) it is a WARN.
   - **Personal data is kept out of the log:** `redact_request()` replaces every `user*` and phone field with `<redacted>`; the email senders log the recipient through `mask_email()` (before this, seven log lines printed the farmer's address); `reports[].content` (base64 PDFs from `returnPdf`) is replaced by a size note (`redact_reports()`); `LOG_MAX_CHARS` (20000) cuts any single line.
   - **Logging never fails a request** (an unwritable `LOG_DIR` falls back to stderr). R warnings raised while serving a request become WARN lines with the request id; a warning the code already logged is not logged twice. DEBUG logs a short result summary, TRACE the whole result. `LOG_KEEP_DAYS` deletes old daily files. A `STARTUP` line lists the settings (never keys).
 - **Why it was done:** the engine crashed when a very large line was logged (the `returnPdf` base64 PDFs). Reproduction attempts did not crash R itself, even with 264 KB lines; the cause may be the terminal or tool showing the output (a Rust panic `crates\events\src\process.rs ... not implemented` was in the crash text, not from R). `LOG_STACK`/levels give a way to keep large output off the console.
-- **Verified (2026-11-12):** `test_logging` 165, `test_validate_request` 62, `test_akilimo_db` 82, `test_pdf_template` 48, `test_ic_units` 12, `test_small` 168, `test_rw_regressions` 17, parse check 36 files. Real-server runs of several stack configurations (file TRACE as JSON + console INFO as text; stdout only).
+- **Verified (2026-11-12, re-run on this branch):** `test_logging` 165, `test_validate_request` 62, `test_akilimo_db` 82, `test_pdf_template` 48, `test_ic_units` 12, `test_small` 168 (includes `in_42_BI_SP_window2_riskAtt2`), `test_rw_regressions` 17, parse check 36 files. CI also runs `tests/test_check_health.sh` (fake `systemctl`/`ss`). Real-server runs of several stack configurations (file TRACE as JSON + console INFO as text; stdout only).
 - **Pitfalls:**
   - `logging.R` loads the project's `.env` with `dotenv::load_dot_env()`, which **overrides variables already set in the environment** (so a systemd `Environment=LOG_...` loses to `.env`). Not changed; flag it to the owner before changing it.
   - `tests/test_logging.R` pins its own `LOG_*` settings after loading (`pin_log_settings()`), so it passes under any `.env`; keep that when adding tests. State lives in `.log_ctx`, which every `source()` of the file recreates: use the `ctx_reset()` helper in tests.
   - `logging.R` defines nothing called `mask_email`; `R/html_helpers.R` does, and `R/email.R` uses it.
-- **Also on that branch, by the owner (not this session):** `de90819` and `d4ae52b` validate that a FR or IC request offers at least one fertilizer (`has_available_fertilizer()` in `R/AkilimoMain.R`), plus two `dev.bat` debounce commits.
+- **Other owner commits on that branch (not this session):** `de90819` and `d4ae52b` validate that a FR or IC request offers at least one fertilizer (`has_available_fertilizer()` in `R/AkilimoMain.R`), plus two `dev.bat` debounce commits (`521accb`, `9f602bb`).
 
 ### 0.2 new-akilimo-api (Laravel, `D:\Dev\php\new-akilimo-api`): PDF reports on S3
 
-Branch `feat/price-catalogue-views`, 8 commits not pushed, newest `fc6f8b9` (the owner's own `eadcb60` adds the Flysystem S3 adapter to `composer.json`).
+Branch `feat/price-catalogue-views`, 9 commits not pushed (checked 2026-11-12), newest `bd4f288` (the owner's own `eadcb60` adds the Flysystem S3 adapter to `composer.json`; `bd4f288` updates Composer dependencies).
 
 - **Reports go to S3 now (Alarik, `https://s3.munywele.co.ke`, bucket `akilimo-rec`, path-style).** The reports disk is `AKILIMO_REPORTS_DISK` if set, otherwise the app default `FILESYSTEM_DISK` (a `public` default becomes `local`, because a report holds the farmer's name, masked phone and location). Before this the reports setting defaulted to `local`, so PDFs kept landing in `storage/app/private/reports` even with `FILESYSTEM_DISK=s3`. `RecommendationReportService::resolveDisk()` is the rule.
 - **Layout (flat):** `reports/{kind}-{request_id}.pdf`, e.g. `reports/fertilizer_advice-<uuid>.pdf`; `request_id` is the computation's row in `api_requests`. The engine makes four kinds (`RecommendationReportService::FILES`: `fertilizer_advice`, `intercrop_advice`, `PP_advice`, `SP_advice`); a report is found by those names, not by listing the folder, and a new kind must be added to `FILES` (otherwise it is skipped with a warning). Download links and the API answer are unchanged (`/v1/recommendations/reports/{id}/{file}`). Reports kept the old way (`reports/{id}/{file}`) are still read, never written. `links($id, $files)` takes the names `store()` returned, and the cached answer keeps them, so no lookup is needed per response.
@@ -42,32 +46,65 @@ Branch `feat/price-catalogue-views`, 8 commits not pushed, newest `fc6f8b9` (the
 - **Moved:** `ComputePayloadTypesTest` is now in `tests/Feature` (it seeds and posts to the API, so it needs the database reset that `tests/Pest.php` gives only `Feature`).
 - **Not mine, left alone:** `composer.lock` and other owner changes.
 
-### 0.3 Sessions (all of them, including forks)
+### 0.3 akilimo-mobile (Android app): UI redesign and hub sync/offline status strip
+
+Uses the repo at `D:\Dev\android\akilimo-mobile`; read its `AGENTS.md` before changing it, and `docs/UI_UX_CHECKLIST.md` (the reference for building and reviewing screens, with what is done and what is open). **State on 2026-11-12:** everything below is **committed** on `feat/ui-design-system`, which is **8 commits ahead of `origin/feat/ui-design-system` (`95aced54`) and 36 ahead of `origin/develop`**. Not pushed; no PR for that branch (the owner pushes and opens it). Last checked at `8a275b3d`: `:app:compileDebugKotlin`, `:app:testDebugUnitTest` and `detekt` pass. Nobody has run it on a device yet (the owner runs it from Android Studio).
+
+**UI redesign (this fork's work, `local_98c08994`; every visible change was shown as a preview and approved first):**
+- **Look:** palette follows the logo (deep green `#006F45`, leaf lime `#9ACA3C` used only as a fill with dark text); cards and buttons use 12dp corners; the app starts in the **light** theme and the owner picks Light / System / Dark in Settings.
+- **Navigation:** first run is `LegalWizardRoute` -> `OnboardingRoute` (first-run wizard only) -> `HubRoute`; every later launch starts at `HubRoute`. The hub has cards for Recommendations, Profile, **Your farm** (`FarmRoute`) and Settings, plus the sync strip below. Settings has no profile entry any more.
+- **Profile and Your farm** are two pages of one shared editor (`DetailsEditorScreen`, same sections and view model as the wizard): Profile = About you; Your farm = Country, Location, Field size and **Investment preference**. Planting and harvest dates, tillage and weed control are edited in their own recommendation steps (not repeated there); the wizard still asks for all of them on first run.
+- **Screens:** recommendation result (readable text, text-size and landscape controls; merged earlier as #559), steps screen (progress summary and raised step cards with status chips), raised option cards, a segmented market choice, label-above form fields, grouped form cards, Settings as grouped cards, fertilizer search and category bar (only when the list has more than 10 items), the planting picker opening on today with each date field showing its allowed window (the harvest span is the owner's 235 to 452 days), a "Total weeding cost" row, one shared look for loading (skeleton rows), empty and error states, and a location step with a plain reason, a "Where is your farm?" title and an inside/outside chip. The manual location map opens on the chosen country (built-in centre and zoom for NG, TZ, GH, RW, BI) and no longer jumps to the phone's GPS.
+- **Naming:** the engine's `risk_attitude` is called **Investment preference** in the app (Rarely / Sometimes / Often = 0 / 1 / 2). The MCP agent now uses the same words (§0.3a).
+- **Open (mobile):** translations (sw, rw, ha) for the new strings (English only now; `MissingTranslation` lint is off); an **app-wide text size** setting (Settings selector plus `textScale` in `AkilimoTheme`) is built but the owner **deferred the decision** on 2026-11-12, so keep or remove it before release and do not add a second scale next to the result screen's own size control; the fertilizer category bar needs `/v1/fertilizers` to send `category` as `STRAIGHT`, `COMPOUND` or `OTHER` (not checked against live data); save/share/print of a recommendation, a shorter first run and landscape/tablet layouts on every screen are in the checklist, not started.
+
+**Hub sync/offline status strip** (written by the Rwanda session, committed as `1851b605`):
+
+- **What it shows:** a strip pinned to the hub's bottom bar — offline ("Offline — showing saved data"), updating ("Updating data…"), the last update time ("Updated just now" / "N minutes|hours|days ago"), a permanent failure with a **Retry** button, or "Not updated yet". Offline wins over a running sync; only `RUNNING` work counts as syncing (ENQUEUED work may be waiting for a network that is absent).
+- **Where it lives:** `workers/SyncStatus.kt` (phase model: OFFLINE > SYNCING > FAILED > SYNCED > NEVER), `workers/SyncStatusSource.kt` (`@Singleton`; combines `NetworkMonitor.isConnected`, six `getWorkInfosForUniqueWorkFlow` names and two DataStore timestamps), `ui/viewmodels/HubViewModel.kt`, `ui/components/compose/SyncStatusStrip.kt`, wired in `ui/screens/hub/HubScreen.kt` (`hiltViewModel()` plus `Scaffold(bottomBar = …)`).
+- **How the timestamps are written:** `base/workers/BaseApiWorker.kt` calls `AppSettingsDataStore.recordSyncSuccess/recordSyncFailure` (`LONG_PREF_LAST_SYNC_AT`, `LONG_PREF_LAST_SYNC_FAILED_AT`); Retry runs `DataRefresher.all()`, a new parallel wrapper over the app-start syncs (fertilizer chain, investment amounts, cassava market/units/starch factories, maize units).
+- **Other changes:** `NetworkMonitor` is now a Hilt `@Singleton` (`di/AppModule.kt`) and is injected into `AkilimoApp`, so the app and the status source share the connectivity callbacks; `DataRefresher.maizeUnits()` was added because app start already syncs maize units.
+- **Strings and lint:** the new strings in `res/values/strings.xml` stay English until the sw/rw translation pass, and `app/build.gradle.kts` now disables the `MissingTranslation` lint check (`disable += "MissingTranslation"`) so that gap does not fail `lintDebug`. **Never** use `tools:ignore` on string resources.
+- **Verified:** `:app:compileDebugKotlin` and `:app:testDebugUnitTest` pass (new `SyncStatusTest` 5 tests and `HubViewModelTest` 3 tests, 0 failures); `detekt` reports 0 smells; `lintDebug` passes with 51 warnings and 0 errors.
+
+
+### 0.3a akilimo-mcp-agent (MCP server and web chat): investment preference wording
+
+Repo `D:\Dev\php\akilimo-mcp-agent` (the **Akilimo 1.0** MCP server `akilimo-1.0` and its web UI; its `AGENTS.md` points to its own `docs/HANDOVER.md`, which was **not** updated). Part of the same ecosystem: it calls new-akilimo-api, which forwards to this engine, like the mobile app.
+
+- **Where it is:** branch `fix/investment-preference-wording`, one commit `99f23f8` on top of `main` (`46418ed`); **not pushed, no PR**. Six files: `packages/server/src/chat/agent.ts`, `packages/server/src/tools/compute-recommendations.ts`, `packages/shared/src/farm.ts`, `packages/web/src/components/ChatPickers.tsx`, `ChatView.tsx` and `GuidedParts.tsx`.
+- **What changed:** the farmer-facing "risk attitude" is now **investment preference**, to match the mobile app. The question reads "What is your investment preference?" with the options **Rarely**, **Sometimes**, **Often**, followed by the app's explanation. The fixed chat message is now "My investment preference is <word> (risk_attitude <0-2>)" and the agent prompt reads exactly that sentence and the new rule ("0 rarely (careful), 1 sometimes (balanced), 2 often (willing to take a risk)"). **Unchanged on purpose:** the engine field `risk_attitude` and the saved profile key `risk` (API contract and saved profiles).
+- **Mapping as the agent documents it:** 0 Rarely = careful (fertilizer advised only when the extra income is at least 1.8 times its cost), 1 Sometimes = balanced (at least the cost), 2 Often = willing to take a risk (even a small gain).
+- **Verified:** `pnpm build` passes. There is no test suite or linter there. **Not verified:** a chat that sends the new sentence and shows the agent reading it; do that once before this branch ships.
+- **Other naming differences left alone (decide later):** the agent says "field" where the app says "farm" ("Field size" vs "Farm size"), "budget" (`maxInvestment`, for the whole field) where the app says "Investment amount" (per area unit), and "planting/harvest window" where the app says "Flexible dates".
+### 0.4 Sessions (all of them, including forks)
 
 Seven Claude Code sessions worked in this family. They form a tree; the notes folder `C:\Users\masgeek\AppData\Local\Claude-Data\claude_pzs8sxrjxfjjc\side-session-notes\local_fd7b1fcd-cc6d-45f9-9bab-efff8b3a7f84` holds shared notes (an older engine note there is superseded by this file). To see what a session did, read its transcript (`search_session_transcripts`, `list_events`); only metadata is recorded here. Session ids are in the app, not secrets.
 
 | Session (name) | Id | Folder | Started by | State on 2026-11-12 |
 |---|---|---|---|---|
 | **R akilimo** (root) | `local_fd7b1fcd-cc6d-45f9-9bab-efff8b3a7f84` | repo root | the owner | idle; started the sessions below and a Rwanda-coverage task |
-| **Rwanda requests rejected as outside coverage** (this one) | `local_249e466c-2862-4629-addd-a86a859176c7` | worktree `.claude/worktrees/vigilant-mclean-c38063` (detached HEAD; its branch was merged and deleted) | R akilimo | running; did §0.1, §0.2 and the Rwanda/Burundi fixes below |
+| **Rwanda requests rejected as outside coverage** (this one) | `local_249e466c-2862-4629-addd-a86a859176c7` | worktree `.claude/worktrees/vigilant-mclean-c38063` (detached HEAD; its branch was merged and deleted) | R akilimo | running; did §0.1, §0.2, §0.3 (mobile hub status strip) and the Rwanda/Burundi fixes below |
 | **Show API key once after creation in new-akilimo admin** (`show-api-key-once-after`) | `local_69d0f50c-254a-4af6-b5ad-dbb9c30a8923` | repo root | R akilimo | idle; new-akilimo-api API-key work (§4) |
 | **JSON payload troubleshooting** (`payload-debug`) | `local_a881294c-0ca2-423d-9f82-406e96764287` | repo root | show-api-key-once-after | idle |
 | **Mobile app: adapt to API breaking changes** (`mobile-api-updates`) | `local_b268e454-4a06-42ed-850d-41ee4827df0f` | `D:\Dev\android\akilimo-mobile` | show-api-key-once-after | done; akilimo-mobile PR #554 **merged** |
 | **Mobile app UI review** (`ui-review`) | `local_e452191d-022a-4d34-b9e3-a517b78d6826` | akilimo-mobile | mobile-api-updates | done; akilimo-mobile PR #558 **merged** |
-| **Mobile app UI review (fork)** (`mobile-app-ui-review-for`) | `local_98c08994-ad9b-4959-9cdd-2c3e32b09aa1` | akilimo-mobile | mobile-api-updates | idle; a **fork** of the UI review, no PR |
+| **Mobile app UI review (fork)** (`mobile-app-ui-review-for`) | `local_98c08994-ad9b-4959-9cdd-2c3e32b09aa1` | akilimo-mobile | mobile-api-updates | idle; a **fork** of the UI review: did the mobile UI redesign (§0.3) and the MCP wording change (§0.3a); no PR |
 
-Tree: R akilimo → { this session; show-api-key-once-after → { payload-debug; mobile-api-updates → { ui-review; the UI-review fork } } }. None is archived. The three mobile sessions touch only `akilimo-mobile`; check its `AGENTS.md` (§4) before continuing that work.
+Tree: R akilimo → { this session; show-api-key-once-after → { payload-debug; mobile-api-updates → { ui-review; the UI-review fork } } }. None is archived. This session's mobile work (§0.3) and the three mobile sessions touch only `akilimo-mobile`; check its `AGENTS.md` (§4) before continuing that work.
 
 What this session did earlier, in short (all merged into the owner's branches; see git history):
 - **Rwanda `/compute` errors:** the cause was scheduled planting and intercropping returning `success` with the fertilizer "out of domain" text or an empty recommendation, while `/coverage` showed the point as covered. They now return clear 400s (`REC_TYPE_COUNTRIES` in `R/AkilimoMain.R`), `ekari`/`hekta`/`string` area units are accepted, `getRFY()` falls back to the NG curve for RW/GH/BI (a small-field FR crash), the coverage gate applies only to FR and SP, and `/coverage` features list `rec_types`.
 - The real failing request was never received; the SP fix is the likely cause, not a confirmed one.
+- **Mobile hub sync/offline status strip** on akilimo-mobile `feat/ui-design-system` (§0.3): new sync-state source, hub ViewModel and strip, success/failure timestamps from the worker base class, a parallel `DataRefresher.all()` for Retry, plus tests and a `MissingTranslation` lint exemption. Uncommitted; the owner commits and opens the PR.
 
-### 0.4 Open items, in order
+### 0.5 Open items, in order
 
-1. **Owner:** merge `fix/engine-price-sync-and-health-port` into `experimental` when ready (beta then gets the logging rewrite); push `feat/price-catalogue-views` in new-akilimo-api (8 commits).
+1. **Owner:** merge `fix/engine-price-sync-and-health-port` into `experimental` when ready (beta then gets logging, BI scheduled planting, price deactivation sync and the new health check); push `feat/price-catalogue-views` in new-akilimo-api (9 commits); run, review and push akilimo-mobile `feat/ui-design-system` (§0.3: hub strip and UI redesign, committed, 8 commits not pushed) and open its PR; review and push the akilimo-mcp-agent branch `fix/investment-preference-wording` (§0.3a) after trying one chat.
 2. **On each server that should use S3:** set the env, `composer install`, clear config, run `php artisan reports:check-storage` (§0.2).
 3. **Optional:** a self-healing hook in `tests/TestCase.php` for the `migrations`-table trap (§0.2); decide whether real environment variables should beat `.env` in `logging.R` (§0.1).
-4. Everything from §6 and §7 below still stands (beta crash-loop follow-up, RW scheduled-planting request against beta, BI soil decision).
+4. **Owner decisions (mobile/MCP):** keep or remove the deferred app-wide text size (§0.3); translations for the new mobile strings; check the `category` values in `/v1/fertilizers`.
+5. Still open from the older sections: confirm the beta crash-loop is gone after `API_PORT=8001` and the `564bd6f` health check; send a RW **and a BI** scheduled-planting request to beta; decide whether BI keeps the FR yield-class soil for SP or gets a dedicated source (§7).
 
 ---
 
@@ -92,6 +129,8 @@ What this session did earlier, in short (all merged into the owner's branches; s
    that says why.
 
 ## 2. Current state
+
+> The branch and commit lists in this section are from 2026-11-10 and are kept for history. For the branch that is ahead of `experimental` now, see §0.1.
 
 - **Branches (2026-11-10):**
   - `experimental` (beta) has price catalogue phase 2 (PR #31, `06e88aa`), the docs PR #32 (`961902e`), planting-date-and-cultivar (PDC) support (`4a5fdfa`) and scheduled planting for Rwanda (PR #33, merged as `adbc7a5` on 2026-11-10). Its CI run and the beta deploy that followed (run `42758184761`) succeeded.
@@ -157,7 +196,7 @@ What this session did earlier, in short (all merged into the owner's branches; s
 
 | ID | Gap | Status / next step |
 |----|-----|--------------------|
-| DATA-1 | Scheduled planting is unavailable for BI. RW is done: PR #33 merged and beta built its file. BI has no planting-window file and no points in `SoilData_4Country.RDS` | RW: send a scheduled-planting request to beta to confirm. BI remains blocked on the owner's soil-source decision; see [§7](#7-next-task-sp-for-rw-and-bi-data-1) |
+| DATA-1 | Scheduled planting: RW done (PR #33 merged, beta built its file); **BI implemented on `fix/engine-price-sync-and-health-port`** (`49bb594`), using the FR yield-class soil because BI has no points in `SoilData_4Country.RDS` | RW and BI: send a scheduled-planting request to beta once the branch is merged. BI: owner decides whether to keep the FR soil by yield class or add a dedicated SP soil source; see [§7](#7-next-task-sp-for-rw-and-bi-data-1) |
 | DATA-2 | Kinyarwanda (`rw`) text empty | Needs a translator; fill the `rw` column of `translations.csv` |
 | DATA-3 | Price service data gaps | **Mostly done in new-akilimo-api:**<br>- Burundi `BU`→`BI` (`3681ce2`, pushed).<br>- Currency set on every default and starch price (`2bd8760`).<br>- GH/RW starch factories added **inactive** with estimated prices; inactive factories are hidden from `/starch-prices` (`d80ccf5`, pushed).<br>Left: confirm the GH/RW starch prices, then activate them in the admin. BI has no starch buyer |
 | DATA-4 | Prices are stale (fertiliser 1.3–7× below market in all five countries, both the defaults and the app's price options; Burundi FOMI is per 25 kg bag) | Reviewed with sources in new-akilimo-api `docs/data/price-review-2026-11.md`. Tanzania fertiliser updated to TFRA Sep 2025 (`87721bc`). The rest waits for the price catalogue (§8) and country-team review in the admin |
@@ -224,9 +263,9 @@ These data and expert-input gaps are tracked in [docs/TECH-DEBT.md](docs/TECH-DE
     - Not verified: the admin create-key page in a browser. The fix (encrypt history only over HTTPS) is unit-tested only.
   - **Inactive starch factories** are left out of `GET /v1/starch-prices` and `/v1/starch-factories/country/{cc}`. `GET /v1/starch-factories` still lists all of them, with `factory_active`.
   - **Research notes** (all marked IITA Internal Use) are in `docs/data/`: starch buyers, labour costs, and the full price review.
-- **akilimo-mobile** (Android app, Kotlin/Compose, `D:\Dev\android\akilimo-mobile`, `git@github.com:IITA-AKILIMO/akilimo-mobile.git`; checked out on `fix/ui-review-findings` on 2026-11-08). The owner works on it in a separate session. Read its `AGENTS.md` before changing it.
+- **akilimo-mobile** (Android app, Kotlin/Compose, `D:\Dev\android\akilimo-mobile`, `git@github.com:IITA-AKILIMO/akilimo-mobile.git`; on 2026-11-12 checked out on `feat/ui-design-system`, 8 unpushed commits ahead of `origin/feat/ui-design-system` `95aced54` and 36 ahead of `origin/develop`; no PR for that branch yet, while PR #552 "Next release" develop→main is open). PRs #553–#559 merged 2026-11-06 to 11-11. The owner works on it in a separate session. Read its `AGENTS.md` before changing it.
   - **How it reaches this engine:** it posts to new-akilimo-api `v1/recommendations/compute` (base URL `AKILIMO_BASE_URL`, default `https://api.akilimo.org`), which forwards to this repo's `/compute`. It never calls this engine directly.
-  - **Reference data it reads** (`app/src/main/java/com/akilimo/mobile/network/AkilimoApi.kt`): `/v1/fertilizers`, `/v1/fertilizer-prices`, `/v1/cassava-prices`, `/v1/maize-prices`, `/v1/investment-amounts`, `/v1/starch-factories`, `/v1/cassava-units` and `/v1/coverage/{country}`. It does **not** read `/v1/default-prices`, `/v1/prices`, `/v1/potato-prices` or `/v1/operation-costs`.
+  - **Reference data it reads** (`app/src/main/java/com/akilimo/mobile/network/AkilimoApi.kt`): `/v1/fertilizers`, `/v1/fertilizer-prices`, `/v1/fertilizer-prices/{key}`, `/v1/cassava-prices`, `/v1/maize-units`, `/v1/investment-amounts`, `/v1/starch-factories`, `/v1/cassava-units` and `/v1/coverage/{country}`. It does **not** read `/v1/maize-prices` (removed), `/v1/default-prices`, `/v1/prices`, `/v1/potato-prices` or `/v1/operation-costs`.
   - **Fertiliser price sheet** (`ui/screens/usecases/FertilizerScreen.kt`): one radio option per `fertilizer_prices` row.
     - `price_per_bag = 0` is **"I don't know"**: sent as price 0, so this engine fills in the catalogue price.
     - A negative value is **"Exact price"**: free text, any value.
@@ -234,7 +273,9 @@ These data and expert-input gaps are tracked in [docs/TECH-DEBT.md](docs/TECH-DE
     - `min_allowed_price`/`max_allowed_price` are stored but **never used**.
   - **Starch factories:** it keeps only rows with `factory_active` true (`dao/StarchFactoryDao.kt`), so inactive factories stay hidden even though the unfiltered `/v1/starch-factories` returns them.
   - **Labour costs** are only what the farmer types; there is no price list for them in the app.
+  - **Hub sync status strip** (committed on `feat/ui-design-system` as `1851b605`, 2026-11-12; full write-up and the UI redesign in §0.3): `workers/SyncStatusSource.kt` combines `NetworkMonitor.isConnected`, the six watched unique-work names and two `AppSettingsDataStore` timestamps; `ui/viewmodels/HubViewModel.kt` plus `ui/components/compose/SyncStatusStrip.kt` render offline / updating / last update / failed with a Retry that calls `DataRefresher.all()`. `BaseApiWorker` records success and permanent failure via `AppSettingsDataStore.recordSyncSuccess/recordSyncFailure`. The new strings are English only; `app/build.gradle.kts` disables `MissingTranslation` (never `tools:ignore` on strings).
   - **When to check it:** any change to the shape of a price or factory endpoint, or to what a `0`/negative price means, must be checked against these files.
+- **akilimo-mcp-agent** (MCP server and web chat, `D:\Dev\php\akilimo-mcp-agent`): the Akilimo 1.0 agent; see §0.3a. It reaches this engine the same way as the app: through new-akilimo-api `v1/recommendations/compute`.
 
 ## 5. How to work here
 
@@ -280,6 +321,8 @@ The repo used to name three different beta paths (`deploy-targets.json`: `/data/
 
 Until beta is fixed, the Deploy job's `Check health` step will fail on every push to `experimental`: that failure is real, not a flaky check. A health check that follows the service's real port (from the unit file as well as `.env`) would be a safer check, because today it can pass against the wrong service.
 
+**Update 2026-11-12:** the safer check exists on `fix/engine-price-sync-and-health-port` (`564bd6f`): `tools/check_health.sh` finds the processes of the service's own systemd cgroup and the ports they listen on, and only accepts `/health` from there (falling back to the configured port, read from the unit and `.env`, when that cannot be worked out). It is tested by `tests/test_check_health.sh` in CI. This does not by itself fix the beta crash-loop; after the branch is merged and `API_PORT=8001` is in place, watch the first deploy and confirm with `sh tools/check_service.sh beta` and `curl http://127.0.0.1:8001/health`.
+
 
 1. **Completed:** CI on the current work runs successfully; the beta all-prices refresh succeeded on 2026-11-09. PR #32 (documentation) is merged as `961902e`.
 2. **Completed 2026-11-10:** PR #33 (RW scheduled planting) is merged (`adbc7a5`) and beta's deploy built `RW_WLY_LINTUL_2020SP.nc`. Still to do: send a RW scheduled-planting request to beta.
@@ -288,7 +331,7 @@ Until beta is fixed, the Deploy job's `Check health` step will fail on every pus
 
 ## 7. Next task: SP for RW and BI (DATA-1)
 
-PR #33 (`feat/data-1-rw-sp`) implemented scheduled planting for Rwanda from the existing yield RDS files and is merged (`adbc7a5`). Its generator is `tools/build_sp_nc.R`; `tools/ensure_sp_files.sh` runs it where the file is missing (CI, deploy, data pull); beta built the file on 2026-11-10. BI remains unimplemented pending the owner's soil-source decision.
+PR #33 (`feat/data-1-rw-sp`) implemented scheduled planting for Rwanda from the existing yield RDS files and is merged (`adbc7a5`). Its generator is `tools/build_sp_nc.R`; `tools/ensure_sp_files.sh` runs it where the file is missing (CI, deploy, data pull); beta built the file on 2026-11-10. **BI is implemented on `fix/engine-price-sync-and-health-port` (`49bb594`, not yet merged):** it builds the same `.nc` from `Burundi_WLY_LINTUL.RDS` and uses the FR yield-class soil because BI has no points in `SoilData_4Country.RDS` (`get_sp_soil()` in `R/get_data.R`).
 
 **No new LINTUL runs are needed.** `data/yield/Rwanda_WLY_LINTUL.RDS` and `Burundi_WLY_LINTUL.RDS`, the files FR uses, are the same LINTUL output in wide form:
 - Columns: `plantingDate, lat, long, WLY_235 … WLY_452`. That is 32 harvest ages, the same as the `.nc` `daysOnField` dimension.
@@ -298,13 +341,13 @@ PR #33 (`feat/data-1-rw-sp`) implemented scheduled planting for Rwanda from the 
   - variable `WLY` in kg/ha
   - sorted by cell, then plant day, then daysOnField, so daysOnField varies fastest
 
-| Country | Planting dates | Cells | SP soil (`SoilData_4Country.RDS`) |
-|---------|----------------|-------|-----------------------------------|
-| BI | 53, weekly, all year | 805 | **none** |
-| RW | 17: weeks 6–14 and 37–44 (the two seasons) | 782 | all cells |
+| Country | Planting dates | Cells | SP soil |
+|---------|----------------|-------|---------|
+| BI | 53, weekly, all year | 805 | **none in `SoilData_4Country.RDS`**; uses `BI_FCY{1..5}_soilNPK.RDS` by yield class (the FR rule) |
+| RW | 17: weeks 6–14 and 37–44 (the two seasons) | 782 | `SoilData_4Country.RDS`, all cells |
 
 Steps:
-1. **RW NetCDF generation — implemented in PR #33.** The script under `tools/` mirrors the existing preprocessing layout but starts from the wide RDS; `R/preprocess/` remains off limits. Its core transformation is:
+1. **RW and BI NetCDF generation — implemented (RW in PR #33, BI in `49bb594`).** The script under `tools/` mirrors the existing preprocessing layout but starts from the wide RDS; `R/preprocess/` remains off limits. Its core transformation is:
    ```r
    for (f in c("misc.R", "get_data.R")) source(file.path("R", f))
    library(ncdf4)
@@ -327,23 +370,20 @@ Steps:
    build_sp_nc("RW", "Rwanda_WLY_LINTUL.RDS")
    build_sp_nc("BI", "Burundi_WLY_LINTUL.RDS")
    ```
-  The script also verifies the output by reading sample cells through `get_WLY_15M_ncdf()` and comparing with the RDS. The generated `.nc` is not a tracked source file and needn't be published: `tools/ensure_sp_files.sh` rebuilds it, identically (checked byte for byte), wherever it is missing and `Rwanda_WLY_LINTUL.RDS` is present.
-2. **BI soil: the owner decides (pending).** Either:
-   - (a) the producer of `SoilData_4Country.RDS` adds BI, which keeps one method for all countries; or
-   - (b) `getSPrecommendations()` (`R/process-SP.R`) uses `BI_FCY{1..5}_soilNPK.RDS`, picking the class from FCY the way FR does.
-
-   RW can go ahead without waiting for this.
-3. **RW code — included in PR #33; BI code remains pending:** the PR enables RW in `REC_TYPE_COUNTRIES$SP`, removes the unconditional BI early return from `get_WLY_15M_ncdf()`, and relies on data/soil coverage for availability. Add BI only after its soil source is settled.
-4. **Tests and docs, included in PR #33:**
+  The script also verifies the output by reading sample cells through `get_WLY_15M_ncdf()` and comparing with the RDS. The generated `.nc` is not a tracked source file and needn't be published: `tools/ensure_sp_files.sh` rebuilds it, identically (checked byte for byte), wherever it is missing and the country's `*_WLY_LINTUL.RDS` is present.
+2. **BI soil — implemented as option (b); the owner decides whether to keep it.** `get_sp_soil()` (`R/get_data.R`) uses `BI_FCY{1..5}_soilNPK.RDS`, picking the class from FCY the way FR does (`SP_SOIL_BY_FCY_COUNTRIES`). Option (a) — the producer of `SoilData_4Country.RDS` adds BI, one method for all countries — remains open and would only require removing BI from `SP_SOIL_BY_FCY_COUNTRIES`. RW was never blocked on this.
+3. **Code — implemented:** RW is enabled in `REC_TYPE_COUNTRIES$SP` (PR #33) and BI in `49bb594`; the unconditional BI early return was removed from `get_WLY_15M_ncdf()`, and availability is decided by data/soil coverage (`get_sp_soil()` and `sp_soil_points()` feed both the recommendation and `/coverage`, so they cannot disagree).
+4. **Tests and docs, included in PR #33 and `49bb594`:**
    - Update `tests/test_validate_request.R`.
-   - Fixtures `in_38` (RW SP, now expected to succeed) and `in_39`.
+   - Fixtures `in_38` (RW SP) and `in_39`, plus `in_42_BI_SP_window2_riskAtt2` for BI.
    - `tests/test_rw_regressions.R`.
-  - Rebuild `tests/test_small.rds` with `UPDATE_BASELINE=1` (done on the PR branch; it still passes after merging `experimental`).
+   - Rebuild `tests/test_small.rds` with `UPDATE_BASELINE=1` after each intended result change (done on both branches).
    - In `docs/API-REFERENCE.md`, update the "Availability by country" table and the error list.
-5. **Data: nothing to publish for RW.** CI and the deploy build the file (step 1). Publishing a real LINTUL-run file in the bundle later is still possible and wins over the generated one. BI needs its own file and a soil decision first.
+5. **Data: nothing to publish for RW or BI.** CI and the deploy build both files (step 1). Publishing a real LINTUL-run file in the bundle later is still possible and wins over the generated one. BI needs no separate soil file, because it uses the FR yield-class soil already in the bundle.
 
 Limits to tell the owner:
 - RW SP only works when PD ± `PD_window` falls in planting weeks 6–14 or 37–44. Other dates get the existing `SP_DATES_OUT_OF_RANGE` 400 ("Scheduled planting cannot be computed for PD=… and HD=…"). Full-year RW would need new LINTUL runs.
+- BI SP covers all 53 weekly planting dates, so no window limit like RW's.
 - SP converts dry to fresh yield with the NG curve for every country (`R/process-SP.R`, the `getRFY(..., country = "NG")` loop).
 
 ## 8. Price catalogue (ARCH-1): phase 1 and phase 2 merged; phase 3 remains
@@ -359,9 +399,10 @@ Implemented scope:
 1. `refresh_prices()` in `R/akilimo_db.R` reads `GET /v1/prices?country=CC[&updated_since=]` instead of `/default-prices`.
    - Store `subsidised_price`, `unit`, `bag_kg`, `min_price`, `max_price` and `currency`: a schema bump, kept across deploys like v4.
    - Keep the rule that a failed or empty refresh keeps the last good data.
-   - **Sync state (v6, `94bdee0`):** each row's `updated_at` is the local sync time in ISO format, which `prices_are_stale()` parses. Per country, `country_price_settings` holds:
+   - **Sync state (v6, `94bdee0`; v7 adds `full_synced_at` in `393bee3`):** each row's `updated_at` is the local sync time in ISO format, which `prices_are_stale()` parses. Per country, `country_price_settings` holds:
      - `api_cursor`: the newest price-service `updated_at` seen, in the API's own format (`2026-11-08 12:33:42`), sent back verbatim as `updated_since`;
-     - `refreshed_at`: the last successful refresh, which staleness uses even when nothing changed.
+     - `refreshed_at`: the last successful refresh, which staleness uses even when nothing changed;
+     - `full_synced_at`: the last complete (uncursored) fetch. A refresh is full when there is no cursor, `refresh_prices.R --full` is passed, or this is older than `PRICE_FULL_SYNC_HOURS` (default 24). Only a complete fetch deletes API-sourced rows the service no longer lists (see the limitation below).
 2. Replace the hardcoded defaults in `R/AkilimoMain.R` with DB lookups: `default_lmo_costs`, maize `50`/`230` and sweet potato `120000`/`384000`. Keep the hardcoded values only as a last resort, logged at WARN.
 3. Add the optional request field `subsidisedFertilizer` (D1). If absent, use the country's `default_price_basis` from the response. Prices the farmer typed always win.
 4. Out-of-range request prices: accept, log WARN, and add a response note with the range (D6). Never reject or clamp.
@@ -376,7 +417,7 @@ Implemented scope:
 
 **Still to verify:** a `/compute` request over HTTP that uses an activated catalogue row, e.g. activate a draft RW labour price in the admin and run a RW PP request.
 
-**Known limitation:** incremental sync never removes a row that was deactivated in the API, so the engine keeps its last price. A full refresh is the workaround: clear `api_cursor` for the country.
+**Deactivations (`393bee3`, schema v7, not yet merged):** an incremental fetch only returns rows that changed, so it cannot see a price that disappeared. The first fetch (no cursor), `refresh_prices.R --full`, and any refresh whose last full fetch is older than `PRICE_FULL_SYNC_HOURS` are full fetches; after a complete one, the engine removes API-sourced rows the service no longer lists. Guards: an empty answer or a failed page removes nothing, an invalid row is skipped rather than removed, and seed rows and other countries are never touched. `--dry-run` reports what would go. Before this, the workaround was to clear `api_cursor` for the country.
 
 Burundi FOMI rows are per 25 kg (`bag_kg = 25`), so use `bag_kg` from the API, not an assumed 50.
 
