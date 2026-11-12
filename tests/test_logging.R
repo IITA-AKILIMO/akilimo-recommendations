@@ -70,37 +70,49 @@ expect_equal(log_max_chars(), 20000)
 Sys.unsetenv("LOG_MAX_CHARS")
 expect_equal(log_max_chars(), 20000)
 
-# LOG_STDERR: the file is always written; stderr only when enabled (default on)
-stderr_lines <- function(...) {
+# LOG_STDERR: the log file gets every line the log level allows. stderr gets all of them by default, and only INFO
+# and above (INFO, SUCCESS, WARN, ERROR: not TRACE or DEBUG) when LOG_STDERR is false.
+stderr_lines <- function(level, text) {
   seen <- character(0)
   withCallingHandlers(
-    log_write("INFO", ...),
+    log_write(level, text),
     message = function(m) { seen <<- c(seen, conditionMessage(m)); invokeRestart("muffleMessage") }
   )
   seen
 }
-Sys.unsetenv("LOG_STDERR")
-expect_true(log_to_stderr())
-unlink(get_log_file())
-expect_equal(length(stderr_lines("to the console")), 1)        # default: printed
-expect_true(grepl("to the console", log_text(), fixed = TRUE))
 
+# default: everything is printed
+Sys.unsetenv("LOG_STDERR")
+for (lv in c("TRACE", "DEBUG", "INFO", "SUCCESS", "WARN", "ERROR")) expect_true(log_to_stderr(lv), info = lv)
+unlink(get_log_file())
+expect_equal(length(stderr_lines("DEBUG", "debug to the console")), 1)
+expect_equal(length(stderr_lines("INFO", "info to the console")), 1)
+expect_true(grepl("debug to the console", log_text(), fixed = TRUE))
+
+# quiet: TRACE and DEBUG stay off stderr, INFO and above are printed, and the file still gets the DEBUG line
 for (off in c("false", "FALSE", "0", "no", "off", " Off ")) {
   Sys.setenv(LOG_STDERR = off)
-  expect_false(log_to_stderr(), info = off)
+  expect_false(log_to_stderr("TRACE"), info = off)
+  expect_false(log_to_stderr("DEBUG"), info = off)
+  for (lv in c("INFO", "SUCCESS", "WARN", "ERROR")) expect_true(log_to_stderr(lv), info = paste(off, lv))
+  expect_true(log_to_stderr(), info = off)                      # no level given counts as INFO
   unlink(get_log_file())
-  expect_equal(length(stderr_lines("file only")), 0, info = off)   # nothing on stderr
-  expect_true(grepl("file only", log_text(), fixed = TRUE), info = off)  # still in the file
+  expect_equal(length(stderr_lines("DEBUG", "debug file only")), 0, info = off)
+  expect_true(grepl("debug file only", log_text(), fixed = TRUE), info = off)
+  for (lv in c("INFO", "WARN", "ERROR")) expect_equal(length(stderr_lines(lv, paste(lv, "shown"))), 1, info = paste(off, lv))
 }
+
+# anything else keeps everything on stderr
 for (on in c("true", "1", "yes", "", "garbage")) {
   Sys.setenv(LOG_STDERR = on)
-  expect_true(log_to_stderr(), info = on)                       # anything else keeps stderr on
+  expect_true(log_to_stderr("DEBUG"), info = on)
+  expect_true(log_to_stderr("TRACE"), info = on)
 }
 Sys.setenv(LOG_STDERR = "true")
-expect_equal(length(stderr_lines("back on")), 1)
+expect_equal(length(stderr_lines("DEBUG", "back on")), 1)
 Sys.unsetenv("LOG_STDERR")
 
-# loading the file prints the level to stderr by default, and nothing when LOG_STDERR is off
+# loading the file prints the log level (an INFO line) in both modes
 startup_messages <- function() {
   seen <- character(0)
   withCallingHandlers(
@@ -111,7 +123,7 @@ startup_messages <- function() {
 }
 expect_true(any(grepl("Current log level", startup_messages(), fixed = TRUE)))
 Sys.setenv(LOG_STDERR = "false")
-expect_equal(length(startup_messages()), 0)
+expect_true(any(grepl("Current log level", startup_messages(), fixed = TRUE)))
 Sys.unsetenv("LOG_STDERR")
 
 unlink(log_dir, recursive = TRUE)

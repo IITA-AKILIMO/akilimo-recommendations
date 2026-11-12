@@ -10,10 +10,13 @@ if (file.exists(env_file)) {
 
 log_levels <- c("TRACE" = 0, "DEBUG" = 1, "INFO" = 2, "SUCCESS" = 3, "WARN" = 4, "ERROR" = 5)
 
-# Whether log lines are also printed to stderr (the console, or the systemd journal). LOG_STDERR in .env: true by
-# default; false, 0, no or off keep the log in the file only. The log file is always written. Read on every call.
-log_to_stderr <- function() {
-  !(tolower(trimws(Sys.getenv("LOG_STDERR", unset = "true"))) %in% c("false", "0", "no", "off"))
+# Whether a log line of this level is also printed to stderr (the console, or the systemd journal). The log file
+# always gets every line the log level allows. LOG_STDERR in .env: true (the default) prints them all; false, 0, no
+# or off is the quiet setting that prints INFO and above (INFO, SUCCESS, WARN, ERROR) and leaves TRACE and DEBUG,
+# which are the long ones, to the file. Read on every call.
+log_to_stderr <- function(level = "INFO") {
+  quiet <- tolower(trimws(Sys.getenv("LOG_STDERR", unset = "true"))) %in% c("false", "0", "no", "off")
+  !quiet || isTRUE(log_levels[toupper(level)] >= log_levels[["INFO"]])
 }
 
 # Cache the minimum log level numeric value once.
@@ -22,10 +25,10 @@ min_log_level_value <- {
   lvl <- Sys.getenv("LOG_LEVEL", unset = "INFO")
   val <- log_levels[toupper(lvl)]
   if (is.na(val)) {
-    if (log_to_stderr()) message("Unrecognised LOG_LEVEL '", lvl, "'; defaulting to INFO")
+    message("Unrecognised LOG_LEVEL '", lvl, "'; defaulting to INFO")
     val <- log_levels["INFO"]
   } else {
-    if (log_to_stderr()) message("Current log level: ", lvl)
+    message("Current log level: ", lvl)
   }
   val
 }
@@ -92,5 +95,5 @@ log_write <- function(level = "INFO", ..., sep = " ", append = TRUE) {
   line <- paste0("[", timestamp, "] [", toupper(level), "] ", msg)
 
   cat(line, "\n", file = get_log_file(), append = append)
-  if (log_to_stderr()) message(line)
+  if (log_to_stderr(level)) message(line)
 }
