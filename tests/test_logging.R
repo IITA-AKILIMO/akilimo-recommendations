@@ -4,8 +4,24 @@
 
 akpath <- Sys.getenv("AKILIMO_ROOT", unset = ".")
 log_dir <- tempfile("akilimo-log-")
-Sys.setenv(LOG_LEVEL = "DEBUG", LOG_DIR = log_dir, LOG_FILE_PREFIX = "test")
+# logging.R loads the project's .env when it is sourced, and a .env can set any LOG_ variable over what is set here.
+# pin_log_settings() puts the test's own settings back (and the level logging.R cached), so the tests give the same
+# result whatever .env is in the project.
+log_vars <- c("LOG_CHANNEL", "LOG_STACK", "LOG_FORMAT", "LOG_FILE_LEVEL", "LOG_STDERR_LEVEL", "LOG_STDOUT_LEVEL",
+              "LOG_FILE_FORMAT", "LOG_STDERR_FORMAT", "LOG_STDOUT_FORMAT", "LOG_STDERR", "LOG_MAX_CHARS",
+              "LOG_KEEP_DAYS", "LOG_SLOW_MS")
+pin_log_settings <- function() {
+  Sys.unsetenv(log_vars)
+  Sys.setenv(LOG_LEVEL = "DEBUG", LOG_DIR = log_dir, LOG_FILE_PREFIX = "test")
+  assign("min_log_level_value", 1, envir = globalenv())   # DEBUG
+}
+pin_log_settings()
 suppressMessages(source(file.path(akpath, "R", "logging.R")))
+pin_log_settings()
+
+# The logger''s state lives in .log_ctx, which every source() of logging.R makes anew: always reach the current one
+# (assigning into .log_ctx here would bind a stale copy in this file).
+ctx_reset <- function(...) { ctx <- get(".log_ctx", envir = globalenv()); for (n in c(...)) ctx[[n]] <- NULL }
 
 log_text <- function() paste(readLines(get_log_file(), warn = FALSE), collapse = "\n")
 
@@ -70,61 +86,153 @@ expect_equal(log_max_chars(), 20000)
 Sys.unsetenv("LOG_MAX_CHARS")
 expect_equal(log_max_chars(), 20000)
 
-# LOG_STDERR: the log file gets every line the log level allows. stderr gets all of them by default, and only INFO
-# and above (INFO, SUCCESS, WARN, ERROR: not TRACE or DEBUG) when LOG_STDERR is false.
-stderr_lines <- function(level, text) {
-  seen <- character(0)
-  withCallingHandlers(
+# ---------------------------------------------------------------------------
+# The channel stack (like Laravel's): where a line goes, and at which level and format
+# ---------------------------------------------------------------------------
+# What each channel received for one line: what went to stderr, to stdout and to the file
+receive <- function(level, text) {
+  unlink(get_log_file())
+  err <- character(0)
+  out <- capture.output(withCallingHandlers(
     log_write(level, text),
-    message = function(m) { seen <<- c(seen, conditionMessage(m)); invokeRestart("muffleMessage") }
-  )
-  seen
+    message = function(m) { err <<- c(err, conditionMessage(m)); invokeRestart("muffleMessage") }
+  ))
+  list(stderr = err, stdout = out,
+       file = if (file.exists(get_log_file())) readLines(get_log_file(), warn = FALSE) else character(0))
 }
+counts <- function(r) c(file = length(r$file), stderr = length(r$stderr), stdout = length(r$stdout))
 
-# default: everything is printed
-Sys.unsetenv("LOG_STDERR")
-for (lv in c("TRACE", "DEBUG", "INFO", "SUCCESS", "WARN", "ERROR")) expect_true(log_to_stderr(lv), info = lv)
-unlink(get_log_file())
-expect_equal(length(stderr_lines("DEBUG", "debug to the console")), 1)
-expect_equal(length(stderr_lines("INFO", "info to the console")), 1)
-expect_true(grepl("debug to the console", log_text(), fixed = TRUE))
+# default: the file and stderr, at LOG_LEVEL
+expect_equal(log_stack(), c("file", "stderr"))
+expect_equal(counts(receive("DEBUG", "default stack")), c(file = 1, stderr = 1, stdout = 0))
 
-# quiet: TRACE and DEBUG stay off stderr, INFO and above are printed, and the file still gets the DEBUG line
+# LOG_STACK chooses the channels; spaces and case do not matter
+Sys.setenv(LOG_STACK = "file")
+expect_equal(counts(receive("DEBUG", "file only")), c(file = 1, stderr = 0, stdout = 0))
+Sys.setenv(LOG_STACK = "stderr")
+expect_equal(counts(receive("DEBUG", "stderr only")), c(file = 0, stderr = 1, stdout = 0))   # no file is made
+Sys.setenv(LOG_STACK = "stdout")
+expect_equal(counts(receive("DEBUG", "stdout only")), c(file = 0, stderr = 0, stdout = 1))
+Sys.setenv(LOG_STACK = " File , STDERR,stdout ")
+expect_equal(log_stack(), c("file", "stderr", "stdout"))
+expect_equal(counts(receive("DEBUG", "all three")), c(file = 1, stderr = 1, stdout = 1))
+Sys.setenv(LOG_STACK = "stderr,stderr")
+expect_equal(log_stack(), "stderr")                                    # a channel listed twice is used once
+
+# LOG_CHANNEL: "stack" uses LOG_STACK, any other value is that one channel on its own
+Sys.setenv(LOG_STACK = "file,stderr,stdout", LOG_CHANNEL = "stderr")
+expect_equal(log_stack(), "stderr")
+expect_equal(counts(receive("DEBUG", "single channel")), c(file = 0, stderr = 1, stdout = 0))
+Sys.setenv(LOG_CHANNEL = "file")
+expect_equal(log_stack(), "file")
+Sys.setenv(LOG_CHANNEL = "stack")
+expect_equal(log_stack(), c("file", "stderr", "stdout"))
+Sys.unsetenv(c("LOG_CHANNEL", "LOG_STACK"))
+
+# null switches logging off; unknown names are ignored, and a stack with none left is the default one
+Sys.setenv(LOG_STACK = "null")
+expect_equal(log_stack(), character(0))
+expect_false(should_log("ERROR"))
+expect_equal(counts(receive("ERROR", "nowhere")), c(file = 0, stderr = 0, stdout = 0))
+Sys.setenv(LOG_STACK = "file,syslog")
+ctx_reset("unknown_noticed")
+notice <- character(0)
+withCallingHandlers(log_stack(), message = function(m) { notice <<- c(notice, conditionMessage(m)); invokeRestart("muffleMessage") })
+expect_true(any(grepl("unknown log channel(s) ignored: syslog", notice, fixed = TRUE)))
+expect_equal(log_stack(), "file")
+Sys.setenv(LOG_STACK = "bogus")
+expect_equal(suppressMessages(log_stack()), c("file", "stderr"))
+Sys.setenv(LOG_STACK = "")
+expect_equal(log_stack(), c("file", "stderr"))
+Sys.unsetenv("LOG_STACK")
+
+# each channel has its own level: LOG_<CHANNEL>_LEVEL, else LOG_LEVEL
+Sys.setenv(LOG_STDERR_LEVEL = "WARN")
+expect_equal(channel_level("stderr"), log_levels[["WARN"]][[1]])
+expect_equal(channel_level("file"), log_levels[["DEBUG"]][[1]])
+expect_equal(counts(receive("DEBUG", "debug")), c(file = 1, stderr = 0, stdout = 0))   # only in the file
+expect_equal(counts(receive("INFO", "info")), c(file = 1, stderr = 0, stdout = 0))
+expect_equal(counts(receive("WARN", "warn")), c(file = 1, stderr = 1, stdout = 0))
+expect_equal(counts(receive("ERROR", "error")), c(file = 1, stderr = 1, stdout = 0))
+Sys.setenv(LOG_STDERR_LEVEL = "warn")                                  # case does not matter
+expect_equal(channel_level("stderr"), log_levels[["WARN"]][[1]])
+# a channel can be more verbose than the others: the line is built when any channel takes it
+Sys.setenv(LOG_FILE_LEVEL = "ERROR", LOG_STDERR_LEVEL = "DEBUG")
+expect_true(should_log("DEBUG"))
+expect_equal(counts(receive("DEBUG", "debug")), c(file = 0, stderr = 1, stdout = 0))
+expect_equal(counts(receive("ERROR", "error")), c(file = 1, stderr = 1, stdout = 0))
+Sys.setenv(LOG_FILE_LEVEL = "ERROR", LOG_STDERR_LEVEL = "ERROR")
+expect_false(should_log("WARN"))                                       # no channel takes it
+Sys.setenv(LOG_FILE_LEVEL = "loud", LOG_STDERR_LEVEL = "")             # not a level: LOG_LEVEL is used
+expect_equal(channel_level("file"), log_levels[["DEBUG"]][[1]])
+expect_equal(channel_level("stderr"), log_levels[["DEBUG"]][[1]])
+Sys.unsetenv(c("LOG_FILE_LEVEL", "LOG_STDERR_LEVEL"))
+
+# each channel has its own format, else LOG_FORMAT
+Sys.setenv(LOG_FILE_FORMAT = "json")
+r <- receive("DEBUG", "json in the file")
+expect_equal(jsonlite::fromJSON(r$file)$message, "json in the file")   # the file line is JSON
+expect_true(grepl("^\\[.*\\] \\[DEBUG\\] json in the file", r$stderr))   # stderr is still text
+Sys.setenv(LOG_FORMAT = "json", LOG_STDERR_FORMAT = "text")
+r <- receive("DEBUG", "mixed")
+expect_equal(jsonlite::fromJSON(r$file)$level, "DEBUG")
+expect_true(grepl("[DEBUG] mixed", r$stderr, fixed = TRUE))
+expect_equal(channel_format("stdout"), "json")                          # LOG_FORMAT applies where nothing is set
+Sys.unsetenv(c("LOG_FILE_FORMAT", "LOG_FORMAT", "LOG_STDERR_FORMAT"))
+
+# the older LOG_STDERR=false still means: INFO and above on stderr
 for (off in c("false", "FALSE", "0", "no", "off", " Off ")) {
   Sys.setenv(LOG_STDERR = off)
-  expect_false(log_to_stderr("TRACE"), info = off)
-  expect_false(log_to_stderr("DEBUG"), info = off)
-  for (lv in c("INFO", "SUCCESS", "WARN", "ERROR")) expect_true(log_to_stderr(lv), info = paste(off, lv))
-  expect_true(log_to_stderr(), info = off)                      # no level given counts as INFO
-  unlink(get_log_file())
-  expect_equal(length(stderr_lines("DEBUG", "debug file only")), 0, info = off)
-  expect_true(grepl("debug file only", log_text(), fixed = TRUE), info = off)
-  for (lv in c("INFO", "WARN", "ERROR")) expect_equal(length(stderr_lines(lv, paste(lv, "shown"))), 1, info = paste(off, lv))
+  expect_equal(channel_level("stderr"), log_levels[["INFO"]][[1]], info = off)
+  expect_equal(counts(receive("DEBUG", "debug")), c(file = 1, stderr = 0, stdout = 0), info = off)
+  expect_equal(counts(receive("INFO", "info")), c(file = 1, stderr = 1, stdout = 0), info = off)
 }
-
-# anything else keeps everything on stderr
+Sys.setenv(LOG_STDERR = "false", LOG_STDERR_LEVEL = "DEBUG")           # an explicit channel level wins
+expect_equal(counts(receive("DEBUG", "debug")), c(file = 1, stderr = 1, stdout = 0))
+Sys.unsetenv("LOG_STDERR_LEVEL")
+assign("min_log_level_value", log_levels[["WARN"]][[1]], envir = globalenv())   # LOG_LEVEL=WARN: never below it
+expect_equal(channel_level("stderr"), log_levels[["WARN"]][[1]])
+pin_log_settings()
 for (on in c("true", "1", "yes", "", "garbage")) {
   Sys.setenv(LOG_STDERR = on)
-  expect_true(log_to_stderr("DEBUG"), info = on)
-  expect_true(log_to_stderr("TRACE"), info = on)
+  expect_equal(channel_level("stderr"), log_levels[["DEBUG"]][[1]], info = on)
 }
-Sys.setenv(LOG_STDERR = "true")
-expect_equal(length(stderr_lines("DEBUG", "back on")), 1)
 Sys.unsetenv("LOG_STDERR")
 
-# loading the file prints the log level (an INFO line) in both modes
-startup_messages <- function() {
+# a file that cannot be written: the line is printed to stderr instead, once, whatever the stack
+blocked <- tempfile("blocked-"); writeLines("x", blocked)
+Sys.setenv(LOG_DIR = file.path(blocked, "logs"), LOG_STACK = "file")
+ctx_reset("file_warned")
+err <- character(0)
+withCallingHandlers(log_write("INFO", "file channel is broken"),
+                    message = function(m) { err <<- c(err, conditionMessage(m)); invokeRestart("muffleMessage") })
+expect_equal(sum(grepl("file channel is broken", err, fixed = TRUE)), 1)
+Sys.setenv(LOG_STACK = "file,stderr")                                  # with stderr in the stack: one copy, not two
+err <- character(0)
+withCallingHandlers(log_write("INFO", "both channels"),
+                    message = function(m) { err <<- c(err, conditionMessage(m)); invokeRestart("muffleMessage") })
+expect_equal(sum(grepl("both channels", err, fixed = TRUE)), 1)
+Sys.unsetenv("LOG_STACK"); Sys.setenv(LOG_DIR = log_dir)
+
+# loading the file prints the log level (an INFO line) on stderr, unless stderr is not in the stack
+startup_messages <- function(stack = NULL) {
   seen <- character(0)
+  if (!is.null(stack)) Sys.setenv(LOG_STACK = stack)
   withCallingHandlers(
     source(file.path(akpath, "R", "logging.R")),
     message = function(m) { seen <<- c(seen, conditionMessage(m)); invokeRestart("muffleMessage") }
   )
+  pin_log_settings()   # the source above loaded .env again
   seen
 }
-expect_true(any(grepl("Current log level", startup_messages(), fixed = TRUE)))
-Sys.setenv(LOG_STDERR = "false")
-expect_true(any(grepl("Current log level", startup_messages(), fixed = TRUE)))
-Sys.unsetenv("LOG_STDERR")
+# (skipped when the project's .env sets LOG_STACK or LOG_CHANNEL: loading the file applies it over the test's own)
+env_file <- file.path(akpath, ".env")
+env_sets_stack <- file.exists(env_file) && any(grepl("^\\s*LOG_(STACK|CHANNEL)\\s*=", readLines(env_file, warn = FALSE)))
+if (!env_sets_stack) {
+  expect_true(any(grepl("Current log level", startup_messages(), fixed = TRUE)))
+  expect_equal(length(startup_messages("file")), 0)
+  expect_true(any(grepl("Current log level", startup_messages("file,stderr"), fixed = TRUE)))
+}
 
 # ---------------------------------------------------------------------------
 # 1. Personal data never goes in the log
@@ -269,7 +377,7 @@ expect_equal(prune_old_logs(file.path(keep_dir, "missing"), "compute", keep_days
 # and by itself, once a day, when a log line is written
 touch("test-20200101.log")                                       # this test file's prefix is "test"
 Sys.setenv(LOG_DIR = keep_dir, LOG_KEEP_DAYS = "30")
-.log_ctx$pruned_on <- NULL
+ctx_reset("pruned_on")
 suppressMessages(log_write("INFO", "writing triggers the cleanup"))
 expect_false(file.exists(file.path(keep_dir, "test-20200101.log")))
 expect_true(file.exists(file.path(keep_dir, "compute-20200102.log")) == FALSE)   # removed by the direct call above
@@ -323,7 +431,7 @@ unlink(get_log_file())
 suppressMessages(log_startup_summary(version = "20260101", port = 8000))
 txt <- log_text()
 expect_true(grepl("STARTUP version=20260101 port=8000", txt, fixed = TRUE))
-expect_true(grepl("log_format=text", txt, fixed = TRUE))
+expect_true(grepl("log_stack=file,stderr file_level=DEBUG file_format=text stderr_level=DEBUG stderr_format=text", txt, fixed = TRUE))
 expect_true(grepl("EMAIL_HOST=set", txt, fixed = TRUE)); expect_true(grepl("MAPBOX_TOKEN=set", txt, fixed = TRUE))
 expect_false(grepl("smtp.internal.example", txt, fixed = TRUE)); expect_false(grepl("SECRET-TOKEN-VALUE", txt, fixed = TRUE))
 Sys.unsetenv(c("EMAIL_HOST", "MAPBOX_TOKEN"))

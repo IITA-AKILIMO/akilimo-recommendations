@@ -10,46 +10,90 @@ if (file.exists(env_file)) {
 
 log_levels <- c("TRACE" = 0, "DEBUG" = 1, "INFO" = 2, "SUCCESS" = 3, "WARN" = 4, "ERROR" = 5)
 
+# Logging works like Laravel's: a log line goes to a stack of channels, and each channel has its own level and format.
+#
+# Channels:  file    the daily file {LOG_DIR}/{LOG_FILE_PREFIX}-YYYYMMDD.log
+#            stderr  the console, or the systemd journal
+#            stdout  standard output (what a container collects)
+#            null    nothing (LOG_STACK=null switches logging off)
 # Settings, all optional and read from .env (see .env.example):
-#   LOG_LEVEL       minimum level written (read once, at start-up)
-#   LOG_STDERR      true (default) prints every line to stderr; false, 0, no or off prints INFO and above only
-#   LOG_FORMAT      text (default) or json (one JSON object per line, for a log collector)
-#   LOG_MAX_CHARS   a single line longer than this is cut (default 20000, 0 = no limit)
-#   LOG_KEEP_DAYS   delete daily log files older than this many days (default 0 = keep them all)
-#   LOG_SLOW_MS     a request slower than this is logged as a WARN (default 30000, 0 = never)
+#   LOG_CHANNEL       "stack" (default), or the name of one channel to use alone
+#   LOG_STACK         the channels of the stack, comma separated (default "file,stderr")
+#   LOG_LEVEL         the level every channel uses unless it has its own (read once, at start-up)
+#   LOG_FILE_LEVEL, LOG_STDERR_LEVEL, LOG_STDOUT_LEVEL     a channel's own minimum level
+#   LOG_FORMAT        text (default) or json (one JSON object per line); LOG_FILE_FORMAT, LOG_STDERR_FORMAT and
+#                     LOG_STDOUT_FORMAT set it for one channel
+#   LOG_MAX_CHARS     a single line longer than this is cut (default 20000, 0 = no limit)
+#   LOG_KEEP_DAYS     delete daily log files older than this many days (default 0 = keep them all)
+#   LOG_SLOW_MS       a request slower than this is logged as a WARN (default 30000, 0 = never)
 #   LOG_DIR, LOG_FILE_PREFIX   where the files go and how they are named
+#   LOG_STDERR=false  older switch, still understood: the same as LOG_STDERR_LEVEL=INFO
 
-# Per-process state: the request being served (its id goes on every line) and two once-only flags
+# Per-process state: the request being served (its id goes on every line) and some once-only flags
 .log_ctx <- new.env(parent = emptyenv())
 
 .first <- function(x) if (is.null(x) || length(x) == 0) NA else x[[1]]
 
-# Whether a log line of this level is also printed to stderr (the console, or the systemd journal). The log file
-# always gets every line the log level allows. LOG_STDERR in .env: true (the default) prints them all; false, 0, no
-# or off is the quiet setting that prints INFO and above (INFO, SUCCESS, WARN, ERROR) and leaves TRACE and DEBUG,
-# which are the long ones, to the file. Read on every call.
-log_to_stderr <- function(level = "INFO") {
-  quiet <- tolower(trimws(Sys.getenv("LOG_STDERR", unset = "true"))) %in% c("false", "0", "no", "off")
-  !quiet || isTRUE(log_levels[toupper(level)] >= log_levels[["INFO"]])
+log_channels_known <- c("file", "stderr", "stdout")
+
+# The channels a line goes to, in order. LOG_CHANNEL=stack (the default) uses LOG_STACK; any other value is one
+# channel on its own. Unknown names are ignored (and said so once); a stack with none left is the default one.
+log_stack <- function() {
+  channel <- tolower(trimws(Sys.getenv("LOG_CHANNEL", unset = "stack")))
+  chs <- if (!nzchar(channel) || channel == "stack") strsplit(Sys.getenv("LOG_STACK", unset = "file,stderr"), ",")[[1]] else channel
+  chs <- unique(tolower(trimws(chs)))
+  chs <- chs[nzchar(chs)]
+  if (length(chs) == 0) chs <- c("file", "stderr")
+  if (all(chs == "null")) return(character(0))
+  unknown <- setdiff(chs, c(log_channels_known, "null"))
+  if (length(unknown) > 0 && !identical(.log_ctx$unknown_noticed, unknown)) {
+    .log_ctx$unknown_noticed <- unknown
+    message("[logging] unknown log channel(s) ignored: ", paste(unknown, collapse = ", "),
+            " (known: ", paste(log_channels_known, collapse = ", "), ", null)")
+  }
+  known <- intersect(chs, log_channels_known)
+  if (length(known) == 0) known <- c("file", "stderr")
+  known
 }
 
-# Cache the minimum log level numeric value once.
+# Cache the minimum log level numeric value once: the level of every channel that has no LOG_<CHANNEL>_LEVEL.
 # Falls back to INFO for empty or unrecognised LOG_LEVEL values.
 min_log_level_value <- {
   lvl <- Sys.getenv("LOG_LEVEL", unset = "INFO")
   val <- log_levels[toupper(lvl)]
+  to_console <- "stderr" %in% log_stack()
   if (is.na(val)) {
-    message("Unrecognised LOG_LEVEL '", lvl, "'; defaulting to INFO")
+    if (to_console) message("Unrecognised LOG_LEVEL '", lvl, "'; defaulting to INFO")
     val <- log_levels["INFO"]
   } else {
-    message("Current log level: ", lvl)
+    if (to_console) message("Current log level: ", lvl)
   }
   val
 }
 
+# A channel's minimum level: its own LOG_<CHANNEL>_LEVEL, else LOG_LEVEL. The older LOG_STDERR=false (false, 0, no,
+# off) counts as a stderr level of INFO. Read on every call.
+channel_level <- function(channel) {
+  own <- toupper(trimws(Sys.getenv(paste0("LOG_", toupper(channel), "_LEVEL"), unset = "")))
+  if (own %in% names(log_levels)) return(unname(log_levels[[own]]))
+  base <- unname(min_log_level_value)
+  quiet <- tolower(trimws(Sys.getenv("LOG_STDERR", unset = "true"))) %in% c("false", "0", "no", "off")
+  if (channel == "stderr" && quiet) return(max(base, unname(log_levels[["INFO"]])))
+  base
+}
+
+level_name <- function(value) names(log_levels)[match(value, log_levels)]
+
+# Does this channel take a line of this level?
+channel_wants <- function(channel, level) {
+  lv <- log_levels[toupper(level)]
+  !is.na(lv) && lv >= channel_level(channel)
+}
+
+# Does any channel of the stack take it? (Otherwise the line is not even built.)
 should_log <- function(level) {
-  lvl_value <- log_levels[toupper(level)]
-  !is.na(lvl_value) && lvl_value >= min_log_level_value
+  stack <- log_stack()
+  length(stack) > 0 && any(vapply(stack, channel_wants, logical(1), level = level))
 }
 
 # One log line longer than this is cut (LOG_MAX_CHARS in .env; 0 turns the cap off). Keeps a huge value, such as
@@ -59,9 +103,13 @@ log_max_chars <- function() {
   if (is.na(n) || n < 0) 20000 else n
 }
 
-# "text" (default) or "json"
+# "text" (default) or "json": LOG_FORMAT for every channel, unless the channel has its own LOG_<CHANNEL>_FORMAT
 log_format <- function() {
   if (tolower(trimws(Sys.getenv("LOG_FORMAT", unset = "text"))) == "json") "json" else "text"
+}
+channel_format <- function(channel) {
+  own <- tolower(trimws(Sys.getenv(paste0("LOG_", toupper(channel), "_FORMAT"), unset = "")))
+  if (nzchar(own)) { if (own == "json") "json" else "text" } else log_format()
 }
 
 # Days to keep daily log files; 0 (the default) keeps them all
@@ -175,9 +223,9 @@ summarize_result <- function(result) {
 # Writing
 # ---------------------------------------------------------------------------
 
-format_log_line <- function(level, msg, time = Sys.time()) {
+format_log_line <- function(level, msg, time = Sys.time(), format = log_format()) {
   rid <- get_log_request_id()
-  if (log_format() == "json") {
+  if (format == "json") {
     fields <- list(time = format(time, "%Y-%m-%dT%H:%M:%S%z"), level = toupper(level))
     if (!is.null(rid)) fields$request_id <- rid
     fields$message <- msg
@@ -188,7 +236,9 @@ format_log_line <- function(level, msg, time = Sys.time()) {
 }
 
 .log_write <- function(level, ..., sep = " ", append = TRUE) {
-  if (!should_log(level)) return(invisible(NULL))
+  stack <- log_stack()
+  wanting <- stack[vapply(stack, channel_wants, logical(1), level = level)]
+  if (length(wanting) == 0) return(invisible(NULL))
 
   args <- list(...)
   args <- args[!sapply(args, is.null)]
@@ -215,20 +265,36 @@ format_log_line <- function(level, msg, time = Sys.time()) {
   if (max_chars > 0 && nchar(msg) > max_chars)
     msg <- paste0(substr(msg, 1, max_chars), "... [truncated, ", nchar(msg) - max_chars, " more characters]")
 
-  line <- format_log_line(level, msg)
-
-  # An unwritable log directory must not fail a request: say so once, and print the line to stderr instead
-  written <- tryCatch({
-    suppressWarnings(cat(line, "\n", file = get_log_file(), append = append))
-    TRUE
-  }, error = function(e) {
-    if (!isTRUE(.log_ctx$file_warned)) {
-      .log_ctx$file_warned <- TRUE
-      message("[logging] cannot write the log file, printing to stderr instead: ", conditionMessage(e))
+  # Each channel of the stack that takes this level gets the line, in its own format
+  lines <- list()
+  line_for <- function(channel) {
+    fmt <- channel_format(channel)
+    if (is.null(lines[[fmt]])) lines[[fmt]] <<- format_log_line(level, msg, format = fmt)
+    lines[[fmt]]
+  }
+  on_stderr <- FALSE
+  for (channel in wanting) {
+    line <- line_for(channel)
+    if (channel == "file") {
+      # An unwritable log directory must not fail a request: say so once, and print the line to stderr instead
+      written <- tryCatch({
+        suppressWarnings(cat(line, "\n", file = get_log_file(), append = append))
+        TRUE
+      }, error = function(e) {
+        if (!isTRUE(.log_ctx$file_warned)) {
+          .log_ctx$file_warned <- TRUE
+          message("[logging] cannot write the log file, printing to stderr instead: ", conditionMessage(e))
+        }
+        FALSE
+      })
+      if (!written && !on_stderr) { message(line); on_stderr <- TRUE }
+    } else if (channel == "stderr") {
+      if (!on_stderr) message(line)
+      on_stderr <- TRUE
+    } else if (channel == "stdout") {
+      cat(line, "\n", sep = "")
     }
-    FALSE
-  })
-  if (!written || log_to_stderr(level)) message(line)
+  }
   invisible(NULL)
 }
 
@@ -281,12 +347,14 @@ log_request_done <- function(country, result = NULL, started = Sys.time(), statu
 # What the server runs with, once at start-up: the settings only, never a key or a password
 log_startup_summary <- function(version = NA, port = NA) {
   set <- function(name) if (nzchar(Sys.getenv(name))) "set" else "not set"
+  stack <- log_stack()
+  per_channel <- unlist(lapply(stack, function(ch)
+    c(paste0(ch, "_level=", level_name(channel_level(ch))), paste0(ch, "_format=", channel_format(ch)))))
   log_write("INFO", "STARTUP", paste(
     paste0("version=", version),
     paste0("port=", port),
-    paste0("log_level=", Sys.getenv("LOG_LEVEL", unset = "INFO")),
-    paste0("log_stderr=", Sys.getenv("LOG_STDERR", unset = "true")),
-    paste0("log_format=", log_format()),
+    paste0("log_stack=", if (length(stack) > 0) paste(stack, collapse = ",") else "null"),
+    paste(per_channel, collapse = " "),
     paste0("log_max_chars=", log_max_chars()),
     paste0("log_keep_days=", log_keep_days()),
     paste0("log_slow_ms=", log_slow_ms()),
