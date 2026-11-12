@@ -60,5 +60,5 @@ watchexec ^
   --shell=none ^
   --restart ^
   --clear ^
-  --debounce 5s ^
+  --debounce 1s ^
   -- Rscript api.R
