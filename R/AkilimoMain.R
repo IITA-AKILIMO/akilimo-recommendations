@@ -39,6 +39,15 @@ active_rec_type <- function(body) {
   if (!any(on)) NA_character_ else unname(flag_type[which(on)[1]])
 }
 
+# TRUE when the request offers at least one fertilizer: a "{type}available" field that is
+# TRUE (or "true"), or a custom "newFert{N}name" entry.
+has_available_fertilizer <- function(body) {
+  nms <- names(body)
+  ava <- nms[grepl("available$", nms)]
+  any(vapply(ava, function(n) isTRUE(as.logical(body[[n]])), logical(1))) ||
+    any(grepl("^newFert.name$", nms))
+}
+
 validate_request <- function(body) {
   VALID_COUNTRIES <- c("NG", "TZ", "RW", "GH", "BI")
   # Must match the units parse_request() converts: ekari/hekta are aliases for
@@ -114,6 +123,12 @@ validate_request <- function(body) {
 
   if (!is.null(body[["subsidisedFertilizer"]]) && !is.logical(body[["subsidisedFertilizer"]]))
     return("subsidisedFertilizer must be a boolean")
+
+  # FR and IC choose among fertilizers. With none offered, get_fertilizers2() cannot
+  # build its tables and the request would fail with a bare 500, so say what is missing.
+  if (!is.na(rec_type) && rec_type %in% c("FR", "IC") && !has_available_fertilizer(body))
+    return(paste("No fertilizer is available: send at least one {type}available = true,",
+                 "with {type}CostperBag and {type}BagWt (or a newFert* custom fertilizer)"))
 
   NULL  # no error
 }
