@@ -23,8 +23,11 @@ source(file.path("R", "get_data.R"))
 source(file.path("R", "AkilimoMain.R"))
 source(file.path("R", "coverage.R"))
 
-out_dir <- file.path("scripts", "output")
+# Absolute path: GDAL resolves relative paths against the process cwd, which
+# can differ from R's after setwd() (e.g. in an interactive session)
+out_dir <- file.path(normalizePath(getwd(), winslash = "/"), "scripts", "output")
 dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
+if (!dir.exists(out_dir)) stop("Cannot create output directory: ", out_dir)
 
 bbox_rows <- list()
 features <- list()
