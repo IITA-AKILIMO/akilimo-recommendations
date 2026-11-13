@@ -5,9 +5,10 @@
 #   FR (default): the yield grid that process-FR.R and is_point_covered()
 #                 (get_data.R) use, so "covered" means "/compute accepts it".
 #   SP:           the FR grid, kept only where the planting-window NetCDF
-#                 ({CC}_WLY_LINTUL_2020SP.nc) and SoilData_4Country.RDS both
+#                 ({CC}_WLY_LINTUL_2020SP.nc) and the SP soil (sp_soil_points():
+#                 SoilData_4Country.RDS, or BI_FCY*_soilNPK.RDS for Burundi) both
 #                 have data, the two inputs getSPrecommendations() needs.
-#                 Empty for countries without SP data (BI).
+#                 Empty for a country whose SP file has not been built.
 #   IC and PP give the same advice anywhere in a country, so they have no
 #   footprint of their own; each feature lists them in `rec_types`.
 #
@@ -44,8 +45,7 @@ coverage_points <- function(country, type = "FR") {
     ncdf4::nc_close(nc)
     pts <- pts[cellFromLonLat(pts$lon, pts$lat) %in% nc_cells, ]
 
-    soil <- cached_read("soil_NPK4", function() long2lon(readRDS(data_path("soil/SoilData_4Country.RDS"))))
-    soil <- soil[!is.na(soil$soilN) & !is.na(soil$soilP) & !is.na(soil$soilK), ]
+    soil <- sp_soil_points(country)
     key <- function(d) paste(round(d$lon, 3), round(d$lat, 3))
     pts[key(pts) %in% key(soil), ]
 }

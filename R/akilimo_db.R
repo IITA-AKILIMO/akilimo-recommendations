@@ -23,7 +23,7 @@ VALID_UNITS     <- c("per_bag", "per_kg", "per_tonne", "per_acre", "per_ha")
 .akilimo_db_conn <- NULL
 
 # Current schema version — increment whenever DDL changes
-.DB_SCHEMA_VERSION <- 6L
+.DB_SCHEMA_VERSION <- 7L
 
 # ---------------------------------------------------------------------------
 # DDL helpers
@@ -52,6 +52,7 @@ VALID_UNITS     <- c("per_bag", "per_kg", "per_tonne", "per_acre", "per_ha")
             default_price_basis TEXT NOT NULL DEFAULT 'open_market',
             refreshed_at        TEXT,
             api_cursor          TEXT,
+            full_synced_at      TEXT,
             updated_at          TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
         );
     ")
@@ -153,6 +154,13 @@ migrate_akilimo_db <- function(conn, current_version) {
                 "ALTER TABLE country_price_settings ADD COLUMN refreshed_at TEXT;",
                 "ALTER TABLE country_price_settings ADD COLUMN api_cursor TEXT;"
             ),
+            seed_fn = NULL
+        ),
+        # version 7 — when a country's prices were last fetched in full. An incremental
+        # fetch only brings changed rows, so it can never show that a price was deactivated;
+        # a full fetch can, and removes what the price service no longer lists.
+        "7" = list(
+            sql = c("ALTER TABLE country_price_settings ADD COLUMN full_synced_at TEXT;"),
             seed_fn = NULL
         )
     )
@@ -522,7 +530,8 @@ get_translations <- function() {
 
 refresh_prices <- function(country = NULL,
                            source_tag = "api",
-                           dry_run    = FALSE) {
+                           dry_run    = FALSE,
+                           full       = FALSE) {
     conn    <- .akilimo_db_conn
     api_url <- sub("/+$", "", Sys.getenv("AKILIMO_API_URL", unset = ""))
 
@@ -534,12 +543,14 @@ refresh_prices <- function(country = NULL,
     countries <- if (is.null(country)) VALID_COUNTRIES else country
 
     total_rows <- 0L
+    total_removed <- 0L
     any_fail   <- FALSE
     fail_msgs  <- character(0)
 
     for (ctry in countries) {
-        result <- .refresh_default_one(conn, api_url, ctry, source_tag, dry_run)
+        result <- .refresh_default_one(conn, api_url, ctry, source_tag, dry_run, full)
         total_rows <- total_rows + result$rows_upserted
+        total_removed <- total_removed + (result$rows_removed %||% 0L)
         if (result$status != "ok") {
             any_fail  <- TRUE
             fail_msgs <- c(fail_msgs, result$message %||% ctry)
@@ -561,22 +572,97 @@ refresh_prices <- function(country = NULL,
     list(
         status        = if (any_fail) "error" else "ok",
         rows_upserted = total_rows,
+        rows_removed  = total_removed,
         message       = if (any_fail) paste(fail_msgs, collapse = "; ") else NULL
     )
 }
 
-.refresh_default_one <- function(conn, api_url, country, source_tag, dry_run) {
+# ---------------------------------------------------------------------------
+# Deactivated prices
+#
+# The price service lists only active prices, and an incremental fetch
+# (updated_since) only the ones that changed, so a price that was deactivated
+# simply stops appearing and the engine would keep using its last value. A full
+# fetch lists everything that is active, so after one the engine drops the
+# API-sourced prices that are no longer listed.
+# ---------------------------------------------------------------------------
+
+# Should this refresh fetch a country's prices in full? Yes when asked to, when
+# there is no cursor yet, or when the last full fetch is older than
+# PRICE_FULL_SYNC_HOURS (default 24): incremental fetches keep the many requests
+# cheap, and the daily full one catches deactivations.
+price_sync_needs_full <- function(api_cursor, full_synced_at, force = FALSE,
+                                  now = Sys.time(),
+                                  max_hours = suppressWarnings(as.numeric(Sys.getenv("PRICE_FULL_SYNC_HOURS", unset = "24")))) {
+    if (isTRUE(force)) return(TRUE)
+    if (length(api_cursor) != 1 || is.na(api_cursor) || !nzchar(api_cursor)) return(TRUE)
+    if (length(full_synced_at) != 1 || is.na(full_synced_at) || !nzchar(full_synced_at)) return(TRUE)
+    if (is.na(max_hours) || max_hours < 0) max_hours <- 24
+
+    last_full <- tryCatch(
+        as.POSIXct(full_synced_at, format = "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
+        error = function(e) NA
+    )
+    if (is.na(last_full)) return(TRUE)
+
+    as.numeric(difftime(now, last_full, units = "hours")) >= max_hours
+}
+
+# Delete a country's API-sourced prices whose item the price service no longer
+# lists. `listed_items` is every item the service returned in a full fetch, valid
+# or not (an invalid row is skipped, not deleted). Seed rows are never touched.
+# Returns the items that were (or, with dry_run, would be) removed.
+.remove_unlisted_prices <- function(conn, country, listed_items, dry_run = FALSE) {
+    existing <- DBI::dbGetQuery(conn,
+        "SELECT item FROM default_prices WHERE country = ? AND source <> 'seed'",
+        params = list(country)
+    )$item
+    gone <- setdiff(existing, listed_items)
+
+    if (length(gone) > 0 && !dry_run) {
+        for (item in gone) {
+            DBI::dbExecute(conn,
+                "DELETE FROM default_prices WHERE country = ? AND item = ? AND source <> 'seed'",
+                params = list(country, item)
+            )
+        }
+    }
+
+    gone
+}
+
+# One page of the price service's answer, parsed, or the reason it failed.
+# `.refresh_default_one` takes it as an argument so tests can feed it fake pages.
+.fetch_prices_page <- function(page_url, token) {
+    tryCatch({
+        raw <- httr::GET(page_url,
+            if (nzchar(token)) httr::add_headers(Authorization = paste("Bearer", token)),
+            httr::timeout(10)
+        )
+        httr::stop_for_status(raw, task = paste("GET", page_url))
+        list(resp = httr::content(raw, as = "parsed", type = "application/json"), err = NULL)
+    }, error = function(e) {
+        list(resp = NULL, err = conditionMessage(e))
+    })
+}
+
+.refresh_default_one <- function(conn, api_url, country, source_tag, dry_run, full = FALSE,
+                                 fetch_page = .fetch_prices_page) {
     token    <- Sys.getenv("AKILIMO_API_TOKEN", unset = "")
     now_str  <- strftime(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
     valid    <- list()
+    listed   <- character(0)   # every item the service returned, valid or not
+    complete <- TRUE           # false when a page could not be fetched
     page_num <- 1L
     # The cursor is the price service's own timestamp, so updated_since compares like with like
-    last_sync <- DBI::dbGetQuery(conn,
-        "SELECT api_cursor FROM country_price_settings WHERE country = ?",
+    state <- DBI::dbGetQuery(conn,
+        "SELECT api_cursor, full_synced_at FROM country_price_settings WHERE country = ?",
         params = list(country)
-    )$api_cursor
-    last_sync <- if (length(last_sync) == 1) last_sync[[1]] else NA_character_
-    updated_since <- if (!is.na(last_sync) && nzchar(last_sync)) paste0("&updated_since=", utils::URLencode(last_sync, reserved = TRUE)) else ""
+    )
+    last_sync <- if (nrow(state) == 1) state$api_cursor[[1]] else NA_character_
+    last_full <- if (nrow(state) == 1) state$full_synced_at[[1]] else NA_character_
+    do_full   <- price_sync_needs_full(last_sync, last_full, force = full)
+    updated_since <- if (!do_full) paste0("&updated_since=", utils::URLencode(last_sync, reserved = TRUE)) else ""
     page_url <- paste0(api_url, "/prices?country=", country, updated_since, "&page=1")
     price_basis <- NULL
     api_cursor  <- NA_character_
@@ -584,19 +670,11 @@ refresh_prices <- function(country = NULL,
     repeat {
         log_write("DEBUG", sprintf("akilimo_db: fetching default prices %s page %d", country, page_num))
 
-        fetch_err <- NULL
-        resp <- tryCatch({
-            raw <- httr::GET(page_url,
-                if (nzchar(token)) httr::add_headers(Authorization = paste("Bearer", token)),
-                httr::timeout(10)
-            )
-            httr::stop_for_status(raw, task = paste("GET", page_url))
-            httr::content(raw, as = "parsed", type = "application/json")
-        }, error = function(e) {
-            fetch_err <<- conditionMessage(e)
+        got       <- fetch_page(page_url, token)
+        resp      <- got$resp
+        fetch_err <- got$err
+        if (is.null(resp))
             log_write("WARN", "akilimo_db: HTTP error fetching default prices for", country, ":", fetch_err)
-            NULL
-        })
 
         if (is.null(resp)) {
             if (page_num == 1L)
@@ -604,6 +682,7 @@ refresh_prices <- function(country = NULL,
                             message = paste0("error fetching prices for ", country, ": ", fetch_err)))
             log_write("WARN", sprintf("akilimo_db: network error on prices %s page %d — using %d rows so far",
                                       country, page_num, length(valid)))
+            complete <- FALSE
             break
         }
 
@@ -617,6 +696,7 @@ refresh_prices <- function(country = NULL,
                             message = paste("prices API response missing 'data' field for", country)))
             log_write("WARN", sprintf("akilimo_db: missing 'data' on prices %s page %d — stopping early",
                                       country, page_num))
+            complete <- FALSE
             break
         }
 
@@ -625,6 +705,9 @@ refresh_prices <- function(country = NULL,
             item  <- row$item    %||% ""
             price <- suppressWarnings(as.numeric(row$price))
             unit  <- row$unit    %||% "per_bag"
+
+            # The service lists this item as active, whether or not the row is usable
+            if (identical(ctry, country) && nzchar(item)) listed <- c(listed, item)
 
             if (!ctry  %in% VALID_COUNTRIES) { log_write("WARN", "akilimo_db: invalid country", ctry,  "— skipping row"); next }
             if (!nzchar(item))               { log_write("WARN", "akilimo_db: empty item — skipping row"); next }
@@ -666,9 +749,18 @@ refresh_prices <- function(country = NULL,
         return(list(status = "error", rows_upserted = 0L, message = msg))
     }
 
+    # Only a complete full fetch can say what is no longer listed; an empty or partial
+    # one proves nothing (a service fault must not wipe the prices), so it removes nothing
+    reconcile <- do_full && complete && length(listed) > 0
+    if (do_full && !reconcile)
+        log_write("WARN", sprintf("akilimo_db: full price fetch for %s was %s — no deactivated prices removed",
+                                  country, if (!complete) "incomplete" else "empty"))
+
     if (dry_run) {
-        log_write("INFO", sprintf("akilimo_db [dry-run] default/%s: %d valid row(s)", country, length(valid)))
-        return(list(status = "ok", rows_upserted = length(valid), message = "dry-run"))
+        would_remove <- if (reconcile) .remove_unlisted_prices(conn, country, listed, dry_run = TRUE) else character(0)
+        log_write("INFO", sprintf("akilimo_db [dry-run] default/%s: %d valid row(s), %d would be removed as deactivated",
+                                  country, length(valid), length(would_remove)))
+        return(list(status = "ok", rows_upserted = length(valid), rows_removed = length(would_remove), message = "dry-run"))
     }
 
     tryCatch({
@@ -698,7 +790,21 @@ refresh_prices <- function(country = NULL,
               WHERE country = ?",
             params = list(basis, api_cursor, now_str, now_str, country)
         )
-        list(status = "ok", rows_upserted = length(valid), message = NULL)
+
+        # Drop the prices the service no longer lists, then note the full fetch
+        removed <- character(0)
+        if (reconcile) {
+            removed <- .remove_unlisted_prices(conn, country, listed)
+            DBI::dbExecute(conn,
+                "UPDATE country_price_settings SET full_synced_at = ? WHERE country = ?",
+                params = list(now_str, country)
+            )
+            if (length(removed) > 0)
+                log_write("INFO", sprintf("akilimo_db: removed %d deactivated price(s) for %s: %s",
+                                          length(removed), country, paste(removed, collapse = ", ")))
+        }
+
+        list(status = "ok", rows_upserted = length(valid), rows_removed = length(removed), message = NULL)
     }, error = function(e) {
         log_write("WARN", "akilimo_db: DB write error for default/", country, ":", conditionMessage(e))
         list(status = "error", rows_upserted = 0L, message = conditionMessage(e))

@@ -92,6 +92,58 @@ jobs:
           fi
 
   # ---------------------------------------------------------------------------
+  # Gate: a push to a branch that has an open pull request is checked by the pull request's own run, on the same commit, so
+  # the push run is skipped and the R checks do not run twice. A branch with a deploy target (deploy-targets.json) is NEVER
+  # skipped: its push run is the one that deploys, even while a pull request (for example experimental into main) is open.
+  # If the lookups fail, the run goes ahead.
+  # ---------------------------------------------------------------------------
+  gate:
+    name: Decide whether to run
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+    steps:
+      - name: Check out deploy settings
+        if: github.event_name == 'push'
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github
+
+      - name: Decide
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          run=true
+
+          if [ "$EVENT" = "push" ]; then
+            # No pipe here: a failing jq must be seen, and must never lead to a skip
+            if ! target="$(jq -r --arg b "$BRANCH" 'to_entries[] | select(.value.branch == $b) | .key' .github/deploy-targets.json)"; then
+              target="unknown"
+            fi
+            target="${target%%$'\n'*}"   # the first match only
+
+            if [ -n "$target" ]; then
+              echo "$BRANCH deploys to $target, so this push run always runs." >> "$GITHUB_STEP_SUMMARY"
+            else
+              # An open pull request runs the same checks on this commit, so the push run would only duplicate them
+              open="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open --json number --jq 'length' 2>/dev/null || echo 0)"
+              if [ "${open:-0}" != "0" ]; then
+                run=false
+                echo "A pull request is open for $BRANCH, so its own run checks this commit. This push run is skipped." >> "$GITHUB_STEP_SUMMARY"
+              fi
+            fi
+          fi
+
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+
+  # ---------------------------------------------------------------------------
   # CI image: R, system libraries and R packages (Dockerfile.ci), tagged with
   # Git's ID (sha) of install_packages.R.
   # Built and pushed to GHCR only when no image with that tag exists yet, so
@@ -99,9 +151,11 @@ jobs:
   # ---------------------------------------------------------------------------
   image:
     name: Build CI image
-    needs: [ debounce ]
+    needs: [ debounce, gate ]
     if: >-
       !cancelled() &&
+      needs.gate.result == 'success' &&
+      needs.gate.outputs.run == 'true' &&
       (needs.debounce.result == 'success' || needs.debounce.result == 'skipped')
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -251,6 +305,10 @@ jobs:
         if: ${{ !cancelled() }}
         run: Rscript tests/run_ci_test.R tests/test_validate_request.R
 
+      - name: Test logging
+        if: ${{ !cancelled() }}
+        run: Rscript tests/run_ci_test.R tests/test_logging.R
+
       - name: Test PDF templates
         if: ${{ !cancelled() }}
         run: Rscript tests/run_ci_test.R tests/test_pdf_template.R
@@ -269,6 +327,11 @@ jobs:
       - name: Test Rwanda regressions
         if: ${{ !cancelled() }}
         run: Rscript tests/run_ci_test.R tests/test_rw_regressions.R
+
+      # The deploy's health check finds the service's own port; this tests how, with fake systemctl and ss
+      - name: Test the deploy health check script
+        if: ${{ !cancelled() }}
+        run: sh tests/test_check_health.sh
 
   # ---------------------------------------------------------------------------
   # Deploy: a separate workflow (deploy.yml), run only for pushes once every

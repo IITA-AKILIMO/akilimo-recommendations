@@ -65,7 +65,7 @@ The footprint limits only the types that use location data: FR and SP requests f
 | `type` | Footprint |
 |--------|-----------|
 | `FR` (default) | Where fertilizer advice is available: the yield grid `is_point_covered()` uses. |
-| `SP` | Where scheduled planting is available: the FR footprint, kept only where planting-window yield data and soil data both exist. Empty (`n_cells` 0, no coordinates) for BI, and slightly smaller than FR in GH. |
+| `SP` | Where scheduled planting is available: the FR footprint, kept only where planting-window yield data and soil data both exist. Empty (`n_cells` 0, no coordinates) for a country whose planting-window file has not been built, and slightly smaller than FR in GH. BI uses the FR soil by yield class. |
 
 IC and PP do not depend on location, so they have no footprint; `?type=IC` or `?type=PP` returns `400`.
 
@@ -394,7 +394,7 @@ Common causes:
 | `PD must be a valid date in YYYY-MM-DD format` | Bad date string |
 | `maizeUW must be a positive number when maizePD is 'grain'` | Missing weight for grain maize price |
 | `Intercropping (IC) recommendations are not available for country: RW — supported countries are NG, TZ` | IC only supported for NG and TZ (see [Availability by country](#availability-by-country)) |
-| `Scheduled planting (SPP/SPH) recommendations are not available for country: BI — supported countries are NG, TZ, GH, RW` | No planting-window yield data for BI yet |
+| `Scheduled planting (SPP/SPH) recommendations are not available for country: XX — supported countries are NG, TZ, GH, RW, BI` | Only a country outside that list; every supported country has scheduled planting |
 | `Planting date and cultivar (PDC) recommendations are not available for country: TZ — supported countries are NG` | PDC currently has DSSAT output only for NG maize |
 | `No scheduled planting data available for lat=X, lon=Y in CC — fertilizer (FR) advice may still be available for this location` | The point is inside the coverage footprint but has no planting-window yield or soil data (a few cells in GH) |
 | `Scheduled planting cannot be computed for PD=… and HD=… — the time from planting to harvest must be between 235 and 452 days` | `HD − PD` is outside the range the SP model covers |
@@ -424,7 +424,7 @@ Returned for unexpected failures. Includes the `request_token` field (echoed fro
 | Tanzania (TZ) | ✓ | ✓ cassava–sweet potato | ✓ | ✓ | — |
 | Rwanda (RW) | ✓ | — | ✓ | ✓ | — |
 | Ghana (GH) | ✓ | — | ✓ | ✓ | — |
-| Burundi (BI) | ✓ | — | ✓ | — | — |
+| Burundi (BI) | ✓ | — | ✓ | ✓ | — |
 
 ### Default cassava prices (when `cassUP` is `0`)
 
@@ -597,7 +597,7 @@ curl -s -X POST http://localhost:8000/compute \
 
 **SP window.** Both `PD_window` and `HD_window` must be `> 0` for SP advice to be returned. If either is `0`, the response contains an informational message rather than scheduling data.
 
-**PDF delivery.** Set `"email": true` and supply `userEmail` to receive a PDF report by email. Set `"returnPdf": true` to get the reports in the response instead (or as well): a successful response then has a top-level `reports` array next to `data`, one entry per generated PDF, `{"name": "fertilizer_advice.pdf", "content_type": "application/pdf", "content": "<base64>"}`. It is empty when no PDF could be made. The AKILIMO API uses it to store the report and give its callers a download link. PDF generation failures do not suppress the JSON recommendation — `data.recommendation` is always populated.
+**PDF delivery.** Set `"email": true` and supply `userEmail` to receive a PDF report by email. Set `"returnPdf": true` to get the reports in the response instead (or as well): a successful response then has a top-level `reports` array next to `data`, one entry per generated PDF, `{"name": "fertilizer_advice.pdf", "content_type": "application/pdf", "content": "<base64>"}`. It is empty when no PDF could be made. The AKILIMO API uses it to store the report (for example on S3) and give its callers a download link; the engine itself stores and uploads nothing, so the link is the caller's to make. The `content` is never written to the engine's log (it logs the name and size instead), and any single log line is cut at `LOG_MAX_CHARS` characters (default 20000, `0` for no limit). PDF generation failures do not suppress the JSON recommendation — `data.recommendation` is always populated.
 
 **Version field.** The `version` string in every response is a date (`YYYYMMDD`) identifying the engine build, not a semantic version. Use it for support correlation only.
 
@@ -842,6 +842,7 @@ If the env var is unset the header is omitted (useful for local development with
 | `AKILIMO_API_URL` | _(none)_ | Versioned base URL for all data-feed endpoints, e.g. `https://api.example.com/api/v1`. No trailing slash. If unset, all refreshes are skipped silently |
 | `AKILIMO_API_TOKEN` | _(none)_ | Bearer token sent with every request |
 | `PRICE_MAX_AGE_DAYS` | `7` | Days before fertilizer prices are considered stale |
+| `PRICE_FULL_SYNC_HOURS` | `24` | Hours between full price fetches, which also remove prices the price service has deactivated |
 | `STARCH_PRICE_MAX_AGE_DAYS` | `30` | Days before starch prices are considered stale |
 | `TRANSLATIONS_MAX_AGE_DAYS` | `30` | Days before translations are considered stale |
 

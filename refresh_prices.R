@@ -12,6 +12,9 @@
 #   --country  NG|TZ|RW|GH|BI          Refresh one country only (default: all; ignored for translations)
 #   --type     default|starch|translations|all  Which table to refresh (default: all)
 #   --dry-run                           Validate API response without writing to DB
+#   --full                              Fetch every active price (not only the changed ones) and
+#                                       remove the prices the service no longer lists, i.e. the
+#                                       ones that were deactivated. Done automatically once a day.
 #
 # Examples:
 #   Rscript refresh_prices.R
@@ -29,12 +32,14 @@ VALID_TYPES     <- c("default", "starch", "translations", "all")
 # ── Parse arguments ───────────────────────────────────────────────────────────
 
 parse_args <- function(argv) {
-  out <- list(country = NULL, type = "all", dry_run = FALSE)
+  out <- list(country = NULL, type = "all", dry_run = FALSE, full = FALSE)
   i <- 1L
   while (i <= length(argv)) {
     arg <- argv[i]
     if (arg == "--dry-run") {
       out$dry_run <- TRUE
+    } else if (arg == "--full") {
+      out$full <- TRUE
     } else if (arg == "--country") {
       i <- i + 1L
       val <- toupper(trimws(argv[i]))
@@ -48,7 +53,7 @@ parse_args <- function(argv) {
         stop("--type must be one of: ", paste(VALID_TYPES, collapse = ", "))
       out$type <- val
     } else if (arg == "--help" || arg == "-h") {
-      cat("Usage: Rscript refresh_prices.R [--country NG|TZ|RW|GH|BI] [--type default|starch|translations|all] [--dry-run]\n")
+      cat("Usage: Rscript refresh_prices.R [--country NG|TZ|RW|GH|BI] [--type default|starch|translations|all] [--dry-run] [--full]\n")
       quit(status = 0L)
     } else {
       stop("Unknown argument: ", arg, "\nRun with no arguments for usage.")
@@ -96,6 +101,7 @@ cat(sprintf("API URL        %s\n", api_url))
 cat(sprintf("Type           %s\n", args$type))
 cat(sprintf("Country        %s\n", if (is.null(args$country)) "all (n/a for translations)" else args$country))
 if (args$dry_run) cat("Mode           DRY RUN — no DB writes\n")
+if (args$full) cat("Mode           FULL — every active price is fetched; deactivated ones are removed\n")
 cat(strrep("-", 60), "\n")
 
 # ── Open DB ───────────────────────────────────────────────────────────────────
@@ -124,6 +130,8 @@ run_refresh <- function(label, fn, ...) {
   status_str <- toupper(r$status %||% "?")
   rows_str   <- if (!is.null(r$rows_upserted))
     sprintf("%d row(s)", r$rows_upserted) else ""
+  if (!is.null(r$rows_removed) && r$rows_removed > 0)
+    rows_str <- sprintf("%s, %d deactivated price(s) removed", rows_str, r$rows_removed)
   msg_str    <- if (!is.null(r$message) && r$status != "ok")
     sprintf(" — %s", r$message) else ""
   cat(sprintf("%-8s %s%s\n", status_str, rows_str, msg_str))
@@ -136,7 +144,7 @@ countries <- if (is.null(args$country)) VALID_COUNTRIES else args$country
 if (args$type %in% c("default", "all")) {
   for (ctry in countries) {
     run_refresh(sprintf("default/%s", ctry), refresh_prices,
-                country = ctry, source_tag = "manual")
+                country = ctry, source_tag = "manual", full = args$full)
   }
 }
 

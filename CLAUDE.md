@@ -89,6 +89,7 @@ Rscript tests/test_weasyprint_smoke.R
 Rscript tests/check_parse.R
 Rscript -e 'tinytest::run_test_file("tests/test_akilimo_db.R")'
 Rscript -e 'tinytest::run_test_file("tests/test_validate_request.R")'
+Rscript -e 'tinytest::run_test_file("tests/test_logging.R")'        # PDF content kept out of the log, log line cap
 Rscript -e 'tinytest::run_test_file("tests/test_pdf_template.R")'   # PDF template labels and rows
 Rscript -e 'tinytest::run_test_file("tests/test_ic_units.R")'       # intercrop field-size scaling
 # These two need data/ (CI downloads it from OSF and caches it):
@@ -180,6 +181,10 @@ Spatial data lives under `./data/` (gitignored, except `data/input/translations.
 
 ### Path and Server Configuration
 `AKILIMO_ROOT` env var sets `akpath` (defaults to `"."`). `API_HOST` and `API_PORT` control the Plumber bind address and port (defaults: `0.0.0.0:8000`). All file paths are relative to `akpath`.
+
+Logging: `LOG_LEVEL` (default `INFO`), `LOG_DIR`, `LOG_FILE_PREFIX`, `LOG_CHANNEL` and `LOG_STACK` (Laravel-style: a log line goes to a stack of channels, `file`, `stderr` and `stdout`, default `file,stderr`; `LOG_CHANNEL=stderr` uses one channel on its own, `LOG_STACK=null` logs nothing), each channel's own level in `LOG_FILE_LEVEL`, `LOG_STDERR_LEVEL` and `LOG_STDOUT_LEVEL` (else `LOG_LEVEL` applies; for example everything in the file but only INFO and above on the console: `LOG_STDERR_LEVEL=INFO`, which the older `LOG_STDERR=false` still means), `LOG_MAX_CHARS` (default 20000; cuts any single log line, `0` = no limit), `LOG_FORMAT` (`text` default, or `json` for one JSON object per line; `LOG_FILE_FORMAT`, `LOG_STDERR_FORMAT` and `LOG_STDOUT_FORMAT` set it for one channel), `LOG_KEEP_DAYS` (delete daily log files older than this; default 0 = keep all) and `LOG_SLOW_MS` (a slower request is logged at WARN; default 30000, 0 = never). `.env.example` lists them all.
+
+What the log does, in `R/logging.R` (tests: `tests/test_logging.R`): every line of a request carries its id (the `requestId` the AKILIMO API sends, else a short one made here) and each request ends with one `REQUEST DONE` line (status, type, country, duration); R warnings raised while serving a request are logged as WARN lines with that id; personal data is kept out (`redact_request()` replaces `user*` and phone fields, the email senders mask the recipient with `mask_email()`, and the `reports[].content` PDFs returned with `returnPdf` are replaced by a size note by `redact_reports()`); `summarize_result()` gives DEBUG a short summary and TRACE the whole result; and logging itself never fails a request (an unwritable `LOG_DIR` falls back to stderr). Do not put a farmer's name, email, phone number or plot name in a log line.
 
 ## Required R Packages
 ```r

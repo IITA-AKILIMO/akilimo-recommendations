@@ -234,6 +234,38 @@ get_dssat_data <- function(country, crop, pipeline) {
 
 
 # ---------------------------------------------------------------------------
+# Soil for scheduled planting (SP)
+#
+# Most countries' SP soil is the one SoilData_4Country.RDS (no yield class). Burundi
+# has no points in that file, so SP uses the soil FR uses: BI_FCY{1..5}_soilNPK.RDS,
+# the class picked from the farmer's current yield like FR does. One rule here, used
+# by the recommendation and by the coverage footprint, so they cannot disagree.
+# ---------------------------------------------------------------------------
+SP_SOIL_BY_FCY_COUNTRIES <- c("BI")
+
+# The soil row for a location, as getSPrecommendations() needs it
+get_sp_soil <- function(country, FCY, lon, lat) {
+    if (country %in% SP_SOIL_BY_FCY_COUNTRIES) {
+        get_data("soil_NPK", country, FCY, lon = lon, lat = lat)
+    } else {
+        get_data("soil_NPK-4", lon = lon, lat = lat)
+    }
+}
+
+# Every grid point with complete soil data for SP in a country, for the coverage
+# footprint. The class files share one grid, so the middle class stands for all.
+sp_soil_points <- function(country) {
+    soil <- if (country %in% SP_SOIL_BY_FCY_COUNTRIES) {
+        cached_read(paste0("soil_", country, "_FCY3"), function() readRDS(data_path(paste0("soil/", country, "_FCY3_soilNPK.RDS"))))
+    } else {
+        cached_read("soil_NPK4", function() readRDS(data_path("soil/SoilData_4Country.RDS")))
+    }
+    soil <- long2lon(soil)
+    soil[!is.na(soil$soilN) & !is.na(soil$soilP) & !is.na(soil$soilK), , drop = FALSE]
+}
+
+
+# ---------------------------------------------------------------------------
 # Public dispatcher — routes to the appropriate typed loader
 # ---------------------------------------------------------------------------
 get_data <- function(x, country = NULL, FCY = NULL, lon = NULL, lat = NULL, crop = NULL, pipeline = NULL) {

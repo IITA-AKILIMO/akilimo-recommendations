@@ -128,7 +128,7 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
 			PD, HD, PD_window, HD_window, saleSF, nameSF, FCY, 
 			rootUP, rootUP_m1, rootUP_m2, rootUP_p1, rootUP_p2) {
 
-  SoilData <- get_data("soil_NPK-4", lon=lon, lat=lat)
+  SoilData <- get_sp_soil(country, FCY, lon = lon, lat = lat)
 	WLY <- get_data("WLY_15M_ncdf", country, lon=lon, lat=lat)
 
 	if ((nrow(SoilData) == 0) || isTRUE(is.na(SoilData$soilN)) ||

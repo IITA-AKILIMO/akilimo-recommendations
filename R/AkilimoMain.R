@@ -14,7 +14,9 @@ REC_TYPE_COUNTRIES <- list(
   FR = c("NG", "TZ", "RW", "GH", "BI"),
   IC = c("NG", "TZ"),
   PP = c("NG", "TZ", "RW", "GH", "BI"),
-  SP = c("NG", "TZ", "GH", "RW"),
+  # BI uses the FR soil by yield class (get_sp_soil() in get_data.R); its planting-window
+  # file is built by tools/ensure_sp_files.sh. Remove BI here to switch it off.
+  SP = c("NG", "TZ", "GH", "RW", "BI"),
   PDC = "NG"
 )
 # Types whose result depends on the location's yield/soil data, so a point outside
@@ -35,6 +37,15 @@ active_rec_type <- function(body) {
   flag_type <- c(FR = "FR", IC = "IC", PP = "PP", SPP = "SP", SPH = "SP", PDC = "PDC")
   on <- vapply(names(flag_type), function(f) isTRUE(as.logical(body[[f]])), logical(1))
   if (!any(on)) NA_character_ else unname(flag_type[which(on)[1]])
+}
+
+# TRUE when the request offers at least one fertilizer: a "{type}available" field that is
+# TRUE (or "true"), or a custom "newFert{N}name" entry.
+has_available_fertilizer <- function(body) {
+  nms <- names(body)
+  ava <- nms[grepl("available$", nms)]
+  any(vapply(ava, function(n) isTRUE(as.logical(body[[n]])), logical(1))) ||
+    any(grepl("^newFert.name$", nms))
 }
 
 validate_request <- function(body) {
@@ -112,6 +123,12 @@ validate_request <- function(body) {
 
   if (!is.null(body[["subsidisedFertilizer"]]) && !is.logical(body[["subsidisedFertilizer"]]))
     return("subsidisedFertilizer must be a boolean")
+
+  # FR and IC choose among fertilizers. With none offered, get_fertilizers2() cannot
+  # build its tables and the request would fail with a bare 500, so say what is missing.
+  if (!is.na(rec_type) && rec_type %in% c("FR", "IC") && !has_available_fertilizer(body))
+    return(paste("No fertilizer is available: send at least one {type}available = true,",
+                 "with {type}CostperBag and {type}BagWt (or a newFert* custom fertilizer)"))
 
   NULL  # no error
 }
@@ -443,8 +460,8 @@ run_akilimo <- function(json) {
   set_temp_dir(setup_temp_dir(country = params$country,
                               rec_type = paste(params$selected_key, collapse = "_")))
 
-  message(paste0(params$selected_key, ": ", params$country,
-                 ", planting: ", params$PD, ", harvest: ", params$HD))
+  log_write("INFO", paste0(params$selected_key, ": ", params$country,
+                           ", planting: ", params$PD, ", harvest: ", params$HD))
 
   # Auto-refresh stale data when external APIs are configured.
   # Failures are logged as WARN and never block the recommendation.

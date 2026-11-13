@@ -1,0 +1,8 @@
+version: 2
+updates:
+  # Keeps the actions the workflows use up to date; each bump arrives as a pull request that the tests check
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
