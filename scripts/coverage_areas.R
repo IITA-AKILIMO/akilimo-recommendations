@@ -19,6 +19,8 @@ suppressPackageStartupMessages({
 akpath <- Sys.getenv("AKILIMO_ROOT", ".")
 setwd(akpath)
 source(file.path("R", "get_data.R"))
+# REC_TYPE_COUNTRIES (used by coverage.R) is defined in AkilimoMain.R
+source(file.path("R", "AkilimoMain.R"))
 source(file.path("R", "coverage.R"))
 
 out_dir <- file.path("scripts", "output")
