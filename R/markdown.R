@@ -84,4 +84,3 @@ calc_fertilizer_recom <- function(fertilizers, rr, half_lo = 0.25, half_hi = 0.7
     fr$bags      <- round_bags(fr$rate / fr$bagWeight, half_lo, half_hi)
     fr
 }
-

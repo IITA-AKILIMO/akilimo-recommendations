@@ -127,4 +127,3 @@ get_fertilizers2 <- function(js, country) {
 
 	fd
 }
-

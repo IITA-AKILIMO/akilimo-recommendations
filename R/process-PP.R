@@ -107,7 +107,7 @@ getPPrecText <- function(ds, country, lang) {
         tr("pp_rec_ridge_only", lang, ridg_method = ridg_label)
     }
 
-    rcost <- if (ds[1,]$ploughing | ds[1,]$ridging) {
+    rcost <- if (ds[1,]$ploughing || ds[1,]$ridging) {
         if (ds[1,]$dTC == 0) {
             tr("pp_cost_no_change", lang)
         } else {

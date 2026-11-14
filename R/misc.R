@@ -213,5 +213,3 @@ check_translation_keys <- function(srcdir) {
     }
     invisible(NULL)
 }
-
-

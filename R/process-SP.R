@@ -145,7 +145,7 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
 	# DEFERRED (LOG-12): QUEFTS() uses scalar max()/min() internally and cannot be
 	# vectorised without a major rewrite of quefts.R. Each row requires a separate call.
 	# For a 2-month planting × 2-month harvest window this is ~256 iterations per request.
-	for (k in 1:nrow(WLY)) {
+	for (k in seq_len(nrow(WLY))) {
 		Qinw <- data.frame(SoilData, WLY=WLY$WLY[k])
 		WLY$Current_Yield[k] <- tryCatch(
 			QUEFTS(Qinw, c(0,0,0), HI=.55), # in kg/ha dry
@@ -183,7 +183,7 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
     # ds$RFCY <- getRFY(HD = ds$HD, RDY = ds$CY, country = country)
     # ds$RFWY <- getRFY(HD = ds$HD, RDY = ds$WY, country = country)
     #
-    for (k in 1:nrow(ds)) {
+    for (k in seq_len(nrow(ds))) {
       # NOTE: hardcoded to "NG" — TZ dry-to-fresh conversion in getRFY() produces
       # unreliable values and has not yet been validated for Tanzania.
       ds$RFCY[k] <- getRFY(HD = ds$HD[k], RDY = ds$CY[k], country = "NG")
@@ -211,7 +211,7 @@ getSPrecommendations <- function(areaHa, country, lat, lon,
 	  SF <- get_data("starch_prices")
       SF <- SF[SF$starchFactory == nameSF,]
       price <- NULL
-      for (i in 1:nrow(ds)) {
+      for (i in seq_len(nrow(ds))) {
         price <- c(price, max(SF[SF$minStarch < ds[i,"SC"], "price"]))
       }
       ds$rootUP <- price

@@ -76,7 +76,7 @@ rerun_25kgha <- function(rootUP, rdd, fertilizer, QID, onlyFert25, country, WLY 
 	rdd$TC <- round(sum(fertilizer$price * fert) * areaHa, -2)
 	rdd$NR <- round((rdd$TargetY - rdd$CurrentY) * rootUP, -2) - rdd$TC
 
-	if ((rdd$NR <= 0) | (rdd$TargetY <= rdd$CurrentY)) {
+	if ((rdd$NR <= 0) || (rdd$TargetY <= rdd$CurrentY)) {
 		rdd$N <- rdd$P <- rdd$K <- rdd$TC <- rdd$NR <- 0
 		rdd$TargetY <- rdd$CurrentY
 	} else {

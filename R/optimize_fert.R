@@ -150,4 +150,3 @@ optim_NR <- function(fertRate, rootUP, QID, CY, fertilizer, invest, HD, DC) {
 	} 
 	NetRev
 }
-

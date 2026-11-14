@@ -25,13 +25,13 @@ getICrecommendations <- function(areaHa, CMP, cobUP, fertilizers, riskAtt = c(0,
   } else {
     #calculating fertilizer requirement
     E <- t(data.matrix(fertilizers[, c("N_cont", "P_cont", "K_cont")]))
-    F <- c(91, 21, 37.5) #ideally 2 bags of urea + 6 bags of NPK15:15:15
+    Frates <- c(91, 21, 37.5) #ideally 2 bags of urea + 6 bags of NPK15:15:15
     G <- diag(nrow(fertilizers))
     H <- rep(0, nrow(fertilizers))
     Cost <- fertilizers$price
 
     #calculating fertilizer recommendation and total cost of fertilizer
-    FRATE <- limSolve::linp(E, F, G, H, Cost)$X
+    FRATE <- limSolve::linp(E, Frates, G, H, Cost)$X
     FRATE[FRATE < 25] <- 0 #dropping all rates less than 25 kg/ha
     FRATE <- FRATE * areaHa #adjusting to field area
 
@@ -230,14 +230,14 @@ getCISrecommendations <- function(areaHa = 1, FCY = 11,
   if (rec_IC) {
     #calculating fertilizer requirement
     E <- t(data.matrix(fertilizers[, c("N_cont", "P_cont", "K_cont")]))
-    #F <- c(68, 19.6, 56.8) #ideally 2 bags of urea + 6 bags of NPK15:15:15
-    F <- c(68, 33.2, 60) #ideally 2 bags of urea + 8 bags of NPK17:17:17
+    #Frates <- c(68, 19.6, 56.8) #ideally 2 bags of urea + 6 bags of NPK15:15:15
+    Frates <- c(68, 33.2, 60) #ideally 2 bags of urea + 8 bags of NPK17:17:17
     G <- diag(nrow(fertilizers))
     H <- rep(0, nrow(fertilizers))
     Cost <- fertilizers$price
 
     #calculating fertilizer recommendation and total cost of fertilizer
-    FR <- limSolve::linp(E, F, G, H, Cost)$X
+    FR <- limSolve::linp(E, Frates, G, H, Cost)$X
     FR[FR < 25] <- 0 #dropping all rates less than 25 kg/ha
     FR <- FR * areaHa #adjusting to field area
 
@@ -351,4 +351,3 @@ getCISrecText <- function(d, country, lang) {
   # 4. No sanity check on unrealistic input prices.
 
 }
-

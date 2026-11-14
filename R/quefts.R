@@ -88,7 +88,7 @@ QUEFTS <- function(QID, rec, HI=0.52) {
 				}
 			}
 
-			water_dependent_nutrient_uptake <- function(S1, WLY, d1, a1, r1) {
+			water_dep_nutrient_uptake <- function(S1, WLY, d1, a1, r1) {
 				if (S1 < r1 + WLY / d1) {
 					S1
 				} else if (S1 > r1 + 2 * WLY / a1 - WLY / d1) {
@@ -101,17 +101,17 @@ QUEFTS <- function(QID, rec, HI=0.52) {
 			with(ds_supply, {
 				UNP <- nutrient_uptake(S1=SN, S2=SP, d1=dN, a1=aN, d2=dP, a2=aP, r1=rN, r2=rP)
 				UNK <- nutrient_uptake(S1=SN, S2=SK, d1=dN, a1=aN, d2=dK, a2=aK, r1=rN, r2=rK)
-				UNW <- water_dependent_nutrient_uptake(S1=SN, WLY=WLY, d1=dN, a1=aN, r1=rN)
+				UNW <- water_dep_nutrient_uptake(S1=SN, WLY=WLY, d1=dN, a1=aN, r1=rN)
 				UN <- min(UNP, UNK, UNW)
 
 			UPN <- nutrient_uptake(S1=SP, S2=SN, d1=dP, a1=aP, d2=dN, a2=aN, r1=rP, r2=rN)
 			UPK <- nutrient_uptake(S1=SP, S2=SK, d1=dP, a1=aP, d2=dK, a2=aK, r1=rP, r2=rK)
-			UPW <- water_dependent_nutrient_uptake(S1=SP, WLY=WLY, d1=dP, a1=aP, r1=rP)
+			UPW <- water_dep_nutrient_uptake(S1=SP, WLY=WLY, d1=dP, a1=aP, r1=rP)
 			UP <- min(UPN, UPK, UPW)
 
 			UKN <- nutrient_uptake(S1=SK, S2=SN, d1=dK, a1=aK, d2=dN, a2=aN, r1=rK, r2=rN)
 			UKP <- nutrient_uptake(S1=SK, S2=SP, d1=dK, a1=aK, d2=dP, a2=aP, r1=rK, r2=rP)
-			UKW <- water_dependent_nutrient_uptake(S1=SK, WLY=WLY, d1=dK, a1=aK, r1=rK)
+			UKW <- water_dep_nutrient_uptake(S1=SK, WLY=WLY, d1=dK, a1=aK, r1=rK)
 			UK <- min(UKN, UKP, UKW)
 
 			return(data.frame(UN=UN, UP=UP, UK=UK))
@@ -153,4 +153,3 @@ QUEFTS <- function(QID, rec, HI=0.52) {
 	#CurrentYield <- QUEFTS(Qinw, c(0,0,0), HI=.55)
 	#min(CurrentYield, wlyd)
 #}
-
