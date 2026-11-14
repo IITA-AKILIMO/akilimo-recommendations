@@ -344,6 +344,7 @@ These data and expert-input gaps are tracked in [docs/TECH-DEBT.md](docs/TECH-DE
 - **Tests:** commands are in CLAUDE.md. Set `AKILIMO_ROOT` to the repo root first, or the tinytest files can't find `R/`.
   - The data-backed tests need `data/` (`cd scripts && poetry run setup-data`).
   - After an intended result change, rebuild the baseline with `UPDATE_BASELINE=1` and commit `tests/test_small.rds`.
+- **Lint and format R:** `Rscript tools/lint_r.R` runs `lintr` over `R/` using `.lintr` and exits non-zero on any finding; CI runs the same through `tests/check_lint.R` after the syntax check. Style linters are off in `.lintr` until a formatting pass, so the check only covers correctness linters (seq_len, `&&`/`||`, `TRUE`/`FALSE`, trailing blank lines). `Rscript tools/style_r.R --dry` previews `styler`; drop `--dry` to rewrite `R/`, then review the diff. Both scripts work from any directory and skip `old/` and `R/preprocess/`.
 - **Running requests in R without the server:** source `R/*.R` except `api.R`, call `open_akilimo_db()`, then call `run_akilimo(json)`. To keep the real DB untouched, point `AKILIMO_DB_PATH` at a scratch file.
 - **Which types each country supports:** `REC_TYPE_COUNTRIES` in `R/AkilimoMain.R` is the only source. `validate_request()` and `/coverage` both read it.
 - **Windows quirks seen in this repo:**

@@ -87,6 +87,8 @@ Rscript tests/test_weasyprint_smoke.R
 
 # What CI runs. Set AKILIMO_ROOT to the project root first.
 Rscript tests/check_parse.R
+Rscript tools/lint_r.R            # lint R/ with .lintr (style linters off for now)
+Rscript tools/style_r.R --dry     # styler preview; drop --dry to rewrite R/, then review the diff
 Rscript -e 'tinytest::run_test_file("tests/test_akilimo_db.R")'
 Rscript -e 'tinytest::run_test_file("tests/test_validate_request.R")'
 Rscript -e 'tinytest::run_test_file("tests/test_logging.R")'        # PDF content kept out of the log, log line cap
@@ -190,7 +192,7 @@ What the log does, in `R/logging.R` (tests: `tests/test_logging.R`): every line 
 ```r
 c("plumber", "limSolve", "ncdf4", "httr", "mailR", "base64enc",
   "ggplot2", "ragg", "scales", "jsonlite", "DBI", "RSQLite",
-  "dotenv", "lubridate", "dplyr", "tidyr", "tinytest", "sf")
+  "dotenv", "lubridate", "dplyr", "tidyr", "tinytest", "sf", "lintr", "styler")
 ```
 
 ## API Request Schema

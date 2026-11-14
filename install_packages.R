@@ -52,7 +52,11 @@ pkgs <- c(
   "randomForest",
 
   # Testing
-  "tinytest"
+  "tinytest",
+
+  # Linting and formatting (tests/check_lint.R; configuration in .lintr)
+  "lintr",
+  "styler"
 )
 
 # ---------------------------------------------------------------------------

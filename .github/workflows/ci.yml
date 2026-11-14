@@ -297,6 +297,10 @@ jobs:
       - name: Check R syntax
         run: Rscript tests/check_parse.R
 
+      - name: Lint R code
+        if: ${{ !cancelled() }}
+        run: Rscript tests/check_lint.R
+
       - name: Test price database
         if: ${{ !cancelled() }}
         run: Rscript tests/run_ci_test.R tests/test_akilimo_db.R
