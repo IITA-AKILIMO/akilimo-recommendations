@@ -18,9 +18,8 @@ pkgs <- c(
   "sf",          # GET /coverage footprints; Linux needs libgdal-dev libgeos-dev
                  #   libproj-dev libudunits2-dev libabsl-dev cmake
 
-  # HTTP / notifications
+  # HTTP
   "httr",
-  "mailR",
 
   # Report generation (WeasyPrint — HTML/CSS → PDF via Python CLI)
   "base64enc",
@@ -105,32 +104,6 @@ if (is.null(res)) {
   )
 } else {
   message("weasyprint: ", res)
-}
-
-# ---------------------------------------------------------------------------
-# mailR / rJava: needs a working Java installation
-# Only checked if rJava is available.
-#   Linux:   sudo apt-get install openjdk-17-jre-headless
-#            sudo R CMD javareconf
-#   Windows: install JDK from https://adoptium.net
-#            (ensure JAVA_HOME is set and java.exe is on PATH)
-#   macOS:   brew install openjdk, then sudo R CMD javareconf
-# ---------------------------------------------------------------------------
-if (requireNamespace("rJava", quietly = TRUE)) {
-  tryCatch({
-    rJava::.jinit()
-    message("rJava: OK")
-  }, error = function(e) {
-    message("rJava could not initialise. mailR (email sending) will not work.")
-    if (.Platform$OS.type == "windows") {
-      message("  -> Install a JDK from https://adoptium.net, set JAVA_HOME, re-run this script.")
-    } else if (Sys.info()[["sysname"]] == "Darwin") {
-      message("  -> Run: brew install openjdk && sudo R CMD javareconf")
-    } else {
-      message("  -> Run: sudo apt-get install openjdk-21-jre-headless")
-      message("          sudo R CMD javareconf")
-    }
-  })
 }
 
 # ---------------------------------------------------------------------------

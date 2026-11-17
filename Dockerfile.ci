@@ -13,7 +13,7 @@ FROM rocker/r-ver:4
 ENV DEBIAN_FRONTEND=noninteractive
 
 # System libraries: GDAL/GEOS/PROJ/udunits for sf, NetCDF for ncdf4, SQLite,
-# curl, a JRE for rJava (mailR), WeasyPrint for the PDF tests, and the tools
+# curl, WeasyPrint for the PDF tests, and the tools
 # the workflow steps use (git, jq, zstd for actions/cache, pipx for the OSF
 # data download).
 RUN apt-get update \
@@ -22,8 +22,6 @@ RUN apt-get update \
       weasyprint \
       libgdal-dev libgeos-dev libproj-dev libudunits2-dev libabsl-dev cmake \
       libnetcdf-dev libsqlite3-dev libcurl4-openssl-dev \
-      default-jre-headless \
- && R CMD javareconf \
  && rm -rf /var/lib/apt/lists/*
 
 # Same script the servers and the old CI cache step ran; it exits non-zero if

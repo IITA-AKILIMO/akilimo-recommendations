@@ -33,7 +33,6 @@ The script targets **Debian/Ubuntu**. For other distros, pass `--no-system` and 
 ```bash
 sudo apt-get update
 sudo apt-get install -y \
-  openjdk-17-jre-headless \
   libnetcdf-dev libhdf5-dev \
   libpango-1.0-0 libpangoft2-1.0-0 libgdk-pixbuf2.0-0 \
   libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev \
@@ -45,7 +44,6 @@ sudo apt-get install -y \
 
 | Package | Required by |
 |---------|------------|
-| `openjdk-17-jre-headless` | mailR (SMTP email via Java) — only needed if `EMAIL_PROVIDER=smtp` |
 | `libnetcdf-dev`, `libhdf5-dev` | ncdf4 R package — reads yield raster data |
 | `libpango-1.0-0`, `libpangoft2-1.0-0`, `libgdk-pixbuf2.0-0` | WeasyPrint — PDF rendering (font layout, image support) |
 | `libfreetype6-dev`, `libpng-dev`, `libtiff5-dev`, `libjpeg-dev` | ragg — headless PNG rendering for ggplot2 charts (no X11 required) |
@@ -107,17 +105,7 @@ Run the provided installer script — works on Linux, macOS, and Windows:
 Rscript install_packages.R
 ```
 
-This installs all required packages and checks that WeasyPrint is on `PATH`. It also checks that rJava is working if `mailR` is being used for SMTP email.
-
-**Java requirement for `mailR` (SMTP only):**
-
-| Platform | Action |
-|----------|--------|
-| Linux | `sudo apt-get install openjdk-17-jre-headless && sudo R CMD javareconf` |
-| Windows | Install JDK from [adoptium.net](https://adoptium.net), set `JAVA_HOME`, re-run the script |
-| macOS | `brew install openjdk`, then `sudo R CMD javareconf` |
-
-Java is **not** required when using `EMAIL_PROVIDER=mailtrap` or `EMAIL_PROVIDER=mailgun`.
+This installs all required packages and checks that WeasyPrint is on `PATH`. Java is not needed: this service does not send email (the AKILIMO API sends the PDF).
 
 ### Environment configuration
 
@@ -125,7 +113,7 @@ There are two separate `.env` files — one per subsystem:
 
 | File | Used by | Copy from |
 |------|---------|-----------|
-| `.env` (project root) | R API — server binding, email credentials | `.env.example` |
+| `.env` (project root) | R API — server binding and options | `.env.example` |
 | `scripts/.env` | Python data scripts — OSF/Zenodo IDs and tokens | `scripts/.env.example` |
 
 ```bash
@@ -145,16 +133,6 @@ Neither file is committed (both matched by `.gitignore`).
 | `AKILIMO_ROOT` | `.` | Absolute path to project root |
 | `API_HOST` | `0.0.0.0` | Plumber listen address |
 | `API_PORT` | `8000` | Plumber listen port |
-| `EMAIL_PROVIDER` | `smtp` | Email backend: `smtp` \| `mailtrap` \| `mailgun` |
-| `EMAIL_FROM` | — | Sender address (all providers) |
-| `EMAIL_HOST` | — | SMTP host (smtp only) |
-| `EMAIL_USER` | — | SMTP username (smtp only) |
-| `EMAIL_PASSWORD` | — | SMTP password (smtp only) |
-| `EMAIL_PORT` | `587` | SMTP port (smtp only) |
-| `MAILTRAP_API_KEY` | — | Mailtrap Sending API key (mailtrap only) |
-| `MAILGUN_API_KEY` | — | Mailgun API key (mailgun only) |
-| `MAILGUN_DOMAIN` | — | Mailgun sending domain (mailgun only) |
-| `MAILGUN_REGION` | `us` | Mailgun region: `us` \| `eu` (mailgun only) |
 | `AKILIMO_DB_PATH` | `data/input/akilimo_compute.sqlite` | Path to the SQLite price database |
 | `AKILIMO_API_URL` | — | Base URL of the external price service (unset = auto-refresh disabled) |
 | `AKILIMO_API_TOKEN` | — | Bearer token for the price API |

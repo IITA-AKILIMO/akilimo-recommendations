@@ -360,7 +360,6 @@ log_startup_summary <- function(version = NA, port = NA) {
     paste0("log_slow_ms=", log_slow_ms()),
     paste0("log_dir=", Sys.getenv("LOG_DIR", unset = file.path(getwd(), "logs"))),
     paste0("AKILIMO_API_URL=", set("AKILIMO_API_URL")),
-    paste0("EMAIL_HOST=", set("EMAIL_HOST")),
     paste0("MAP_API_URL=", set("MAP_API_URL")),
     paste0("MAPBOX_TOKEN=", set("MAPBOX_TOKEN"))))
 }
