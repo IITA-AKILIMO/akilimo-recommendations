@@ -65,7 +65,7 @@ akilimo-recommendations/
 │   ├── markdown.R          # Shared helpers: FERT_COLOUR/LABEL, calc_fertilizer_recom()
 │   ├── html_helpers.R      # HTML fragment builders for WeasyPrint PDFs
 │   ├── pdf_builders.R      # build_fr/ic/pp/sp_pdf() — one per recommendation type
-│   ├── email.R             # PDF generation orchestration; email dispatch (smtp/mailtrap/mailgun)
+│   ├── generate_pdfs.R     # PDF generation orchestration (the PDFs are returned to the caller)
 │   ├── process-FR.R        # Fertilizer Recommendation processor
 │   ├── process-IC.R        # Intercropping processor
 │   ├── process-PP.R        # Post-Planting processor
@@ -129,7 +129,7 @@ Each processor follows the same pattern:
 
 Processors no longer write CSV files to the temp dir. All data needed for PDF generation is returned in the result list.
 
-### Stage 6 — PDF generation (`R/email.R`, `R/pdf_builders.R`)
+### Stage 6 — PDF generation (`R/generate_pdfs.R`, `R/pdf_builders.R`)
 
 `generate_pdfs()` calls the appropriate `build_*_pdf()` for each active flag. Each builder:
 
@@ -140,7 +140,7 @@ Processors no longer write CSV files to the temp dir. All data needed for PDF ge
 
 All images are base64-embedded in the HTML so WeasyPrint requires no network access. Per-request isolation: every HTML file, map PNG, chart PNG, and output PDF is written to a dedicated temp subdirectory named `temp/{YYYYMMDD_HHMMSS}_{COUNTRY}_{TYPE}_{rand4}/`. Temp dirs older than 1 hour are cleaned up on each new request.
 
-Individual PDF failures are caught and logged; the recommendation JSON is always returned regardless of PDF or email outcome.
+Individual PDF failures are caught and logged; the recommendation JSON is always returned regardless of the PDF outcome. This service does not send email: the AKILIMO API stores the returned PDFs (`returnPdf`) and emails them.
 
 ### Stage 7 — Response assembly
 
@@ -402,7 +402,6 @@ Copy `.env.example` to `.env` and fill in the values you need. Full variable ref
 | `AKILIMO_ROOT` | `.` | Project root path |
 | `API_HOST` | `0.0.0.0` | Plumber bind address |
 | `API_PORT` | `8000` | Plumber port |
-| `EMAIL_PROVIDER` | `smtp` | `smtp` \| `mailtrap` \| `mailgun` |
 
 The R API reads `.env` on startup via `dotenv::load_dot_env()` in `api.R`. Never commit `.env`.
 
@@ -530,10 +529,7 @@ The API sources all `R/*.R` files but does not load data eagerly — data is loa
 **2. Coordinates outside raster extent**
 If `lat`/`lon` maps to a cell with no soil or yield data (ocean, desert, outside country boundary), the processor may return `NA` yields or fall back silently. The spatial data covers only the agricultural extent of each supported country. Coordinates that are technically in-country but in an unsupported cell will produce a `norecom` (no recommendation) response.
 
-**3. `mailR` requires Java**
-Email dispatch (`R/email.R`) uses `mailR`, which is backed by a Java mail library. If `rJava` cannot find a JVM at startup, the entire server process fails. On Linux: `sudo R CMD javareconf`. On Windows: ensure `JAVA_HOME` is set before starting R.
-
-**4. `from_json()` default types must match expected type**
+**3. `from_json()` default types must match expected type**
 `from_json("someFlag", body, default_value = FALSE)` returns logical. If you mistakenly pass `default_value = 0`, downstream `isTRUE()` checks will silently fail. Always match the default type to what the code expects.
 
 **5. Area unit conversions happen in `parse_request()`, not in processors**

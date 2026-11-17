@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- Email sending. The AKILIMO API now emails the PDF advice from the reports it stores (`returnPdf`), so this service no longer sends mail: `sendEmailReport()` and the smtp/mailtrap/mailgun senders, the `mailR` package and its Java requirement, the `EMAIL_*`, `MAILTRAP_*` and `MAILGUN_*` settings, `tests/test_email.R` and the email subject and body labels are gone. The `email` field of a request is accepted and ignored. `R/email.R` is now `R/generate_pdfs.R` (it only built PDFs). Deploy the API change first: until it is live, a request with `email: true` is no longer emailed by either service.
+
 ### Added
 - `returnPdf` request field: a successful `/compute` answer then carries the generated PDFs as `reports` (name, content type, base64), so the AKILIMO API can store them and give its callers a download link
 - `requestId` request field: printed in every page's footer as the report's reference, next to the date, the model version and page numbers, and as a small QR code in the footer (only the id is encoded; new dependency `qrcode`, left out when the package is missing)

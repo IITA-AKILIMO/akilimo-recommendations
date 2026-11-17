@@ -521,17 +521,6 @@ run_akilimo <- function(json) {
     }
   )
 
-  if (isTRUE(params$user$send_email)) {
-    if (length(PDFs) > 0) {
-      tryCatch(
-        sendEmailReport(params$user, PDFs, lang = params$lang),
-        error = function(e) warning("sendEmailReport failed: ", conditionMessage(e))
-      )
-    } else {
-      log_write("WARN", "Email requested but no PDFs were generated — skipping sendEmailReport.")
-    }
-  }
-
   response <- build_response(result)
 
   # returnPdf = true: the caller (the AKILIMO API) stores the reports and serves them as a
@@ -575,7 +564,6 @@ from_json <- function(field_name, body, default_value = "NA") {
 
 get_user <- function(body) {
   list(
-    send_email = from_json("email", body, default_value = FALSE),
     Name = from_json("userName", body),
     Email = from_json("userEmail", body)
   )

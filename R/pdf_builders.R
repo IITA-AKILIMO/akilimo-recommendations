@@ -64,7 +64,7 @@ render_pdf <- function(html, path) {
 #'
 #' @param rr         Recommendation result data from process-FR.R.
 #' @param fertilizers Fertilizer list (parsed, from process-FR.R return value).
-#' @param user        User info list (name, phone_number, send_email, …).
+#' @param user        User info list (name, phone_number, …).
 #' @param country     Country code string (e.g. "TZ").
 #' @param userField   Farm/field description string.
 #' @param area        Farm area (numeric).
