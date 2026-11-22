@@ -94,6 +94,7 @@ Rscript -e 'tinytest::run_test_file("tests/test_validate_request.R")'
 Rscript -e 'tinytest::run_test_file("tests/test_logging.R")'        # PDF content kept out of the log, log line cap
 Rscript -e 'tinytest::run_test_file("tests/test_pdf_template.R")'   # PDF template labels and rows
 Rscript -e 'tinytest::run_test_file("tests/test_ic_units.R")'       # intercrop field-size scaling
+Rscript -e 'tinytest::run_test_file("tests/test_pdc_units.R")'      # planting date and cultivar logic, made-up DSSAT table
 # These two need data/ (CI downloads it from OSF and caches it):
 Rscript -e 'tinytest::run_test_file("tests/test_small.R")'          # all fixtures vs tests/test_small.rds
 Rscript -e 'tinytest::run_test_file("tests/test_rw_regressions.R")'
