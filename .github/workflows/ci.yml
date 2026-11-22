@@ -171,6 +171,7 @@ jobs:
           sparse-checkout: |
             Dockerfile.ci
             install_packages.R
+            requirements.txt
           sparse-checkout-cone-mode: false
 
       - name: Work out the image tag
