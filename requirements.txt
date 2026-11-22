@@ -1,0 +1,4 @@
+# Python tools the engine needs at runtime (setup.sh, setup.bat, Dockerfile.ci and
+# docs/SETUP.md install from this file). The version is deliberately not pinned:
+# pip installs the latest WeasyPrint. Needs Python >= 3.10.
+weasyprint

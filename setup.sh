@@ -59,7 +59,7 @@ if $INSTALL_SYSTEM; then
     warn "  libfreetype6-dev  libpng-dev  libtiff5-dev  libjpeg-dev"
     warn "  libssl-dev  libcurl4-openssl-dev  libxml2-dev"
     warn "  libgdal-dev  libgeos-dev  libproj-dev  libudunits2-dev  libabsl-dev  cmake"
-    warn "  python3-pip, then: pip install weasyprint"
+    warn "  python3-pip, then: pip install -r requirements.txt"
   else
     sudo apt-get update -qq
     sudo apt-get install -y \
@@ -90,15 +90,12 @@ if $INSTALL_SYSTEM; then
 
     # WeasyPrint renders the PDF reports. Install system-wide so it lands in
     # /usr/local/bin, which is on the PATH systemd services see.
-    if command -v weasyprint &>/dev/null; then
-      success "WeasyPrint already installed: $(weasyprint --version)"
-    else
-      info "Installing WeasyPrint..."
-      # Debian 12+ / Ubuntu 23.04+ refuse system-wide pip without the override
-      sudo pip3 install weasyprint 2>/dev/null \
-        || sudo pip3 install --break-system-packages weasyprint
-      success "WeasyPrint installed: $(weasyprint --version)"
-    fi
+    # requirements.txt lists WeasyPrint unpinned, so pip installs the latest.
+    info "Installing WeasyPrint (latest, from requirements.txt)..."
+    # Debian 12+ / Ubuntu 23.04+ refuse system-wide pip without the override
+    sudo pip3 install --disable-pip-version-check -r "$(dirname "$0")/requirements.txt" 2>/dev/null \
+      || sudo pip3 install --disable-pip-version-check --break-system-packages -r "$(dirname "$0")/requirements.txt"
+    success "WeasyPrint installed: $(weasyprint --version)"
   fi
 fi
 

@@ -87,7 +87,7 @@ if (length(missing) > 0) {
 
 # ---------------------------------------------------------------------------
 # WeasyPrint: Python CLI tool used to render HTML reports to PDF.
-# Install with: pip install weasyprint
+# Install with: pip install -r requirements.txt (latest version, not pinned)
 # System libraries required on Linux/Debian:
 #   apt-get install -y libpango-1.0-0 libpangoft2-1.0-0 libgdk-pixbuf2.0-0
 # See docs/PDF-GENERATION-PLAN.md §2 for full installation instructions.

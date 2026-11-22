@@ -22,6 +22,11 @@ This section is newest. Where it disagrees with §0 and later, **this one wins**
 
 Wherever §0 to §8 say `new-akilimo-api` or `D:\Dev\php\new-akilimo-api`, read `akilimo-api` at the new path. The API's branch is now `develop`; `feat/price-catalogue-views` is gone.
 
+### 00.1a Added on 2026-11-22: cassava mask and PDC exposed
+
+- **Cassava-area mask.** FR and SP requests and `GET /coverage` keep only MapSPAM 2020 cells with at least `CASSAVA_MIN_HA` (default 20) ha of cassava (`data/input/cassava_area_spam2020.csv`, tracked in git). Four fixtures (`in_12`, `in_13`, `in_21`, `in_36`) were moved into covered cells and `tests/test_small.rds` rebuilt. Windows setup: `setup.bat` and `requirements.txt` (WeasyPrint, unpinned).
+- **PDC is exposed end to end (NG maize only).** Laravel API: `compute_request.recommendations.planting_date_cultivar_rec` and `crop` (`maize` only), sent to this engine as `PDC` and `crop`; playground scenario `PDC`. Android app: a "Planting date and cultivar" tile for NG users, use case `PDC`. MCP server: `use_case` `PDC` and the same flag. Not done: the MCP web UI has no PDC screen, and `api_requests` has no PDC column (the `use_case` column holds `PDC`). None of this is committed or deployed.
+
 ### 00.2 Done since 2026-11-13
 
 - **Engine:** `fix/engine-price-sync-and-health-port` is **merged into `experimental` as PR #34** (`5765edd`), so beta's code has the logging rewrite, BI scheduled planting, price deactivation (schema v7) and the new health check. Commits after it on `experimental`: `d00d25c` (auto-approve workflow for bot PRs), `4e49cd1` (Dependabot for Actions), `970fc14` and `952c908` (`coverage_areas.R` fixes), `a8ca34f` (lintr and styler with a CI check, see CLAUDE.md "Run Tests") and `898def3` (lintr findings cleared). `experimental` equals `origin/experimental` at `898def3`.

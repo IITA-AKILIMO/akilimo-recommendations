@@ -42,6 +42,7 @@ tests/response/*
 data/input/*
 !data/input/translations.csv
 !data/input/fertilizer_npk.csv
+!data/input/cassava_area_spam2020.csv
 
 # Saved regression results for tests/test_small.R
 !tests/test_small.rds

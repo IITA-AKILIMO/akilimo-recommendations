@@ -171,6 +171,7 @@ jobs:
           sparse-checkout: |
             Dockerfile.ci
             install_packages.R
+            requirements.txt
           sparse-checkout-cone-mode: false
 
       - name: Work out the image tag
@@ -320,6 +321,14 @@ jobs:
       - name: Test intercrop field-size scaling
         if: ${{ !cancelled() }}
         run: Rscript tests/run_ci_test.R tests/test_ic_units.R
+
+      - name: Test the cassava-area mask
+        if: ${{ !cancelled() }}
+        run: Rscript tests/run_ci_test.R tests/test_cassava_mask.R
+
+      - name: Test planting date and cultivar advice
+        if: ${{ !cancelled() }}
+        run: Rscript tests/run_ci_test.R tests/test_pdc_units.R
 
       - name: Test recommendations against the saved baseline
         if: ${{ !cancelled() }}
