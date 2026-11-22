@@ -36,7 +36,48 @@ cellFromLonLat <- function(lon, lat, res=0.05) {
 # the given country? Uses the same WLY_365 yield data (available for all five
 # countries) that process-FR.R already looks up, so "covered" means the exact
 # same thing as "a recommendation can actually be computed here".
+#
+# On top of the yield grid, a point must lie in a cassava-growing area: a
+# MapSPAM 2020 cell (5 arcmin, ~9 km) with at least CASSAVA_MIN_HA hectares of
+# cassava harvested (see cassava_cells_ok() below).
 # ---------------------------------------------------------------------------
+
+# Minimum cassava harvested area (ha) a MapSPAM cell needs to count as cassava
+# area. Env CASSAVA_MIN_HA overrides it; 0 keeps every cell with any cassava.
+CASSAVA_MIN_HA_DEFAULT <- 20
+
+cassava_min_ha <- function() {
+    v <- suppressWarnings(as.numeric(Sys.getenv("CASSAVA_MIN_HA", "")))
+    if (length(v) != 1L || is.na(v) || v < 0) CASSAVA_MIN_HA_DEFAULT else v
+}
+
+# MapSPAM cells are 5 arcmin = 1/12 degree; a point's cell is its floored index
+spam_cell_key <- function(lon, lat) paste(floor(lon * 12), floor(lat * 12))
+
+# Named numeric vector (cell key -> cassava ha) for one country, or NULL when
+# data/input/cassava_area_spam2020.csv or the country's rows are missing, in
+# which case the mask is not applied (the check fails open).
+cassava_area_cells <- function(country) {
+    cached_read(paste0("cassava_area_", country), function() {
+        f <- data_path("input/cassava_area_spam2020.csv")
+        if (!file.exists(f)) return(NULL)
+        d <- utils::read.csv(f, stringsAsFactors = FALSE)
+        d <- d[d$country == country, ]
+        if (nrow(d) == 0) return(NULL)
+        stats::setNames(d$cass_ha, spam_cell_key(d$lon, d$lat))
+    })
+}
+
+# TRUE where lon/lat falls in a cell with at least cassava_min_ha() ha of
+# cassava (a cell absent from the file has none); all TRUE when there is no
+# mask for the country.
+cassava_cells_ok <- function(country, lon, lat) {
+    ha <- cassava_area_cells(country)
+    if (is.null(ha)) return(rep(TRUE, length(lon)))
+    got <- ha[spam_cell_key(lon, lat)]
+    unname(!is.na(got) & got >= cassava_min_ha())
+}
+
 is_point_covered <- function(country, lon, lat) {
     w <- tryCatch(
         get_yield_data("WLY_365", country, lon, lat),
@@ -49,7 +90,7 @@ is_point_covered <- function(country, lon, lat) {
         }
     )
     if (is.null(w)) return(TRUE)  # fail open on infra errors (e.g. missing file)
-    nrow(w) > 0
+    nrow(w) > 0 && cassava_cells_ok(country, lon, lat)
 }
 
 
