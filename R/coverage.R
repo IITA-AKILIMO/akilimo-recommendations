@@ -35,6 +35,8 @@ coverage_points <- function(country, type = "FR") {
     w <- long2lon(readRDS(f))
     pts <- unique(w[, c("lon", "lat")])
     pts <- pts[is.finite(pts$lon) & is.finite(pts$lat), ]
+    # Same cassava-area rule as is_point_covered() (get_data.R)
+    pts <- pts[cassava_cells_ok(country, pts$lon, pts$lat), ]
     if (type != "SP") return(pts)
 
     if (!country %in% REC_TYPE_COUNTRIES$SP) return(pts[0, ])

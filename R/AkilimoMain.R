@@ -1,7 +1,15 @@
+# A rejected request: the message is for people and logs (English); `code` is stable and
+# machine-readable, so the AKILIMO API and the mobile app can show their own translated text.
+# Codes: outside_coverage, rec_type_unavailable, no_recommendation_selected, no_fertilizer,
+# and invalid_input for every other check.
+reject <- function(code, msg) structure(msg, code = code)
+
 bad_request <- function(msg) {
+  code <- attr(msg, "code")
+  if (is.null(code)) code <- "invalid_input"
   list(status  = jsonlite::unbox("400 - bad request"),
        version = jsonlite::unbox(AKI_VERSION),
-       data    = list(message = jsonlite::unbox(msg)))
+       data    = list(message = jsonlite::unbox(as.character(msg)), code = jsonlite::unbox(code)))
 }
 
 # Countries each recommendation type has data for. FR and PP use the per-country
@@ -79,25 +87,26 @@ validate_request <- function(body) {
 
   rec_type <- active_rec_type(body)
   if (!is.na(rec_type) && !country %in% REC_TYPE_COUNTRIES[[rec_type]])
-    return(sprintf(
+    return(reject("rec_type_unavailable", sprintf(
       "%s recommendations are not available for country: %s — supported countries are %s",
       REC_TYPE_LABELS[[rec_type]], country, paste(REC_TYPE_COUNTRIES[[rec_type]], collapse = ", ")
-    ))
+    )))
 
   # Only FR and SP look up location data (the yield/soil grid GET /coverage draws;
   # SP's planting-window cells match it for NG and TZ). IC and PP use no location
   # data, so they are not limited to the grid.
   if (rec_type %in% LOCATION_REC_TYPES && !is_point_covered(country, lon, lat))
-    return(sprintf(
+    return(reject("outside_coverage", sprintf(
       "No recommendation data available for lat=%.3f, lon=%.3f in %s — this location is outside the supported agricultural area for this country",
       lat, lon, country
-    ))
+    )))
   if (is.null(area) || !is.numeric(area) || area <= 0)
     return("Invalid or missing area — must be a positive number")
   if (is.null(areaUnits) || !areaUnits %in% VALID_AREA_UNITS)
     return(paste("Invalid or missing areaUnits — must be one of:", paste(VALID_AREA_UNITS, collapse = ", ")))
   if (!any(flags))
-    return("At least one recommendation flag must be TRUE (FR, IC, PP, SPP, SPH, or PDC)")
+    return(reject("no_recommendation_selected",
+                  "At least one recommendation flag must be TRUE (FR, IC, PP, SPP, SPH, or PDC)"))
 
   FCY <- body[["FCY"]]
   if (!is.null(FCY) && (!is.numeric(FCY) || FCY < 0 || FCY > 100))
@@ -127,8 +136,8 @@ validate_request <- function(body) {
   # FR and IC choose among fertilizers. With none offered, get_fertilizers2() cannot
   # build its tables and the request would fail with a bare 500, so say what is missing.
   if (!is.na(rec_type) && rec_type %in% c("FR", "IC") && !has_available_fertilizer(body))
-    return(paste("No fertilizer is available: send at least one {type}available = true,",
-                 "with {type}CostperBag and {type}BagWt (or a newFert* custom fertilizer)"))
+    return(reject("no_fertilizer", paste("No fertilizer is available: send at least one {type}available = true,",
+                 "with {type}CostperBag and {type}BagWt (or a newFert* custom fertilizer)")))
 
   NULL  # no error
 }

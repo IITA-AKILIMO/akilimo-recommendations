@@ -13,7 +13,7 @@ FROM rocker/r-ver:4
 ENV DEBIAN_FRONTEND=noninteractive
 
 # System libraries: GDAL/GEOS/PROJ/udunits for sf, NetCDF for ncdf4, SQLite,
-# curl, WeasyPrint for the PDF tests, and the tools
+# curl, a JRE for rJava (mailR), WeasyPrint's libraries for the PDF tests, and the tools
 # the workflow steps use (git, jq, zstd for actions/cache, pipx for the OSF
 # data download).
 RUN apt-get update \
@@ -23,6 +23,10 @@ RUN apt-get update \
       libgdal-dev libgeos-dev libproj-dev libudunits2-dev libabsl-dev cmake \
       libnetcdf-dev libsqlite3-dev libcurl4-openssl-dev \
  && rm -rf /var/lib/apt/lists/*
+
+# Latest WeasyPrint from requirements.txt (not the older apt package)
+COPY requirements.txt /tmp/requirements.txt
+RUN pip3 install --disable-pip-version-check --break-system-packages -r /tmp/requirements.txt && rm /tmp/requirements.txt
 
 # Same script the servers and the old CI cache step ran; it exits non-zero if
 # any package fails to install, which fails the image build.

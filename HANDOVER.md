@@ -3,13 +3,50 @@
 For the next AI agent (or developer) picking up this repository. Read this,
 then [CLAUDE.md](CLAUDE.md), before changing anything.
 
-**IITA Internal Use.** Last updated: 2026-11-13.
+**IITA Internal Use.** Last updated: 2026-11-21 (status in §00; the rest is history).
 
 ---
 
-## 0. Start here: what changed on 2026-11-11 and 2026-11-12
+## 00. Start here: state on 2026-11-21 (checked against the repositories)
 
-The rest of this file was last fully revised on 2026-11-10. This section is newer; where they disagree, this one wins.
+This section is newest. Where it disagrees with §0 and later, **this one wins**; the older text is kept as history. Each repo was fetched and compared on 2026-11-21; nothing was run, deployed or tested.
+
+### 00.1 Repository locations changed
+
+| Repo | Path now | Remote |
+|---|---|---|
+| R engine (this repo) | `D:\dev\r\akilimo-recommendations` | `IITA-AKILIMO/akilimo-recommendations` |
+| Laravel API (was `new-akilimo-api`) | `D:\dev\php\akilimo-api` | `IITA-AKILIMO/akilimo-api` |
+| Android app | `D:\Dev\android\akilimo-mobile` | `IITA-AKILIMO/akilimo-mobile` |
+| MCP server and chat | `D:\dev\js\akilimo-mcp-agent` | `origin/main` only |
+
+Wherever §0 to §8 say `new-akilimo-api` or `D:\Dev\php\new-akilimo-api`, read `akilimo-api` at the new path. The API's branch is now `develop`; `feat/price-catalogue-views` is gone.
+
+### 00.1a Added on 2026-11-22: cassava mask and PDC exposed
+
+- **Cassava-area mask.** FR and SP requests and `GET /coverage` keep only MapSPAM 2020 cells with at least `CASSAVA_MIN_HA` (default 20) ha of cassava (`data/input/cassava_area_spam2020.csv`, tracked in git). Four fixtures (`in_12`, `in_13`, `in_21`, `in_36`) were moved into covered cells and `tests/test_small.rds` rebuilt. Windows setup: `setup.bat` and `requirements.txt` (WeasyPrint, unpinned).
+- **PDC is exposed end to end (NG maize only).** Laravel API: `compute_request.recommendations.planting_date_cultivar_rec` and `crop` (`maize` only), sent to this engine as `PDC` and `crop`; playground scenario `PDC`. Android app: a "Planting date and cultivar" tile for NG users, use case `PDC`. MCP server: `use_case` `PDC` and the same flag. Not done: the MCP web UI has no PDC screen, and `api_requests` has no PDC column (the `use_case` column holds `PDC`). None of this is committed or deployed.
+
+### 00.2 Done since 2026-11-13
+
+- **Engine:** `fix/engine-price-sync-and-health-port` is **merged into `experimental` as PR #34** (`5765edd`), so beta's code has the logging rewrite, BI scheduled planting, price deactivation (schema v7) and the new health check. Commits after it on `experimental`: `d00d25c` (auto-approve workflow for bot PRs), `4e49cd1` (Dependabot for Actions), `970fc14` and `952c908` (`coverage_areas.R` fixes), `a8ca34f` (lintr and styler with a CI check, see CLAUDE.md "Run Tests") and `898def3` (lintr findings cleared). `experimental` equals `origin/experimental` at `898def3`.
+- **API (`akilimo-api`, `develop`, clean, in step with origin):** the S3 report work, farmer accounts, soft delete, bulk delete, long-history endpoints and the unit-test workflow rework (§0.2, §0.3b, §0.5a) are all in `origin/develop` (checked: `d74d7c5`, `83a7b38`, `5d64f01`, `7acbd41`, `53b99c4`, `491d6be`). Also new: the owner's **consent version `v1` is set for the approved policy and terms** (`e9590e3`), and a **privacy policy, accounts/saved-advice/PDF wording, a terms page and a site publish workflow** were added (`3eef2fd`, `5c445a6`; later CI trims `ad68eca`, `caac92f`). The route files were split (admin, pricing, lookup-data, recommendations, reference, playground, coverage, feedback and translations each have their own file). Open branches: `docs/conf` and a Dependabot branch for `docker/setup-buildx-action`.
+- **Mobile (`develop`):** the UI redesign, hub sync strip and farmer-account screens (§0.3, §0.3b) are in `origin/develop` (swipe delete, multi-select and swipe share: `5a5f9aa1`, `f595038f`; the auto-approve fixes `ac1cdc9a`, `32f98505`, `afbe1dcb`). The repo is on `develop`, clean, in step with origin. `115c790f` moved the unit-test trigger from `push` to `pull_request`.
+
+### 00.3 Not done, found open on 2026-11-21
+
+- **Engine: `origin/refactor/remove-email-sending` (`ae03bc9`, 2026-11-17) is not merged.** One commit: the engine stops sending email because the AKILIMO API emails the PDF. `CLAUDE.md`, `docs/` and this file still describe the engine's email senders (`R/email.R`, `sendEmailReport()`, the `mask_email()` use in logging); update them when it merges.
+- **MCP agent: nothing moved.** `main` equals `origin/main` at `46418ed`, and `fix/investment-preference-wording` (`99f23f8`) **does not exist in this clone**, so the investment-preference wording change (§0.3a) is not on any branch here. Find the other worktree or machine that holds it, or redo it. Its other open items (MCP Hub, production deployment through `proxy-tool`, no automated tests, the three unlinked account systems) are unchanged.
+
+### 00.4 Not checked on 2026-11-21 (still unknown)
+
+Beta crash-loop gone after `API_PORT=8001` and the new health check; RW and BI scheduled-planting requests against beta; a `/compute` request using an activated catalogue price; whether the repository variable `APP_CLIENT_ID` and secret `APP_PRIVATE_KEY` exist in the API and app repos (§0.5a); GitHub runs of the reworked workflows; the mobile app on a device against a server with the account routes; the Google Cloud OAuth clients and `GOOGLE_CLIENT_ID`; sw/rw/ha translations; the IITA/CGIAR logo as SVG; the deferred app-wide text size; whether `akilimo-nova` replaces `akilimo-mobile`. The §0.5 list is otherwise superseded by §00.2 for everything marked done.
+
+---
+
+## 0. What changed on 2026-11-11 and 2026-11-12 (history; see §00 for the current state)
+
+The rest of this file was last fully revised on 2026-11-10. This section is newer than that; where they disagree, this one wins, and §00 wins over both.
 
 ### 0.1 Engine (this repo): logging rewrite, BI scheduled planting, price deactivation, health check — on `fix/engine-price-sync-and-health-port`
 
