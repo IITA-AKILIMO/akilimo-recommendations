@@ -49,7 +49,7 @@ local({
   )
   if (is.null(res) || length(res) == 0) {
     log_write("ERROR", "WeasyPrint not found — PDF generation will fail.",
-              "Install with: pip install weasyprint")
+              "Install with: pip install -r requirements.txt")
   } else {
     log_write("INFO", "WeasyPrint:", paste(res, collapse = " "))
   }
