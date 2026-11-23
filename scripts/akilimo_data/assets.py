@@ -106,6 +106,46 @@ def resolve(only: tuple[str, ...] = (), exclude: tuple[str, ...] = (),
     return [known[n] for n in chosen if n not in dropped]
 
 
+def from_manifest(entries: dict, only: tuple[str, ...] = (), exclude: tuple[str, ...] = ()) -> list[Asset]:
+    """
+    The assets to download when a manifest is published: exactly the ones it lists. The config
+    lists (required, optional, discovered folders) neither add to this nor drop from it; only
+    what the user narrows (--only, --exclude, ASSETS, ASSETS_EXCLUDE) and the config's on_demand
+    assets (not fetched unless named) change the default. An asset named with --only that the
+    manifest does not list is still returned when the config knows it, so setup-data can say it
+    is not published (and skip it when it is optional); a name nobody knows is an error.
+    """
+    known = registry()
+    wanted = [n for item in only for n in _names(item)] or _names(os.environ.get("ASSETS", ""))
+    dropped = [n for item in exclude for n in _names(item)] + _names(os.environ.get("ASSETS_EXCLUDE", ""))
+
+    unknown = sorted({n for n in wanted + dropped if n not in entries and n not in known})
+    if unknown:
+        raise click.BadParameter(
+            f"unknown asset(s): {', '.join(unknown)}. Published: {', '.join(sorted(entries))}"
+        )
+
+    cfg = load_asset_config()
+
+    def build(name: str) -> Asset:
+        entry = entries.get(name)
+        if entry is None:  # named, known to the config, not published
+            return known[name]
+        archives = [p["archive"] for p in entry.get("parts", [])] or [entry.get("archive") or f"{name}-data.tar.gz"]
+        return Asset(
+            name=name,
+            dir=entry.get("dir") or f"{cfg['root']}/{name}",
+            archive=archives[0],
+            optional=bool(entry.get("optional", name not in cfg["required"])),
+        )
+
+    if wanted:
+        chosen = wanted
+    else:
+        chosen = [n for n in sorted(entries) if n not in set(cfg["on_demand"])]
+    return [build(n) for n in chosen if n not in dropped]
+
+
 def _print_list(ctx: click.Context, _param: click.Parameter, value: bool) -> None:
     if not value or ctx.resilient_parsing:
         return

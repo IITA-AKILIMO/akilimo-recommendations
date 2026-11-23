@@ -37,9 +37,7 @@
     "dssat",
     "spam"
   ],
-  "on_demand": [
-    "spam"
-  ],
+  "on_demand": [],
   "archives": {
     "input": "data-input.tar.gz",
     "soil": "soil-data.tar.gz",
