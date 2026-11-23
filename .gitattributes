@@ -1,0 +1,2 @@
+# Shell scripts run on Linux servers and in CI: always LF, whatever the checkout machine uses
+*.sh text eol=lf
