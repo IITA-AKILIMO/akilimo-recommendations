@@ -180,8 +180,14 @@ def fetch_github_tarball(filename: str, cfg: Config, sha256: str | None = None,
     asset = asset_named(release, filename)
     if asset is None:
         where = f"release {tag_name()} of {repo_slug(cfg)}"
-        console.print(f"  [bold red][fail][/] {filename} not found in {where}"
-                      + ("" if release else f" (no such release, or no access).\n         {READ_HINT}"))
+        detail = ""
+        if release is None:
+            detail = " (no such release, or no access)."
+            if not tok:
+                detail += ("\n         NO TOKEN IS SET: a private repository answers 404 without one. "
+                           "Set GITHUB_TOKEN (the DATA_GITHUB_TOKEN secret in CI and on the servers).")
+            detail += f"\n         {READ_HINT}"
+        console.print(f"  [bold red][fail][/] {filename} not found in {where}{detail}")
         cfg.failed.append(filename)
         return False
     # The asset's API URL with Accept: octet-stream streams the file (and works for a private repo)
