@@ -31,7 +31,7 @@ srcdir <- file.path(akpath, "R")
 # R/preprocess/ and the project-root old/ directory are intentionally excluded.
 for (f in c("misc.R", "logging.R", "get_data.R", "coverage.R", "akilimo_db.R", "fertilizers.R",
             "quefts.R", "optimize_fert.R", "markdown.R", "html_helpers.R",
-            "pdf_builders.R", "email.R",
+            "pdf_builders.R", "generate_pdfs.R",
             "process-FR.R", "process-IC.R", "process-PP.R", "process-SP.R",
             "process-PDC.R", "AkilimoMain.R")) {
   source(file.path(srcdir, f))

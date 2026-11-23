@@ -22,8 +22,6 @@ RUN apt-get update \
       weasyprint \
       libgdal-dev libgeos-dev libproj-dev libudunits2-dev libabsl-dev cmake \
       libnetcdf-dev libsqlite3-dev libcurl4-openssl-dev \
-      default-jre-headless \
- && R CMD javareconf \
  && rm -rf /var/lib/apt/lists/*
 
 # Latest WeasyPrint from requirements.txt (not the older apt package)

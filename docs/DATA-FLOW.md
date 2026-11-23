@@ -53,16 +53,13 @@ flowchart TD
 
     tr1 --> result[[result list:<br/>rec_type, recommendation,<br/>data, fertilizers]]
 
-    result --> pdf{generate_pdfs&#40;&#41;<br/>R/email.R}
+    result --> pdf{generate_pdfs&#40;&#41;<br/>R/generate_pdfs.R}
     pdf --> build[build_fr/ic/pp/sp_pdf&#40;&#41;<br/>R/pdf_builders.R + html_helpers.R]
     build --> weasy[WeasyPrint<br/>system2&#40;&#41; call]
     weasy --> pdfout[(PDF files<br/>in temp dir)]
     pdf -->|failure: logged, never blocks response| result
 
-    pdfout --> email{email requested?}
-    email -->|yes| send[sendEmailReport&#40;&#41;<br/>smtp / mailtrap / mailgun]
-    email -->|no| resp
-    send --> resp[build_response&#40;result&#41;]
+    pdfout --> resp[build_response&#40;result&#41;<br/>PDFs returned when returnPdf is set]
 
     resp -->|200 success JSON| client
 ```

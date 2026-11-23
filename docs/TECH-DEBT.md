@@ -77,13 +77,13 @@ stale. Failure is logged as WARN and never blocks the recommendation.
 
 ### PDF pipeline (WeasyPrint)
 
-Implemented in `R/html_helpers.R`, `R/pdf_builders.R`, `R/email.R`.
+Implemented in `R/html_helpers.R`, `R/pdf_builders.R`, `R/generate_pdfs.R`.
 Renderer: [WeasyPrint](https://weasyprint.org) (`pip install weasyprint`) — pure
 Python, no browser or Java required.
 
 Call chain per recommendation type:
 ```
-generate_pdfs()  (email.R)
+generate_pdfs()  (generate_pdfs.R)
   └─ build_{fr|ic|pp|sp}_pdf()  (pdf_builders.R)
         └─ html_open() + html_personal_info() + html_*() fragment helpers
         └─ render_pdf(html, path)

@@ -334,32 +334,25 @@ unlink(get_log_file())
 set_log_context("req-dup")
 suppressMessages(with_logged_warnings({
   # the way the email senders do it: the log line in two parts, the warning in two parts, the same text
-  log_write("WARN", "SMTP email not sent: missing env vars:", paste(c("EMAIL_HOST", "EMAIL_USER"), collapse = ", "))
-  warning("SMTP email not sent: missing env vars: ", paste(c("EMAIL_HOST", "EMAIL_USER"), collapse = ", "))
+  log_write("WARN", "PDF not built: missing tools:", paste(c("weasyprint", "qrcode"), collapse = ", "))
+  warning("PDF not built: missing tools: ", paste(c("weasyprint", "qrcode"), collapse = ", "))
   warning("a different warning")
 }))
 clear_log_context()
 txt <- log_text()
-expect_equal(lengths(regmatches(txt, gregexpr("SMTP email not sent", txt, fixed = TRUE))), 1)
+expect_equal(lengths(regmatches(txt, gregexpr("PDF not built", txt, fixed = TRUE))), 1)
 expect_true(grepl("a different warning", txt, fixed = TRUE))
 # the next request starts afresh: the same text is logged again
 unlink(get_log_file())
 set_log_context("req-next")
-suppressMessages(with_logged_warnings(warning("SMTP email not sent: missing env vars: EMAIL_HOST")))
+suppressMessages(with_logged_warnings(warning("PDF not built: missing tools: weasyprint")))
 clear_log_context()
-expect_true(grepl("SMTP email not sent", log_text(), fixed = TRUE))
+expect_true(grepl("PDF not built", log_text(), fixed = TRUE))
 # the warning names the function it came from, not a truncated call
 sender <- function() warning("from a function")
 unlink(get_log_file())
 suppressMessages(with_logged_warnings(sender()))
 expect_true(grepl("from a function (in sender)", log_text(), fixed = TRUE))
-
-# the recipient's address never goes in the log: every log line in email.R that names the recipient masks it
-# (mask_email() is in html_helpers.R, which the PDF report uses too)
-email_src <- paste(readLines(file.path(akpath, "R", "email.R"), warn = FALSE), collapse = "\n")
-formats_naming_recipient <- length(gregexpr("to=%s|to %s", email_src)[[1]])
-expect_true(formats_naming_recipient >= 7)
-expect_equal(length(gregexpr("mask_email\\(to\\)", email_src)[[1]]), formats_naming_recipient)
 
 # ---------------------------------------------------------------------------
 # 6. Old log files are removed
@@ -426,14 +419,14 @@ expect_equal(log_slow_ms(), 30000)
 # ---------------------------------------------------------------------------
 # 8. The start-up summary shows settings, never secrets
 # ---------------------------------------------------------------------------
-Sys.setenv(EMAIL_HOST = "smtp.internal.example", MAPBOX_TOKEN = "pk.SECRET-TOKEN-VALUE")
+Sys.setenv(MAPBOX_TOKEN = "pk.SECRET-TOKEN-VALUE")
 unlink(get_log_file())
 suppressMessages(log_startup_summary(version = "20260101", port = 8000))
 txt <- log_text()
 expect_true(grepl("STARTUP version=20260101 port=8000", txt, fixed = TRUE))
 expect_true(grepl("log_stack=file,stderr file_level=DEBUG file_format=text stderr_level=DEBUG stderr_format=text", txt, fixed = TRUE))
-expect_true(grepl("EMAIL_HOST=set", txt, fixed = TRUE)); expect_true(grepl("MAPBOX_TOKEN=set", txt, fixed = TRUE))
-expect_false(grepl("smtp.internal.example", txt, fixed = TRUE)); expect_false(grepl("SECRET-TOKEN-VALUE", txt, fixed = TRUE))
-Sys.unsetenv(c("EMAIL_HOST", "MAPBOX_TOKEN"))
+expect_true(grepl("MAPBOX_TOKEN=set", txt, fixed = TRUE))
+expect_false(grepl("SECRET-TOKEN-VALUE", txt, fixed = TRUE))
+Sys.unsetenv("MAPBOX_TOKEN")
 
 unlink(log_dir, recursive = TRUE)

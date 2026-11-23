@@ -159,12 +159,6 @@
   coord_lat           = c(en = "Lat",                      sw = "Lat"),
   coord_lon           = c(en = "Lon",                      sw = "Lon"),
 
-  # ── Email ─────────────────────────────────────────────────────────────────
-  email_subject       = c(en = "AKILIMO recommendation",
-                           sw = "Mapendekezo ya AKILIMO"),
-  email_body          = c(en = "Please find attached your AKILIMO recommendation.\n\nBest regards,\nThe AKILIMO team",
-                           sw = "Tafadhali tazama mapendekezo yako ya AKILIMO yaliyoambatanishwa.\n\nKwa heshima,\nTimu ya AKILIMO"),
-
   # ── SP — Scheduled Planting ─────────────────────────────────────────────
   sp_title            = c(en = "Scheduled Planting Advice",
                            sw = "Ushauri wa Kupanga Tarehe ya Kupanda"),

@@ -120,7 +120,7 @@ When adding a new fixture, also register it in the `test_files` vector in
 
 ## Architecture
 
-See [docs/DATA-FLOW.md](docs/DATA-FLOW.md) for a diagram of how a request moves through validation, data lookup, optimisation, and PDF/email generation.
+See [docs/DATA-FLOW.md](docs/DATA-FLOW.md) for a diagram of how a request moves through validation, data lookup, optimisation, and PDF generation.
 
 ### Request Flow
 ```
@@ -139,7 +139,6 @@ POST /compute (api.R)
             process-PDC.R — Planting Date and Cultivar (NG maize)
         → Each processor: loads spatial/DSSAT data → QUEFTS → optimisation → returns result list
         → generate_pdfs() → build_*_pdf() → WeasyPrint → PDF files
-        → sendEmailReport() if requested
         → Assembles JSON response (PDF failures never suppress the recommendation)
 
 GET /coverage, GET /coverage/<country>, optional ?type=FR|SP (api.R)
@@ -165,7 +164,7 @@ GET /coverage, GET /coverage/<country>, optional ?type=FR|SP (api.R)
 | `R/markdown.R` | Shared helpers: `FERT_COLOUR`, `FERT_LABEL`, `calc_fertilizer_recom()` |
 | `R/html_helpers.R` | HTML fragment builders for WeasyPrint PDFs; `.PDF_LABELS` label lookup |
 | `R/pdf_builders.R` | `build_fr/ic/pp/sp_pdf()` — one builder per recommendation type |
-| `R/email.R` | PDF generation orchestration; email dispatch (smtp/mailtrap/mailgun) |
+| `R/generate_pdfs.R` | PDF generation orchestration (the AKILIMO API emails the PDFs; this service does not) |
 | `R/misc.R` | `tr(key, lang, ...)` translation helper, `get_currency()`, `getRFY()`/`getRDY()` |
 
 ### PDF pipeline
@@ -192,11 +191,11 @@ Cassava-area mask: `CASSAVA_MIN_HA` (default 20) is the minimum cassava harveste
 
 Logging: `LOG_LEVEL` (default `INFO`), `LOG_DIR`, `LOG_FILE_PREFIX`, `LOG_CHANNEL` and `LOG_STACK` (Laravel-style: a log line goes to a stack of channels, `file`, `stderr` and `stdout`, default `file,stderr`; `LOG_CHANNEL=stderr` uses one channel on its own, `LOG_STACK=null` logs nothing), each channel's own level in `LOG_FILE_LEVEL`, `LOG_STDERR_LEVEL` and `LOG_STDOUT_LEVEL` (else `LOG_LEVEL` applies; for example everything in the file but only INFO and above on the console: `LOG_STDERR_LEVEL=INFO`, which the older `LOG_STDERR=false` still means), `LOG_MAX_CHARS` (default 20000; cuts any single log line, `0` = no limit), `LOG_FORMAT` (`text` default, or `json` for one JSON object per line; `LOG_FILE_FORMAT`, `LOG_STDERR_FORMAT` and `LOG_STDOUT_FORMAT` set it for one channel), `LOG_KEEP_DAYS` (delete daily log files older than this; default 0 = keep all) and `LOG_SLOW_MS` (a slower request is logged at WARN; default 30000, 0 = never). `.env.example` lists them all.
 
-What the log does, in `R/logging.R` (tests: `tests/test_logging.R`): every line of a request carries its id (the `requestId` the AKILIMO API sends, else a short one made here) and each request ends with one `REQUEST DONE` line (status, type, country, duration); R warnings raised while serving a request are logged as WARN lines with that id; personal data is kept out (`redact_request()` replaces `user*` and phone fields, the email senders mask the recipient with `mask_email()`, and the `reports[].content` PDFs returned with `returnPdf` are replaced by a size note by `redact_reports()`); `summarize_result()` gives DEBUG a short summary and TRACE the whole result; and logging itself never fails a request (an unwritable `LOG_DIR` falls back to stderr). Do not put a farmer's name, email, phone number or plot name in a log line.
+What the log does, in `R/logging.R` (tests: `tests/test_logging.R`): every line of a request carries its id (the `requestId` the AKILIMO API sends, else a short one made here) and each request ends with one `REQUEST DONE` line (status, type, country, duration); R warnings raised while serving a request are logged as WARN lines with that id; personal data is kept out (`redact_request()` replaces `user*` and phone fields, the farmer's email address is masked in the PDF with `mask_email()`, and the `reports[].content` PDFs returned with `returnPdf` are replaced by a size note by `redact_reports()`); `summarize_result()` gives DEBUG a short summary and TRACE the whole result; and logging itself never fails a request (an unwritable `LOG_DIR` falls back to stderr). Do not put a farmer's name, email, phone number or plot name in a log line.
 
 ## Required R Packages
 ```r
-c("plumber", "limSolve", "ncdf4", "httr", "mailR", "base64enc",
+c("plumber", "limSolve", "ncdf4", "httr", "base64enc",
   "ggplot2", "ragg", "scales", "jsonlite", "DBI", "RSQLite",
   "dotenv", "lubridate", "dplyr", "tidyr", "tinytest", "sf", "lintr", "styler")
 ```
@@ -212,7 +211,7 @@ POST `/compute` JSON payload requires:
 - Crop params: `cassUP`, `cassUW`, `cassPD`, `FCY`, `CMP`, `maxInv`
 - Fertilizer entries: `*available`, `*CostperBag`, `*BagWt` per fertilizer type
 - User: `userName`, `userEmail`, `userField`
-- Notification flags: `email`
+- `email`: accepted but ignored, because this service does not send email (the AKILIMO API does)
 
 Full field reference with types and examples: [docs/API-REFERENCE.md](docs/API-REFERENCE.md)
 
