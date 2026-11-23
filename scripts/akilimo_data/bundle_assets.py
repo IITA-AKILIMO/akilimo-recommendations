@@ -81,7 +81,7 @@ def _stem(asset: Asset) -> str:
 def plan_parts(asset: Asset, files: list[dict]) -> list[tuple[str, list[dict]]]:
     """
     [(archive name, files)]: the small files together under the asset's own archive name, every
-    file over "split_over_mb" in an archive of its own (<stem>--<path below the asset>.tar.gz).
+    file over "split_over_mb" in an archive of its own (<stem>__<path below the asset>.tar.gz).
     """
     limit = load_asset_config()["split_over_mb"] * 1_048_576
     small = [f for f in files if f["size"] <= limit]
@@ -93,7 +93,7 @@ def plan_parts(asset: Asset, files: list[dict]) -> list[tuple[str, list[dict]]]:
     for f in big:
         below = f["path"].removeprefix(asset.dir + "/")
         slug = re.sub(r"[^A-Za-z0-9._-]+", "_", below)
-        parts.append((f"{_stem(asset)}--{slug}.tar.gz", [f]))
+        parts.append((f"{_stem(asset)}__{slug}.tar.gz", [f]))
     return parts
 
 
@@ -158,7 +158,7 @@ def create_bundle(asset: Asset) -> dict | None:
     # big, or removed) must not linger and get uploaded
     planned = plan_parts(asset, files)
     keep = {name for name, _ in planned}
-    for old in [*DIST_DIR.glob(f"{_stem(asset)}.tar.gz"), *DIST_DIR.glob(f"{_stem(asset)}--*.tar.gz")]:
+    for old in [*DIST_DIR.glob(f"{_stem(asset)}.tar.gz"), *DIST_DIR.glob(f"{_stem(asset)}__*.tar.gz")]:
         if old.name not in keep:
             old.unlink()
 
