@@ -66,6 +66,7 @@ def load_asset_config() -> dict:
         _asset_config = {
             "root": str(raw.get("root", "data")).strip("/\\"),
             "exclude": [str(p) for p in raw.get("exclude", [])],
+            "ignore": [str(p) for p in raw.get("ignore", [])],
             "required": [str(n) for n in raw.get("required", [])],
             "optional": [str(n) for n in raw.get("optional", [])],
             "on_demand": [str(n) for n in raw.get("on_demand", [])],
@@ -101,15 +102,16 @@ def _env_ignore() -> list[str]:
 
 def is_excluded_name(rel: str) -> bool:
     """
-    True when a path relative to the data root is on the exclusion list (assets.json), on
-    ASSETS_IGNORE, or on this run's --ignore list. A name without a slash matches that name
+    True when a path relative to the data root is on the 'exclude' or 'ignore' list of
+    assets.json, on ASSETS_IGNORE, or on this run's --ignore list. A name without a slash matches that name
     anywhere in the path (so a folder is left out whole); a pattern with a slash matches that
     path or anything below it. * and ? work, and * also crosses folders.
     """
     parts = [p for p in rel.replace("\\", "/").removeprefix("./").split("/") if p]
     if not parts:
         return False
-    for pattern in [*load_asset_config()["exclude"], *_env_ignore(), *_run_ignore]:
+    cfg = load_asset_config()
+    for pattern in [*cfg["exclude"], *cfg["ignore"], *_env_ignore(), *_run_ignore]:
         if "/" in pattern:
             if any(fnmatch.fnmatchcase("/".join(parts[:i]), pattern) for i in range(1, len(parts) + 1)):
                 return True
