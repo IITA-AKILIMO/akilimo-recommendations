@@ -111,7 +111,6 @@ def create_bundle(asset: Asset) -> dict | None:
     return {
         "archive": asset.archive,
         "dir": asset.dir,
-        "description": asset.description,
         "optional": asset.optional,
         "sha256": sha256_of(output_path),
         "size_bytes": size,

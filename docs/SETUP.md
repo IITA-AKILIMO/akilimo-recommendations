@@ -235,7 +235,7 @@ poetry run setup-data --source zenodo --zenodo-id 19231022
 poetry run setup-data --source zenodo --sandbox   # sandbox.zenodo.org
 ```
 
-This downloads and extracts the assets listed in `scripts/assets.json`:
+Everything in the data folder is bundled: each folder directly under `data/` is one asset with its own archive (`data/<name>` is `<name>-data.tar.gz`), found automatically, so a new data folder needs no configuration. What is **not** bundled is the exclusion list in `scripts/assets.json` (hidden folders, `data/spam`, `*.sqlite` and the other price-database files, and the files tracked in git such as `translations.csv`); an extraction never overwrites those either. Today:
 
 | Asset | Bundle | Extracted to | Contents |
 |-------|--------|-------------|----------|
@@ -252,7 +252,7 @@ poetry run setup-data --only soil --only yield
 poetry run setup-data --exclude dssat        # e.g. a server that never serves PDC
 ```
 
-To make a choice permanent, set `ASSETS` (exactly these) or `ASSETS_EXCLUDE` in `scripts/.env`. An optional asset that is not published yet is skipped with a warning instead of failing the setup. To add a new asset, add an entry to `scripts/assets.json` (`dir`, `archive`, `description`, `optional`, `default`); no code change is needed. `ASSETS_FILE` points at an extra file in the same format.
+To make a choice permanent, set `ASSETS` (exactly these) or `ASSETS_EXCLUDE` in `scripts/.env`. `required` in `assets.json` names the assets whose absence fails a run; every other asset is optional and is skipped with a warning when it is not published yet. To keep something out of the bundles, add a pattern to `exclude` (gitignore style: a name without `/` matches anywhere, a pattern with `/` matches that path). With a published manifest, `setup-data` also fetches assets it lists that this repository has never heard of. If OSF answers 401, set `OSF_TOKEN` (in `scripts/.env` or the environment); it is sent to osf.io hosts only.
 
 The Data setup workflow has matching `assets` and `exclude_assets` inputs.
 

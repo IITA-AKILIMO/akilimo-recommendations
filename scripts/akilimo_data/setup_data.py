@@ -19,7 +19,7 @@ Usage:
     poetry run setup-data --list-assets
 
 .env keys used:
-    ZENODO_RECORD_ID, ZENODO_USE_SANDBOX, OSF_NODE_ID, ASSETS, ASSETS_EXCLUDE, ASSETS_FILE
+    ZENODO_RECORD_ID, ZENODO_USE_SANDBOX, OSF_NODE_ID, ASSETS, ASSETS_EXCLUDE, OSF_TOKEN
 """
 
 from __future__ import annotations
@@ -85,12 +85,16 @@ def main(source: str | None, zenodo_id: str, sandbox: bool, osf_node_id: str,
          no_manifest: bool, only: tuple[str, ...], exclude: tuple[str, ...]) -> None:
     """Download Akilimo runtime data from Zenodo or OSF."""
 
-    assets = resolve(only, exclude)
-
     cfg = Config(zenodo_id=zenodo_id, sandbox=sandbox, osf_node_id=osf_node_id)
 
     if source is None:
         source = _detect_source(zenodo_id, osf_node_id)
+
+    # What was published (archive names, checksums, the files in each bundle). Its asset names
+    # are known to this run even when this machine has none of the data yet.
+    manifest = None if no_manifest else fetch_manifest(source, cfg)
+    published = manifest["assets"] if manifest else None
+    assets = resolve(only, exclude, extra=published or ())
 
     console.print(Rule("[bold cyan]Akilimo Data Setup[/]"))
     console.print(f"  Project root : {PROJECT_ROOT}")
@@ -124,9 +128,7 @@ def main(source: str | None, zenodo_id: str, sandbox: bool, osf_node_id: str,
         (PROJECT_ROOT / d).mkdir(parents=True, exist_ok=True)
         console.print(f"  [dim]{d}[/]")
 
-    # 2. The published manifest (archive names, checksums, the files in each bundle)
-    manifest = None if no_manifest else fetch_manifest(source, cfg)
-    published = manifest["assets"] if manifest else None
+    # 2. The published manifest
     if manifest:
         console.print(
             f"  Manifest     : {len(published)} asset(s), generated {manifest.get('generated_at', '?')}"

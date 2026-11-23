@@ -12,7 +12,9 @@ Environment variables (loaded from scripts/.env via python-dotenv):
 
 from __future__ import annotations
 
+import fnmatch
 import hashlib
+import json
 import os
 import tarfile
 import tempfile
@@ -39,22 +41,66 @@ load_dotenv(SCRIPTS_DIR / ".env", override=False)
 
 console = Console()
 
-# Paths under data/ that never travel in a data bundle: files tracked in git
-# (they ship with the code) and the runtime price database. Bundling skips
-# them, and extracting an older bundle that has them leaves the local copies
-# alone, so a data pull never overwrites the repo's translations or the
-# server's refreshed prices.
-BUNDLE_EXCLUDED_FILES: tuple[str, ...] = (
-    "data/input/translations.csv",
-    "data/input/fertilizer_npk.csv",
-)
-BUNDLE_EXCLUDED_SUFFIXES: tuple[str, ...] = (".sqlite", ".sqlite-wal", ".sqlite-shm", ".db")
+# What never travels in a data bundle, and what an extraction never overwrites (files tracked
+# in git ship with the code; the price database is refreshed on the server), comes from the
+# exclusion list in scripts/assets.json, so a data pull never replaces the repo's
+# translations or the server's prices.
+ASSET_CONFIG_FILE: Path = SCRIPTS_DIR / "assets.json"
+_DEFAULT_ARCHIVE_SUFFIX = "-data.tar.gz"
+_asset_config: dict | None = None
+
+
+def load_asset_config() -> dict:
+    """scripts/assets.json with defaults filled in (read once)."""
+    global _asset_config
+    if _asset_config is None:
+        try:
+            raw = json.loads(ASSET_CONFIG_FILE.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            raise SystemExit(f"Cannot read {ASSET_CONFIG_FILE}: {exc}") from exc
+        _asset_config = {
+            "root": str(raw.get("root", "data")).strip("/\\"),
+            "exclude": [str(p) for p in raw.get("exclude", [])],
+            "required": [str(n) for n in raw.get("required", [])],
+            "optional": [str(n) for n in raw.get("optional", [])],
+            "archives": {str(k): str(v) for k, v in (raw.get("archives") or {}).items()},
+        }
+        # Listed as an asset but also on the exclusion list: the exclusion wins, so say so
+        clashes = [n for n in _asset_config["required"] + _asset_config["optional"]
+                   if is_excluded_name(n)]
+        if clashes:
+            console.print(
+                f"[yellow]Warning:[/] {', '.join(clashes)} in scripts/assets.json is listed as an asset "
+                "and also matches the exclusion list; it is NOT bundled. Remove it from one of them."
+            )
+    return _asset_config
+
+
+def is_excluded_name(rel: str) -> bool:
+    """
+    True when a path relative to the data root is on the exclusion list. A name without a
+    slash matches that name anywhere in the path (so a folder is left out whole); a pattern
+    with a slash matches that path or anything below it.
+    """
+    parts = [p for p in rel.replace("\\", "/").removeprefix("./").split("/") if p]
+    if not parts:
+        return False
+    for pattern in load_asset_config()["exclude"]:
+        if "/" in pattern:
+            if any(fnmatch.fnmatchcase("/".join(parts[:i]), pattern) for i in range(1, len(parts) + 1)):
+                return True
+        elif any(fnmatch.fnmatchcase(part, pattern) for part in parts):
+            return True
+    return False
 
 
 def is_bundle_excluded(name: str) -> bool:
-    """True for a tar member / path that must not be bundled or extracted."""
+    """True for a tar member / project-relative path that must not be bundled or extracted."""
     path = name.replace("\\", "/").removeprefix("./")
-    return path in BUNDLE_EXCLUDED_FILES or path.endswith(BUNDLE_EXCLUDED_SUFFIXES)
+    root = load_asset_config()["root"] + "/"
+    if not path.startswith(root):
+        return False
+    return is_excluded_name(path[len(root):])
 
 
 # The manifest published next to the bundles (written by bundle-assets, uploaded with
@@ -99,6 +145,10 @@ class Config:
     osf_node_id: str = field(
         default_factory=lambda: os.environ.get("OSF_NODE_ID", "")
     )
+    # Needed to read a private OSF project; sent to osf.io hosts only
+    osf_token: str = field(
+        default_factory=lambda: os.environ.get("OSF_TOKEN", "")
+    )
     failed: list[str] = field(default_factory=list)
 
     @property
@@ -126,7 +176,18 @@ class Config:
 # Download helpers
 # ---------------------------------------------------------------------------
 
-def download_file(url: str, dest: Path, description: str = "") -> bool:
+def _is_osf(url: str) -> bool:
+    host = url.split("/")[2] if "://" in url else ""
+    return host == "osf.io" or host.endswith(".osf.io")
+
+
+def auth_headers(url: str, cfg: "Config") -> dict[str, str]:
+    """A bearer header for OSF hosts when OSF_TOKEN is set; never for any other host."""
+    return {"Authorization": f"Bearer {cfg.osf_token}"} if cfg.osf_token and _is_osf(url) else {}
+
+
+def download_file(url: str, dest: Path, description: str = "",
+                  headers: dict[str, str] | None = None) -> bool:
     """
     Stream-download *url* to *dest* with a tqdm progress bar.
     Returns True on success, False on any network error (never raises).
@@ -135,7 +196,7 @@ def download_file(url: str, dest: Path, description: str = "") -> bool:
     label = description or dest.name
 
     try:
-        with requests.get(url, stream=True, timeout=60) as response:
+        with requests.get(url, stream=True, timeout=60, headers=headers) as response:
             response.raise_for_status()
             total = int(response.headers.get("content-length", 0))
 
@@ -178,7 +239,7 @@ def fetch_tarball(
         tmp_path = Path(tmp.name)
 
     console.print(f"  Downloading [cyan]{asset_name}[/] ...")
-    ok = download_file(url, tmp_path, asset_name)
+    ok = download_file(url, tmp_path, asset_name, auth_headers(url, cfg))
 
     if not ok:
         cfg.failed.append(asset_name)
@@ -252,7 +313,7 @@ def osf_url(filename: str, cfg: Config, *, quiet: bool = False) -> str | None:
 
     # List files in the node's osfstorage to find the download URL.
     try:
-        resp = requests.get(cfg.osf_storage_url, timeout=30)
+        resp = requests.get(cfg.osf_storage_url, headers=auth_headers(cfg.osf_storage_url, cfg), timeout=30)
         resp.raise_for_status()
         files = resp.json().get("data", [])
     except requests.RequestException as exc:
@@ -279,7 +340,7 @@ def fetch_manifest(source: str, cfg: Config) -> dict | None:
     if not url:
         return None
     try:
-        resp = requests.get(url, timeout=30)
+        resp = requests.get(url, headers=auth_headers(url, cfg), timeout=30)
         resp.raise_for_status()
         manifest = resp.json()
     except (requests.RequestException, ValueError):

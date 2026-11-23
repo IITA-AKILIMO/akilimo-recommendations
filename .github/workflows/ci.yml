@@ -272,6 +272,9 @@ jobs:
         id: download
         if: ${{ !cancelled() && steps.data.outputs.cache-hit != 'true' }}
         working-directory: scripts
+        env:
+          # OSF answers 401 to a file listing without one; empty (and harmless) on fork PRs
+          OSF_TOKEN: ${{ secrets.OSF_TOKEN }}
         run: |
           cp .env.example .env
           pipx install poetry

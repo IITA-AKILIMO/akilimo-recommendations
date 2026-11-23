@@ -1,34 +1,37 @@
 """
 Which data assets exist and which of them a run should handle.
 
-The registry is scripts/assets.json (plus any file named in ASSETS_FILE), so adding an
-asset is a config change. Every command (bundle-assets, setup-data, upload-osf,
-upload-zenodo) picks its assets the same way, highest priority first:
+Everything in the data folder is bundled: each folder directly under the configured
+root (data/) is one asset with one archive, found by looking at the disk. What is NOT
+bundled is the exclusion list in scripts/assets.json (see that file's _comment). The
+names to ask for on a machine without the data (setup-data) come from the required and
+optional lists there and from the published manifest.
+
+Every command (bundle-assets, setup-data, upload-osf, upload-zenodo) picks its assets
+the same way, highest priority first:
 
     --only NAME          (repeatable, or comma separated)   exactly these
     ASSETS=a,b           (env or scripts/.env)               exactly these
-    otherwise            every asset with "default": true
+    otherwise            every known asset
 
     --exclude NAME       removed from the selection afterwards
     ASSETS_EXCLUDE=a,b   (env or scripts/.env)               removed as well
 
-`--list-assets` prints the registry and the current selection.
+`--list-assets` prints the assets and the current selection.
 """
 
 from __future__ import annotations
 
-import json
 import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Iterable
 
 import click
 from rich.table import Table
 
-from .common import PROJECT_ROOT, SCRIPTS_DIR, console
-
-REGISTRY_FILE: Path = SCRIPTS_DIR / "assets.json"
+from .common import PROJECT_ROOT, console, is_excluded_name, load_asset_config
 
 
 @dataclass(frozen=True)
@@ -36,57 +39,51 @@ class Asset:
     name: str
     dir: str
     archive: str
-    description: str = ""
     optional: bool = False
-    default: bool = True
 
     @property
     def path(self) -> Path:
         return PROJECT_ROOT / self.dir
 
 
-def _read(path: Path) -> dict[str, Asset]:
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise click.ClickException(f"Cannot read asset registry {path}: {exc}") from exc
+def discover() -> list[str]:
+    """Folders directly under the data root that are not excluded, sorted."""
+    root = PROJECT_ROOT / load_asset_config()["root"]
+    if not root.is_dir():
+        return []
+    return sorted(p.name for p in root.iterdir() if p.is_dir() and not is_excluded_name(p.name))
 
-    found: dict[str, Asset] = {}
-    for name, spec in (raw.get("bundles") or {}).items():
-        if not isinstance(spec, dict) or not spec.get("dir") or not spec.get("archive"):
-            raise click.ClickException(f"{path}: asset '{name}' needs both 'dir' and 'archive'")
-        folder = Path(spec["dir"])
-        if folder.is_absolute() or ".." in folder.parts:
-            raise click.ClickException(f"{path}: asset '{name}' dir must be a folder inside the project")
-        if "/" in spec["archive"] or "\\" in spec["archive"]:
-            raise click.ClickException(f"{path}: asset '{name}' archive must be a plain file name")
-        found[name] = Asset(
+
+def registry(extra: Iterable[str] = ()) -> dict[str, Asset]:
+    """
+    Every known asset: the required and optional names from the config, the folders on
+    disk, and *extra* names (for example those in a published manifest).
+    """
+    cfg = load_asset_config()
+    required = set(cfg["required"])
+    names = [*cfg["required"], *cfg["optional"], *discover(), *extra]
+
+    assets: dict[str, Asset] = {}
+    for name in names:
+        if name in assets or is_excluded_name(name):
+            continue
+        assets[name] = Asset(
             name=name,
-            dir=spec["dir"].replace("\\", "/").strip("/"),
-            archive=spec["archive"],
-            description=spec.get("description", ""),
-            optional=bool(spec.get("optional", False)),
-            default=bool(spec.get("default", True)),
+            dir=f"{cfg['root']}/{name}",
+            archive=cfg["archives"].get(name, f"{name}-data.tar.gz"),
+            optional=name not in required,
         )
-    return found
-
-
-def registry() -> dict[str, Asset]:
-    """All known assets: scripts/assets.json, then ASSETS_FILE entries (which win on a clash)."""
-    assets = _read(REGISTRY_FILE)
-    extra = os.environ.get("ASSETS_FILE", "").strip()
-    if extra:
-        assets.update(_read(Path(extra).expanduser()))
-    return assets
+    return dict(sorted(assets.items()))
 
 
 def _names(text: str) -> list[str]:
     return [n for n in re.split(r"[,\s]+", text.strip()) if n]
 
 
-def resolve(only: tuple[str, ...] = (), exclude: tuple[str, ...] = ()) -> list[Asset]:
+def resolve(only: tuple[str, ...] = (), exclude: tuple[str, ...] = (),
+            extra: Iterable[str] = ()) -> list[Asset]:
     """The assets one run handles (see the module doc for the precedence)."""
-    known = registry()
+    known = registry(extra)
 
     wanted = [n for item in only for n in _names(item)] or _names(os.environ.get("ASSETS", ""))
     dropped = [n for item in exclude for n in _names(item)] + _names(os.environ.get("ASSETS_EXCLUDE", ""))
@@ -97,21 +94,20 @@ def resolve(only: tuple[str, ...] = (), exclude: tuple[str, ...] = ()) -> list[A
             f"unknown asset(s): {', '.join(unknown)}. Known: {', '.join(known)}"
         )
 
-    chosen = wanted or [n for n, a in known.items() if a.default]
+    chosen = wanted or list(known)
     return [known[n] for n in chosen if n not in dropped]
 
 
 def _print_list(ctx: click.Context, _param: click.Parameter, value: bool) -> None:
     if not value or ctx.resilient_parsing:
         return
-    known = registry()
     selected = {a.name for a in resolve()}
     table = Table(title="Data assets")
-    for col in ("name", "folder", "archive", "optional", "selected", "description"):
+    for col in ("name", "folder", "archive", "optional", "on disk", "selected"):
         table.add_column(col)
-    for a in known.values():
+    for a in registry().values():
         table.add_row(a.name, a.dir, a.archive, "yes" if a.optional else "no",
-                      "yes" if a.name in selected else "no", a.description)
+                      "yes" if a.path.is_dir() else "no", "yes" if a.name in selected else "no")
     console.print(table)
     ctx.exit()
 
