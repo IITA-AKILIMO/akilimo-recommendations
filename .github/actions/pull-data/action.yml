@@ -54,6 +54,23 @@ runs:
         script: |
           set -e
 
+          # A non-interactive SSH shell starts with a short PATH, so a Poetry installed for this
+          # user (pipx, the official installer) is not found there although it works in a login
+          # shell. Look in the usual places, then for `python3 -m poetry`.
+          for d in "$HOME/.local/bin" "$HOME/.poetry/bin" /usr/local/bin /opt/poetry/bin; do
+            [ -d "$d" ] && PATH="$PATH:$d"
+          done
+          export PATH
+          if ! command -v poetry >/dev/null 2>&1; then
+            if python3 -m poetry --version >/dev/null 2>&1; then
+              poetry() { python3 -m poetry "$@"; }
+            else
+              echo "::error::poetry was not found for $(whoami) on the server (looked in PATH, ~/.local/bin, ~/.poetry/bin, /usr/local/bin, /opt/poetry/bin and python3 -m poetry). Install it for that user, for example: pipx install poetry"
+              exit 1
+            fi
+          fi
+          echo "Using $(command -v poetry || echo 'python3 -m poetry')"
+
           cd "$APP_DIR/scripts"
 
           if [ ! -f ".env" ]; then
