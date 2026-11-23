@@ -56,6 +56,9 @@ jobs:
   debounce:
     name: Wait for more pushes
     if: github.event_name == 'push'
+    # Only reads the deploy targets file
+    permissions:
+      contents: read
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     concurrency:
@@ -301,20 +304,25 @@ jobs:
           # Where the data comes from: github (the private data repository named in
           # scripts/assets.json) unless the DATA_SOURCE repository variable says osf or zenodo.
           # The release is read with the DATA_GITHUB_TOKEN secret (Contents: read on that
-          # repository); the job's own token only reaches this repository
+          # repository) and nothing else: the job's own github.token is deliberately not used
           DATA_SOURCE: ${{ vars.DATA_SOURCE }}
           # Overrides of the data repository (owner/name) and release tag in scripts/assets.json
           GITHUB_DATA_REPO: ${{ vars.DATA_REPO }}
           GITHUB_DATA_TAG: ${{ vars.DATA_TAG }}
-          GITHUB_TOKEN: ${{ secrets.DATA_GITHUB_TOKEN || github.token }}
+          GITHUB_TOKEN: ${{ secrets.DATA_GITHUB_TOKEN }}
         run: |
           cp .env.example .env
           pipx install poetry
           # pipx puts poetry here, which is not on the PATH of this step
           export PATH="$PATH:$HOME/.local/bin"
           poetry install --no-interaction
-          # CI needs no DSSAT output (the PDC tests use a made-up table)
-          poetry run setup-data ${DATA_SOURCE:+--source "$DATA_SOURCE"} --exclude dssat
+          # CI needs no DSSAT output (the PDC tests use a made-up table). If the default source
+          # fails (the release is not published yet, the token is missing, GitHub is down), fall
+          # back to OSF, which still holds the data, and say so in a warning
+          poetry run setup-data ${DATA_SOURCE:+--source "$DATA_SOURCE"} --exclude dssat || {
+            echo "::warning::Data download from the default source failed; falling back to OSF"
+            poetry run setup-data --source osf --exclude dssat
+          }
 
       # Only after a download that worked: saving after a failed one stored an empty
       # cache under this key, and every later run restored it and found no data

@@ -39,6 +39,17 @@ from .common import (
 )
 
 API = "https://api.github.com"
+
+READ_HINT = ("The token needs read access to the repository's contents: a fine-grained token with "
+             "Contents: Read-only on it (Metadata: Read-only is added automatically), or a classic token "
+             "with the repo scope.")
+WRITE_HINT = ("Publishing needs write access to the repository's contents: a fine-grained token with "
+              "Contents: Read and write on it, or a classic token with the repo scope.")
+
+
+def hint_for(status: int, hint: str) -> str:
+    """The permission hint for a status that usually means a missing permission, else nothing."""
+    return f"\n         {hint}" if status in (401, 403, 404) else ""
 TOKEN_HOSTS = ("api.github.com", "uploads.github.com")
 DEFAULT_TAG = "data-latest"
 _API_VERSION = "2022-11-28"
@@ -106,7 +117,8 @@ def lookup_release(slug: str, tag: str, tok: str, refresh: bool = False) -> tupl
         elif resp.ok:
             _releases[key] = resp.json()
         else:
-            console.print(f"  [bold red][fail][/] release {tag} of {slug}: HTTP {resp.status_code} — {resp.text[:200]}")
+            console.print(f"  [bold red][fail][/] release {tag} of {slug}: HTTP {resp.status_code} — {resp.text[:200]}"
+                          + hint_for(resp.status_code, READ_HINT))
             return None, True
     return _releases[key], False
 
@@ -133,7 +145,8 @@ def ensure_release(slug: str, tag: str, tok: str) -> dict | None:
     }
     resp = requests.post(url, headers=headers_for(url, tok), json=body, timeout=30)
     if not resp.ok:
-        console.print(f"  [bold red][fail][/] creating release {tag} in {slug}: HTTP {resp.status_code} — {resp.text[:300]}")
+        console.print(f"  [bold red][fail][/] creating release {tag} in {slug}: HTTP {resp.status_code} — {resp.text[:300]}"
+                      + hint_for(resp.status_code, WRITE_HINT))
         return None
     console.print(f"  [green][ok][/]   created release {tag} in {slug}")
     _releases[(slug, tag)] = resp.json()
@@ -167,8 +180,14 @@ def fetch_github_tarball(filename: str, cfg: Config, sha256: str | None = None,
     asset = asset_named(release, filename)
     if asset is None:
         where = f"release {tag_name()} of {repo_slug(cfg)}"
-        console.print(f"  [bold red][fail][/] {filename} not found in {where}"
-                      + ("" if release else " (no such release, or no access: a private repository needs a token)"))
+        detail = ""
+        if release is None:
+            detail = " (no such release, or no access)."
+            if not tok:
+                detail += ("\n         NO TOKEN IS SET: a private repository answers 404 without one. "
+                           "Set GITHUB_TOKEN (the DATA_GITHUB_TOKEN secret in CI and on the servers).")
+            detail += f"\n         {READ_HINT}"
+        console.print(f"  [bold red][fail][/] {filename} not found in {where}{detail}")
         cfg.failed.append(filename)
         return False
     # The asset's API URL with Accept: octet-stream streams the file (and works for a private repo)

@@ -52,6 +52,9 @@ jobs:
   plan:
     name: Plan
     runs-on: ubuntu-24.04
+    # Only reads the deploy targets file
+    permissions:
+      contents: read
     outputs:
       deploy: ${{ steps.pick.outputs.deploy }}
       target: ${{ steps.pick.outputs.target }}
@@ -106,6 +109,10 @@ jobs:
   deploy:
     name: Deploy to server
     needs: [ plan ]
+    # Works on the server over SSH with its own key; GitHub is only asked for the checkout and the
+    # DATA_GITHUB_TOKEN secret is handed to the server step, not to the workflow token
+    permissions:
+      contents: read
     if: >-
       !cancelled() &&
       needs.plan.outputs.deploy == 'true'
