@@ -56,6 +56,9 @@ jobs:
   debounce:
     name: Wait for more pushes
     if: github.event_name == 'push'
+    # Only reads the deploy targets file
+    permissions:
+      contents: read
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     concurrency:
@@ -301,12 +304,12 @@ jobs:
           # Where the data comes from: github (the private data repository named in
           # scripts/assets.json) unless the DATA_SOURCE repository variable says osf or zenodo.
           # The release is read with the DATA_GITHUB_TOKEN secret (Contents: read on that
-          # repository); the job's own token only reaches this repository
+          # repository) and nothing else: the job's own github.token is deliberately not used
           DATA_SOURCE: ${{ vars.DATA_SOURCE }}
           # Overrides of the data repository (owner/name) and release tag in scripts/assets.json
           GITHUB_DATA_REPO: ${{ vars.DATA_REPO }}
           GITHUB_DATA_TAG: ${{ vars.DATA_TAG }}
-          GITHUB_TOKEN: ${{ secrets.DATA_GITHUB_TOKEN || github.token }}
+          GITHUB_TOKEN: ${{ secrets.DATA_GITHUB_TOKEN }}
         run: |
           cp .env.example .env
           pipx install poetry

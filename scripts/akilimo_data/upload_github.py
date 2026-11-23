@@ -67,7 +67,7 @@ def _upload_file(slug: str, tag: str, release: dict, tok: str, filepath: Path, f
         resp = requests.delete(url, headers=gh.headers_for(url, tok), timeout=30)
         if resp.status_code not in (204, 404):
             console.print(f"  [bold red][fail][/] {filepath.name}: could not remove the old asset, "
-                          f"HTTP {resp.status_code} — {resp.text[:200]}")
+                          f"HTTP {resp.status_code} — {resp.text[:200]}" + gh.hint_for(resp.status_code, gh.WRITE_HINT))
             return False
 
     console.print(f"  Uploading [cyan]{filepath.name}[/]  ({size / 1_048_576:.1f} MB) ...")
@@ -84,7 +84,8 @@ def _upload_file(slug: str, tag: str, release: dict, tok: str, filepath: Path, f
         ledger.record(target, filepath)
         return True
 
-    console.print(f"  [bold red][fail][/] {filepath.name}: HTTP {response.status_code} — {response.text[:300]}")
+    console.print(f"  [bold red][fail][/] {filepath.name}: HTTP {response.status_code} — {response.text[:300]}"
+                  + gh.hint_for(response.status_code, gh.WRITE_HINT))
     return False
 
 
