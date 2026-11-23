@@ -235,14 +235,26 @@ poetry run setup-data --source zenodo --zenodo-id 19231022
 poetry run setup-data --source zenodo --sandbox   # sandbox.zenodo.org
 ```
 
-This downloads and extracts these bundles:
+This downloads and extracts the assets listed in `scripts/assets.json`:
 
-| Bundle | Extracted to | Contents |
-|--------|-------------|----------|
-| `net-assets.tar.gz` | `net/` | Recommendation images (PNG) |
-| `data-input.tar.gz` | `data/input/` | CSV lookup tables (prices, translations, defaults) |
-| `soil-data.tar.gz` | `data/soil/` | Soil NPK RDS files |
-| `yield-data.tar.gz` | `data/yield/` | Yield NetCDF rasters (LINTUL model) |
+| Asset | Bundle | Extracted to | Contents |
+|-------|--------|-------------|----------|
+| `input` | `data-input.tar.gz` | `data/input/` | CSV lookup tables (prices, defaults) |
+| `soil` | `soil-data.tar.gz` | `data/soil/` | Soil NPK RDS files |
+| `yield` | `yield-data.tar.gz` | `data/yield/` | Yield NetCDF rasters (LINTUL model) |
+| `dssat` (optional) | `dssat-data.tar.gz` | `data/dssat/` | DSSAT planting date x cultivar output (PDC, Nigeria maize) |
+
+Choose which assets a run handles; the same options work for `bundle-assets`, `upload-osf` and `upload-zenodo`:
+
+```bash
+poetry run setup-data --list-assets          # names, folders, and what is selected
+poetry run setup-data --only soil --only yield
+poetry run setup-data --exclude dssat        # e.g. a server that never serves PDC
+```
+
+To make a choice permanent, set `ASSETS` (exactly these) or `ASSETS_EXCLUDE` in `scripts/.env`. An optional asset that is not published yet is skipped with a warning instead of failing the setup. To add a new asset, add an entry to `scripts/assets.json` (`dir`, `archive`, `description`, `optional`, `default`); no code change is needed. `ASSETS_FILE` points at an extra file in the same format.
+
+The Data setup workflow has matching `assets` and `exclude_assets` inputs.
 
 Re-running is safe — already-extracted files are preserved.
 
@@ -418,14 +430,14 @@ The port matches `API_PORT` in your `.env` (default `8000`).
 ```bash
 cd scripts
 poetry run bundle-assets
-# Produces: dist/net-assets.tar.gz  dist/data-input.tar.gz
-#           dist/soil-data.tar.gz   dist/yield-data.tar.gz
+# Produces one dist/<archive> per asset in scripts/assets.json
 ```
 
-Bundle specific groups only:
+Bundle specific assets only:
 
 ```bash
 poetry run bundle-assets --only soil --only yield
+poetry run bundle-assets --exclude dssat
 ```
 
 ### 2. Upload — choose OSF or Zenodo

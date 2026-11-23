@@ -32,14 +32,8 @@ import requests
 from rich.rule import Rule
 from tqdm import tqdm
 
+from .assets import asset_options, resolve
 from .common import DIST_DIR, PROJECT_ROOT, Config, ProgressReader, console
-
-ZENODO_BUNDLES = [
-    "data-input.tar.gz",
-    "soil-data.tar.gz",
-    "yield-data.tar.gz",
-]
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -130,6 +124,7 @@ def _build_metadata(cfg: Config) -> dict:
 # ---------------------------------------------------------------------------
 
 @click.command()
+@asset_options
 @click.option("--new", "create_new", is_flag=True, help="Create a new Zenodo deposit.")
 @click.option(
     "--deposit-id",
@@ -143,8 +138,9 @@ def _build_metadata(cfg: Config) -> dict:
     default=lambda: os.environ.get("ZENODO_USE_SANDBOX", "0") == "1",
     help="Use sandbox.zenodo.org instead of zenodo.org.",
 )
-def main(create_new: bool, deposit_id: str, sandbox: bool) -> None:
-    """Upload soil-data.tar.gz and yield-data.tar.gz to a Zenodo deposit."""
+def main(create_new: bool, deposit_id: str, sandbox: bool,
+         only: tuple[str, ...], exclude: tuple[str, ...]) -> None:
+    """Upload the data bundles to a Zenodo deposit."""
 
     token = os.environ.get("ZENODO_TOKEN", "")
     if not token:
@@ -223,14 +219,16 @@ def main(create_new: bool, deposit_id: str, sandbox: bool) -> None:
     console.print(Rule("Uploading files"))
 
     failed: list[str] = []
-    for filename in ZENODO_BUNDLES:
+    for asset in resolve(only, exclude):
+        filename = asset.archive
         filepath = DIST_DIR / filename
         if not filepath.exists():
             console.print(
                 f"  [yellow][skip][/] {filename} not found in dist/. "
                 "Run [bold]poetry run bundle-assets[/] first."
             )
-            failed.append(filename)
+            if not asset.optional:
+                failed.append(filename)
             continue
 
         if not _upload_file(bucket_url, filepath, token):

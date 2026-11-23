@@ -1,0 +1,33 @@
+{
+  "_comment": "Which data assets exist. bundle-assets, setup-data, upload-osf and upload-zenodo all read this file, so a new asset is one entry here and no code change. dir: folder under the project root. archive: tarball name on OSF/Zenodo. optional: a missing or failed asset is a warning, not an error. default: part of the selection when nothing narrows it. Narrow per run with --only/--exclude, or for good with ASSETS / ASSETS_EXCLUDE (env or scripts/.env); more entries can come from the file named in ASSETS_FILE.",
+  "bundles": {
+    "input": {
+      "dir": "data/input",
+      "archive": "data-input.tar.gz",
+      "description": "CSV lookup tables (prices, defaults)",
+      "optional": false,
+      "default": true
+    },
+    "soil": {
+      "dir": "data/soil",
+      "archive": "soil-data.tar.gz",
+      "description": "Soil NPK RDS files",
+      "optional": false,
+      "default": true
+    },
+    "yield": {
+      "dir": "data/yield",
+      "archive": "yield-data.tar.gz",
+      "description": "Yield NetCDF rasters and RDS (LINTUL)",
+      "optional": false,
+      "default": true
+    },
+    "dssat": {
+      "dir": "data/dssat",
+      "archive": "dssat-data.tar.gz",
+      "description": "DSSAT planting date x cultivar output (PDC, Nigeria maize)",
+      "optional": true,
+      "default": true
+    }
+  }
+}

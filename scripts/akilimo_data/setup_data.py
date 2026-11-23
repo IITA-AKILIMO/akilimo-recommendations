@@ -1,8 +1,9 @@
 """
 setup-data — Download all runtime data files from Zenodo or OSF.
 
-All asset bundles (CSV tables, soil data, yield data) are hosted on a
-single deposit/project and downloaded from there.
+All asset bundles are hosted on a single deposit/project and downloaded from
+there. Which ones is configured in scripts/assets.json; narrow a run with
+--only / --exclude, or for good with ASSETS / ASSETS_EXCLUDE.
 
 Configuration is loaded from scripts/.env (see .env.example).
 CLI flags override .env values.
@@ -13,9 +14,12 @@ Usage:
     poetry run setup-data --source osf --osf-node-id abc12
     poetry run setup-data --zenodo-id 1234567
     poetry run setup-data --sandbox
+    poetry run setup-data --only yield --only soil
+    poetry run setup-data --exclude dssat
+    poetry run setup-data --list-assets
 
 .env keys used:
-    ZENODO_RECORD_ID, ZENODO_USE_SANDBOX, OSF_NODE_ID
+    ZENODO_RECORD_ID, ZENODO_USE_SANDBOX, OSF_NODE_ID, ASSETS, ASSETS_EXCLUDE, ASSETS_FILE
 """
 
 from __future__ import annotations
@@ -26,6 +30,7 @@ import sys
 import click
 from rich.rule import Rule
 
+from .assets import asset_options, resolve
 from .common import (
     PROJECT_ROOT,
     Config,
@@ -33,20 +38,6 @@ from .common import (
     fetch_osf_tarball,
     fetch_zenodo_tarball,
 )
-
-REQUIRED_DIRS = [
-    "data/input",
-    "data/soil",
-    "data/yield",
-    "temp",
-]
-
-ALL_BUNDLES = [
-    "data-input.tar.gz",
-    "soil-data.tar.gz",
-    "yield-data.tar.gz",
-]
-
 
 def _detect_source(zenodo_id: str, osf_node_id: str) -> str:
     """Return 'zenodo' or 'osf' based on which IDs are configured."""
@@ -83,8 +74,12 @@ def _detect_source(zenodo_id: str, osf_node_id: str) -> str:
     show_default="env OSF_NODE_ID",
     help="OSF project node ID (5-character code, e.g. abc12).",
 )
-def main(source: str | None, zenodo_id: str, sandbox: bool, osf_node_id: str) -> None:
-    """Download all Akilimo runtime data from Zenodo or OSF."""
+@asset_options
+def main(source: str | None, zenodo_id: str, sandbox: bool, osf_node_id: str,
+         only: tuple[str, ...], exclude: tuple[str, ...]) -> None:
+    """Download Akilimo runtime data from Zenodo or OSF."""
+
+    assets = resolve(only, exclude)
 
     cfg = Config(zenodo_id=zenodo_id, sandbox=sandbox, osf_node_id=osf_node_id)
 
@@ -94,6 +89,7 @@ def main(source: str | None, zenodo_id: str, sandbox: bool, osf_node_id: str) ->
     console.print(Rule("[bold cyan]Akilimo Data Setup[/]"))
     console.print(f"  Project root : {PROJECT_ROOT}")
     console.print(f"  Source       : [bold]{source}[/]")
+    console.print(f"  Assets       : {', '.join(a.name for a in assets) or '(none)'}")
 
     if source == "zenodo":
         console.print(
@@ -118,20 +114,34 @@ def main(source: str | None, zenodo_id: str, sandbox: bool, osf_node_id: str) ->
 
     # 1. Directories
     console.print(Rule("Creating directories"))
-    for d in REQUIRED_DIRS:
+    for d in [a.dir for a in assets] + ["temp"]:
         (PROJECT_ROOT / d).mkdir(parents=True, exist_ok=True)
         console.print(f"  [dim]{d}[/]")
 
     # 2. Download bundles
-    console.print(Rule(f"{source.capitalize()} — downloading all bundles"))
+    console.print(Rule(f"{source.capitalize()} — downloading {len(assets)} bundle(s)"))
     fetch = fetch_zenodo_tarball if source == "zenodo" else fetch_osf_tarball
-    for bundle in ALL_BUNDLES:
-        fetch(bundle, cfg)
+    optional_missed: list[str] = []
+    for asset in assets:
+        before = len(cfg.failed)
+        fetch(asset.archive, cfg)
+        # An optional asset that is not published (yet) is a warning, not a failed setup
+        if asset.optional and len(cfg.failed) > before:
+            del cfg.failed[before:]
+            optional_missed.append(asset.name)
+    if optional_missed:
+        console.print(f"  [yellow]Optional asset(s) not available, skipped:[/] {', '.join(optional_missed)}")
 
     # 3. Summary
     console.print(Rule())
     if not cfg.failed:
-        console.print("[green bold]All assets downloaded and extracted successfully.[/]")
+        if optional_missed:
+            console.print(
+                "[green bold]All required assets downloaded and extracted.[/] "
+                f"Skipped optional: {', '.join(optional_missed)}"
+            )
+        else:
+            console.print("[green bold]All requested assets downloaded and extracted successfully.[/]")
     else:
         console.print(f"[red bold]{len(cfg.failed)} asset(s) failed:[/]")
         for item in cfg.failed:

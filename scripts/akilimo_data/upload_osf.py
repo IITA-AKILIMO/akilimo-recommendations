@@ -35,13 +35,8 @@ import requests
 from rich.rule import Rule
 from tqdm import tqdm
 
+from .assets import asset_options, resolve
 from .common import DIST_DIR, Config, ProgressReader, console
-
-OSF_BUNDLES = [
-    "data-input.tar.gz",
-    "soil-data.tar.gz",
-    "yield-data.tar.gz",
-]
 
 _OSF_TITLE = "Akilimo Cassava Recommendations — Data Assets"
 
@@ -161,6 +156,7 @@ def _upload_file(
 # ---------------------------------------------------------------------------
 
 @click.command()
+@asset_options
 @click.option("--new", "create_new", is_flag=True, help="Create a new OSF project.")
 @click.option(
     "--node-id",
@@ -174,7 +170,8 @@ def _upload_file(
     default=False,
     help="Use test.osf.io instead of osf.io.",
 )
-def main(create_new: bool, node_id: str, sandbox: bool) -> None:
+def main(create_new: bool, node_id: str, sandbox: bool,
+         only: tuple[str, ...], exclude: tuple[str, ...]) -> None:
     """Upload data bundles to an OSF project."""
 
     token = os.environ.get("OSF_TOKEN", "")
@@ -242,14 +239,16 @@ def main(create_new: bool, node_id: str, sandbox: bool) -> None:
     console.print(Rule("Uploading files"))
 
     failed: list[str] = []
-    for filename in OSF_BUNDLES:
+    for asset in resolve(only, exclude):
+        filename = asset.archive
         filepath = DIST_DIR / filename
         if not filepath.exists():
             console.print(
                 f"  [yellow][skip][/] {filename} not found in dist/. "
                 "Run [bold]poetry run bundle-assets[/] first."
             )
-            failed.append(filename)
+            if not asset.optional:
+                failed.append(filename)
             continue
 
         if not _upload_file(node_id, filepath, token, existing, sandbox):

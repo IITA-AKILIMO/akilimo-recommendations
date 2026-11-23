@@ -29,6 +29,8 @@ poetry run setup-data --source zenodo      # or Zenodo
 
 Re-running is safe — already-extracted files are preserved.
 
+Which assets exist is configured in `scripts/assets.json` (`input`, `soil`, `yield`, `dssat`; `dssat` is optional, so a server without it still sets up). Narrow any run with `--only NAME` / `--exclude NAME` (repeatable), or for good with `ASSETS` / `ASSETS_EXCLUDE` in `scripts/.env`; `poetry run setup-data --list-assets` shows them. A new asset is one entry in `assets.json`, with no code change.
+
 ### Publishing data files (maintainers only)
 
 ```bash
@@ -38,8 +40,8 @@ cp .env.example .env
 
 poetry install
 
-# 1. Bundle all four data directories → dist/*.tar.gz
-poetry run bundle-assets
+# 1. Bundle the assets in scripts/assets.json → dist/*.tar.gz
+poetry run bundle-assets                  # all; or --only soil --only yield, --exclude dssat
 
 # 2a. Upload to OSF (recommended)
 poetry run upload-osf --new               # first time → prints node ID
