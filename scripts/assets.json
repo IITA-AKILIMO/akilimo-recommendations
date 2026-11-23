@@ -1,9 +1,8 @@
 {
-  "_comment": "Everything in the data folder is bundled: each folder directly under 'root' becomes one asset (one archive), found automatically. The 'exclude' list says what is NOT bundled (and what an extraction never overwrites). Patterns are relative to 'root', gitignore style: a name without '/' matches that name anywhere (a folder is left out whole), a pattern with '/' matches that path; * and ? work. 'required': assets whose absence fails a bundle or setup run; every other asset is optional (skipped with a warning). 'optional': names to know even when the folder is not on this machine (so setup-data --only can ask for them). 'archives': archive names that differ from <name>-data.tar.gz. Narrow a run with --only/--exclude, or for good with ASSETS / ASSETS_EXCLUDE.",
+  "_comment": "Everything in the data folder is bundled: each folder directly under 'root' becomes one asset (one archive), found automatically. The 'exclude' list says what is NOT bundled (and what an extraction never overwrites). Patterns are relative to 'root', gitignore style: a name without '/' matches that name anywhere (a folder is left out whole), a pattern with '/' matches that path; * and ? work. 'required': assets whose absence fails a bundle or setup run; every other asset is optional (skipped with a warning). 'optional': names to know even when the folder is not on this machine (so setup-data --only can ask for them). 'on_demand': assets that are bundled and uploaded as usual but that setup-data downloads only when asked for by name (--only or ASSETS), because nothing at runtime needs them (data/spam is the 109 MB MapSPAM source; the cassava mask built from it is tracked in git). 'archives': archive names that differ from <name>-data.tar.gz. Narrow a run with --only/--exclude, or for good with ASSETS / ASSETS_EXCLUDE.",
   "root": "data",
   "exclude": [
     ".*",
-    "spam",
     "*.sqlite",
     "*.sqlite-wal",
     "*.sqlite-shm",
@@ -19,6 +18,9 @@
   ],
   "optional": [
     "dssat",
+    "spam"
+  ],
+  "on_demand": [
     "spam"
   ],
   "archives": {

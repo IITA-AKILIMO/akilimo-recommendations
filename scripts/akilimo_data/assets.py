@@ -81,8 +81,12 @@ def _names(text: str) -> list[str]:
 
 
 def resolve(only: tuple[str, ...] = (), exclude: tuple[str, ...] = (),
-            extra: Iterable[str] = ()) -> list[Asset]:
-    """The assets one run handles (see the module doc for the precedence)."""
+            extra: Iterable[str] = (), downloading: bool = False) -> list[Asset]:
+    """
+    The assets one run handles (see the module doc for the precedence). When *downloading*,
+    the on-demand assets of the config are left out of the default selection; naming one
+    with --only or ASSETS still selects it.
+    """
     known = registry(extra)
 
     wanted = [n for item in only for n in _names(item)] or _names(os.environ.get("ASSETS", ""))
@@ -94,16 +98,20 @@ def resolve(only: tuple[str, ...] = (), exclude: tuple[str, ...] = (),
             f"unknown asset(s): {', '.join(unknown)}. Known: {', '.join(known)}"
         )
 
-    chosen = wanted or list(known)
+    if wanted:
+        chosen = wanted
+    else:
+        on_demand = set(load_asset_config()["on_demand"]) if downloading else set()
+        chosen = [n for n in known if n not in on_demand]
     return [known[n] for n in chosen if n not in dropped]
 
 
 def _print_list(ctx: click.Context, _param: click.Parameter, value: bool) -> None:
     if not value or ctx.resilient_parsing:
         return
-    selected = {a.name for a in resolve()}
+    selected = {a.name for a in resolve(downloading=True)}
     table = Table(title="Data assets")
-    for col in ("name", "folder", "archive", "optional", "on disk", "selected"):
+    for col in ("name", "folder", "archive", "optional", "on disk", "downloaded by default"):
         table.add_column(col)
     for a in registry().values():
         table.add_row(a.name, a.dir, a.archive, "yes" if a.optional else "no",

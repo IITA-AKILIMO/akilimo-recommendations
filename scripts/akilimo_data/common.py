@@ -63,6 +63,7 @@ def load_asset_config() -> dict:
             "exclude": [str(p) for p in raw.get("exclude", [])],
             "required": [str(n) for n in raw.get("required", [])],
             "optional": [str(n) for n in raw.get("optional", [])],
+            "on_demand": [str(n) for n in raw.get("on_demand", [])],
             "archives": {str(k): str(v) for k, v in (raw.get("archives") or {}).items()},
         }
         # Listed as an asset but also on the exclusion list: the exclusion wins, so say so

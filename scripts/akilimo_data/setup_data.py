@@ -94,7 +94,7 @@ def main(source: str | None, zenodo_id: str, sandbox: bool, osf_node_id: str,
     # are known to this run even when this machine has none of the data yet.
     manifest = None if no_manifest else fetch_manifest(source, cfg)
     published = manifest["assets"] if manifest else None
-    assets = resolve(only, exclude, extra=published or ())
+    assets = resolve(only, exclude, extra=published or (), downloading=True)
 
     console.print(Rule("[bold cyan]Akilimo Data Setup[/]"))
     console.print(f"  Project root : {PROJECT_ROOT}")

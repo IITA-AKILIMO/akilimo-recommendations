@@ -235,7 +235,7 @@ poetry run setup-data --source zenodo --zenodo-id 19231022
 poetry run setup-data --source zenodo --sandbox   # sandbox.zenodo.org
 ```
 
-Everything in the data folder is bundled: each folder directly under `data/` is one asset with its own archive (`data/<name>` is `<name>-data.tar.gz`), found automatically, so a new data folder needs no configuration. What is **not** bundled is the exclusion list in `scripts/assets.json` (hidden folders, `data/spam`, `*.sqlite` and the other price-database files, and the files tracked in git such as `translations.csv`); an extraction never overwrites those either. Today:
+Everything in the data folder is bundled: each folder directly under `data/` is one asset with its own archive (`data/<name>` is `<name>-data.tar.gz`), found automatically, so a new data folder needs no configuration. What is **not** bundled is the exclusion list in `scripts/assets.json` (hidden folders, `*.sqlite` and the other price-database files, and the files tracked in git such as `translations.csv`); an extraction never overwrites those either. Today:
 
 | Asset | Bundle | Extracted to | Contents |
 |-------|--------|-------------|----------|
@@ -243,6 +243,7 @@ Everything in the data folder is bundled: each folder directly under `data/` is 
 | `soil` | `soil-data.tar.gz` | `data/soil/` | Soil NPK RDS files |
 | `yield` | `yield-data.tar.gz` | `data/yield/` | Yield NetCDF rasters (LINTUL model) |
 | `dssat` (optional) | `dssat-data.tar.gz` | `data/dssat/` | DSSAT planting date x cultivar output (PDC, Nigeria maize) |
+| `spam` (optional, on demand) | `spam-data.tar.gz` | `data/spam/` | MapSPAM 2020 source for the cassava-area mask (109 MB); not downloaded unless asked: `setup-data --only spam` |
 
 Choose which assets a run handles; the same options work for `bundle-assets`, `upload-osf` and `upload-zenodo`:
 
