@@ -200,7 +200,7 @@ class Config:
     osf_node_id: str = field(
         default_factory=lambda: os.environ.get("OSF_NODE_ID", "")
     )
-    # Needed for the OSF file listing; sent to api.osf.io only
+    # Needed to read a private OSF project (file listing and files); sent to api.osf.io and files.osf.io only
     osf_token: str = field(
         default_factory=lambda: os.environ.get("OSF_TOKEN", "")
     )
@@ -231,16 +231,19 @@ class Config:
 # Download helpers
 # ---------------------------------------------------------------------------
 
+_OSF_TOKEN_HOSTS = ("api.osf.io", "files.osf.io")
+
+
 def _is_osf_api(url: str) -> bool:
     host = url.split("/")[2] if "://" in url else ""
-    return host == "api.osf.io"
+    return host in _OSF_TOKEN_HOSTS
 
 
 def auth_headers(url: str, cfg: "Config") -> dict[str, str]:
     """
-    A bearer header for api.osf.io when OSF_TOKEN is set, never for any other host. The file
-    listing needs it (OSF answers 401 without), but the file downloads (osf.io and
-    files.osf.io) must not carry it: with the token they answer 403, without it 200.
+    A bearer header for the OSF API hosts (api.osf.io for the file listing, files.osf.io for
+    the file itself) when OSF_TOKEN is set, never for any other host. requests drops it when
+    files.osf.io redirects to the storage backend, whose link is already signed.
     """
     return {"Authorization": f"Bearer {cfg.osf_token}"} if cfg.osf_token and _is_osf_api(url) else {}
 
@@ -306,6 +309,17 @@ def fetch_tarball(
 
     if sha256 and sha256_of(tmp_path) != sha256:
         console.print(f"  [bold red][fail][/] {asset_name}: checksum does not match the manifest")
+        cfg.failed.append(asset_name)
+        tmp_path.unlink(missing_ok=True)
+        return False
+
+    with open(tmp_path, "rb") as fh:
+        magic = fh.read(2)
+    if magic != b"\x1f\x8b":
+        console.print(
+            f"  [bold red][fail][/] {asset_name}: the download is not a gzip file (the host sent a web page "
+            "or an error). A private OSF project needs OSF_TOKEN with read access to its files."
+        )
         cfg.failed.append(asset_name)
         tmp_path.unlink(missing_ok=True)
         return False
@@ -496,7 +510,11 @@ def osf_url(filename: str, cfg: Config, *, quiet: bool = False) -> str | None:
         (f for f in files if f.get("attributes", {}).get("name") == filename),
         None,
     )
-    url = (entry or {}).get("links", {}).get("download", "")
+    # The files.osf.io resource URL, not links.download (osf.io/download): for a private project the
+    # latter sends an anonymous or token-less request to a login page, and a token does not survive
+    # its redirect. The resource URL answers to the token directly and works anonymously when public.
+    links = (entry or {}).get("links", {})
+    url = links.get("move") or links.get("upload") or links.get("download", "")
     if not url and not quiet:
         console.print(f"  [bold red][fail][/] {filename} not found in OSF node {cfg.osf_node_id}")
     return url or None

@@ -253,7 +253,7 @@ poetry run setup-data --only soil --only yield
 poetry run setup-data --exclude dssat        # e.g. a server that never serves PDC
 ```
 
-To make a choice permanent, set `ASSETS` (exactly these) or `ASSETS_EXCLUDE` in `scripts/.env`. `required` in `assets.json` names the assets whose absence fails a run; every other asset is optional and is skipped with a warning when it is not published yet. To keep something out of the bundles, add a pattern to `exclude` (gitignore style: a name without `/` matches anywhere, a pattern with `/` matches that path). With a published manifest, `setup-data` also fetches assets it lists that this repository has never heard of. If OSF answers 401, set `OSF_TOKEN` (in `scripts/.env` or the environment); it is sent to `api.osf.io` only (the file downloads are public and answer 403 with a token).
+To make a choice permanent, set `ASSETS` (exactly these) or `ASSETS_EXCLUDE` in `scripts/.env`. `required` in `assets.json` names the assets whose absence fails a run; every other asset is optional and is skipped with a warning when it is not published yet. To keep something out of the bundles, add a pattern to `exclude` (gitignore style: a name without `/` matches anywhere, a pattern with `/` matches that path). With a published manifest, `setup-data` also fetches assets it lists that this repository has never heard of. If OSF answers 401, set `OSF_TOKEN` (in `scripts/.env` or the environment); it is sent to `api.osf.io` and `files.osf.io` only. For a private project the token must allow reading file contents as well as listing them (a download without it is a login page, which `setup-data` now reports as "not a gzip file").
 
 The Data setup workflow has matching `assets` and `exclude_assets` inputs.
 
