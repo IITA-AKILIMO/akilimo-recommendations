@@ -235,9 +235,32 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v7
 
+      # --- Skip work that already passed. The key is a hash of everything these checks depend on
+      # (R code, tests and their baseline, tools, the tracked data files, the image inputs, the
+      # data release in scripts/.env.example, and this workflow). If an identical tree passed
+      # before (a re-run, a push that only touched scripts/ or the docs), every step below is
+      # skipped, including the 560 MB data restore, and the job still reports success. Any
+      # change to those files gives a new key and runs everything. GitHub keeps a cache entry
+      # for 7 days without use; a branch reads its own entries and its base branch's.
+      - name: Look for an earlier pass of this exact code
+        id: passed
+        uses: actions/cache/restore@v6
+        with:
+          path: .ci-passed
+          key: r-checks-passed-v1-${{ hashFiles('R/**', 'tests/**', 'tools/**', 'systemd/**', 'api.R', '.lintr', 'install_packages.R', 'requirements.txt', 'Dockerfile.ci', 'scripts/.env.example', 'data/input/translations.csv', 'data/input/fertilizer_npk.csv', 'data/input/cassava_area_spam2020.csv', '.github/workflows/ci.yml') }}
+
+      - name: Say what happens
+        run: |
+          if [ "${{ steps.passed.outputs.cache-hit }}" = "true" ]; then
+            echo "These checks already passed for identical code, so they are skipped." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No earlier pass for this code: running every check." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       # github.workspace is the host path inside a container job; the runtime
       # variable is the path the steps actually see
       - name: Point AKILIMO_ROOT at the checkout
+        if: ${{ !cancelled() && steps.passed.outputs.cache-hit != 'true' }}
         run: echo "AKILIMO_ROOT=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
 
       # --- Runtime data, ready before any R script runs: the recommendation tests
@@ -249,7 +272,7 @@ jobs:
       # translations.csv and fertilizer_npk.csv are tracked in git, so the cache never includes them.
       - name: Restore cached runtime data
         id: data
-        if: ${{ !cancelled() }}
+        if: ${{ (!cancelled()) && steps.passed.outputs.cache-hit != 'true' }}
         uses: actions/cache/restore@v6
         env:
           SEGMENT_DOWNLOAD_TIMEOUT_MINS: "5"
@@ -263,14 +286,14 @@ jobs:
           key: runtime-data-v2-${{ hashFiles('scripts/.env.example') }}
 
       - name: Install Python for the data download (cache miss)
-        if: ${{ !cancelled() && steps.data.outputs.cache-hit != 'true' }}
+        if: ${{ (!cancelled() && steps.data.outputs.cache-hit != 'true') && steps.passed.outputs.cache-hit != 'true' }}
         uses: actions/setup-python@v7
         with:
           python-version: "3.13"
 
       - name: Download runtime data from OSF (cache miss)
         id: download
-        if: ${{ !cancelled() && steps.data.outputs.cache-hit != 'true' }}
+        if: ${{ (!cancelled() && steps.data.outputs.cache-hit != 'true') && steps.passed.outputs.cache-hit != 'true' }}
         working-directory: scripts
         env:
           # OSF answers 401 to a file listing without one; empty (and harmless) on fork PRs
@@ -287,7 +310,7 @@ jobs:
       # Only after a download that worked: saving after a failed one stored an empty
       # cache under this key, and every later run restored it and found no data
       - name: Save runtime data to the cache
-        if: ${{ !cancelled() && steps.data.outputs.cache-hit != 'true' && steps.download.outcome == 'success' }}
+        if: ${{ (!cancelled() && steps.data.outputs.cache-hit != 'true' && steps.download.outcome == 'success') && steps.passed.outputs.cache-hit != 'true' }}
         uses: actions/cache/save@v6
         with:
           path: |
@@ -301,59 +324,73 @@ jobs:
       # Not in the OSF bundle: derived from the RW yield data that is. Built every
       # run, never cached, and skipped when the bundle already has the file.
       - name: Build the Rwanda scheduled-planting file
-        if: ${{ !cancelled() }}
+        if: ${{ (!cancelled()) && steps.passed.outputs.cache-hit != 'true' }}
         run: sh tools/ensure_sp_files.sh
 
       - name: Check R syntax
+        if: ${{ !cancelled() && steps.passed.outputs.cache-hit != 'true' }}
         run: Rscript tests/check_parse.R
 
       - name: Lint R code
-        if: ${{ !cancelled() }}
+        if: ${{ (!cancelled()) && steps.passed.outputs.cache-hit != 'true' }}
         run: Rscript tests/check_lint.R
 
       - name: Test price database
-        if: ${{ !cancelled() }}
+        if: ${{ (!cancelled()) && steps.passed.outputs.cache-hit != 'true' }}
         run: Rscript tests/run_ci_test.R tests/test_akilimo_db.R
 
       - name: Test request validation
-        if: ${{ !cancelled() }}
+        if: ${{ (!cancelled()) && steps.passed.outputs.cache-hit != 'true' }}
         run: Rscript tests/run_ci_test.R tests/test_validate_request.R
 
       - name: Test logging
-        if: ${{ !cancelled() }}
+        if: ${{ (!cancelled()) && steps.passed.outputs.cache-hit != 'true' }}
         run: Rscript tests/run_ci_test.R tests/test_logging.R
 
       - name: Test PDF templates
-        if: ${{ !cancelled() }}
+        if: ${{ (!cancelled()) && steps.passed.outputs.cache-hit != 'true' }}
         run: Rscript tests/run_ci_test.R tests/test_pdf_template.R
 
       - name: Test intercrop field-size scaling
-        if: ${{ !cancelled() }}
+        if: ${{ (!cancelled()) && steps.passed.outputs.cache-hit != 'true' }}
         run: Rscript tests/run_ci_test.R tests/test_ic_units.R
 
       - name: Test the cassava-area mask
-        if: ${{ !cancelled() }}
+        if: ${{ (!cancelled()) && steps.passed.outputs.cache-hit != 'true' }}
         run: Rscript tests/run_ci_test.R tests/test_cassava_mask.R
 
       - name: Test planting date and cultivar advice
-        if: ${{ !cancelled() }}
+        if: ${{ (!cancelled()) && steps.passed.outputs.cache-hit != 'true' }}
         run: Rscript tests/run_ci_test.R tests/test_pdc_units.R
 
       - name: Test recommendations against the saved baseline
-        if: ${{ !cancelled() }}
+        if: ${{ (!cancelled()) && steps.passed.outputs.cache-hit != 'true' }}
         run: |
           # The test skips itself without data; in CI missing data is a failure
           test -f data/yield/Nigeria_WLY_LINTUL_2020.RDS || { echo "::error::runtime data missing"; exit 1; }
           Rscript tests/run_ci_test.R tests/test_small.R
 
       - name: Test Rwanda regressions
-        if: ${{ !cancelled() }}
+        if: ${{ (!cancelled()) && steps.passed.outputs.cache-hit != 'true' }}
         run: Rscript tests/run_ci_test.R tests/test_rw_regressions.R
 
       # The deploy's health check finds the service's own port; this tests how, with fake systemctl and ss
       - name: Test the deploy health check script
-        if: ${{ !cancelled() }}
+        if: ${{ (!cancelled()) && steps.passed.outputs.cache-hit != 'true' }}
         run: sh tests/test_check_health.sh
+
+      # success() is true only when every step above passed, so a marker is never saved for a
+      # failing run
+      - name: Remember that these checks passed
+        if: ${{ success() && steps.passed.outputs.cache-hit != 'true' }}
+        run: echo ok > .ci-passed
+
+      - name: Save the pass marker
+        if: ${{ success() && steps.passed.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: .ci-passed
+          key: r-checks-passed-v1-${{ hashFiles('R/**', 'tests/**', 'tools/**', 'systemd/**', 'api.R', '.lintr', 'install_packages.R', 'requirements.txt', 'Dockerfile.ci', 'scripts/.env.example', 'data/input/translations.csv', 'data/input/fertilizer_npk.csv', 'data/input/cassava_area_spam2020.csv', '.github/workflows/ci.yml') }}
 
   # ---------------------------------------------------------------------------
   # Deploy: a separate workflow (deploy.yml), run only for pushes once every

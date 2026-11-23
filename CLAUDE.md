@@ -249,4 +249,6 @@ Service templates: `systemd/akilimo-api.service.example` (production), `systemd/
 
 On pull requests and feature-branch pushes, CI runs only `R checks` (plus a quick wait step that returns at once, and Deploy's `Plan` on feature-branch pushes); a newer push cancels the older run. `R checks` downloads the public runtime data from OSF on a cache miss (cached under the IDs in `scripts/.env.example`) so it can run the recommendation regression tests.
 
+`R checks` skips work that already passed: its first steps look for a marker cache entry whose key is a hash of everything the checks depend on (`R/`, `tests/` with the baseline, `tools/`, `systemd/`, `api.R`, `.lintr`, the image inputs, `scripts/.env.example`, the three tracked data files and `ci.yml`). On a hit (a re-run, or a push that only touched `scripts/` or other files outside that list) every later step, including the 560 MB data restore, is skipped and the job reports success; on a miss everything runs and, only if every step passed, the marker is saved. A branch reads its own cache entries and its base branch's, and an entry expires after 7 days unused. To force a full run without changing code, bump `r-checks-passed-v1` in `ci.yml`.
+
 Workflow actions use version tags (e.g. `actions/checkout@v7`), not commit SHAs, and runners are pinned to `ubuntu-24.04`.
