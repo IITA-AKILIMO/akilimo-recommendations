@@ -35,6 +35,7 @@ from .common import (
     PROJECT_ROOT,
     Config,
     console,
+    fetch_manifest,
     fetch_osf_tarball,
     fetch_zenodo_tarball,
 )
@@ -74,9 +75,14 @@ def _detect_source(zenodo_id: str, osf_node_id: str) -> str:
     show_default="env OSF_NODE_ID",
     help="OSF project node ID (5-character code, e.g. abc12).",
 )
+@click.option(
+    "--no-manifest",
+    is_flag=True,
+    help="Ignore the published manifest: no checksum check, extract everything in each bundle.",
+)
 @asset_options
 def main(source: str | None, zenodo_id: str, sandbox: bool, osf_node_id: str,
-         only: tuple[str, ...], exclude: tuple[str, ...]) -> None:
+         no_manifest: bool, only: tuple[str, ...], exclude: tuple[str, ...]) -> None:
     """Download Akilimo runtime data from Zenodo or OSF."""
 
     assets = resolve(only, exclude)
@@ -118,13 +124,35 @@ def main(source: str | None, zenodo_id: str, sandbox: bool, osf_node_id: str,
         (PROJECT_ROOT / d).mkdir(parents=True, exist_ok=True)
         console.print(f"  [dim]{d}[/]")
 
-    # 2. Download bundles
+    # 2. The published manifest (archive names, checksums, the files in each bundle)
+    manifest = None if no_manifest else fetch_manifest(source, cfg)
+    published = manifest["assets"] if manifest else None
+    if manifest:
+        console.print(
+            f"  Manifest     : {len(published)} asset(s), generated {manifest.get('generated_at', '?')}"
+            + (f", commit {manifest['git_commit'][:8]}" if manifest.get("git_commit") else "")
+        )
+    elif not no_manifest:
+        console.print("  [dim]Manifest     : none published, using the asset registry only[/]")
+
+    # 3. Download bundles
     console.print(Rule(f"{source.capitalize()} — downloading {len(assets)} bundle(s)"))
     fetch = fetch_zenodo_tarball if source == "zenodo" else fetch_osf_tarball
     optional_missed: list[str] = []
     for asset in assets:
         before = len(cfg.failed)
-        fetch(asset.archive, cfg)
+        entry = published.get(asset.name) if published is not None else None
+        if published is not None and entry is None:
+            console.print(f"  [yellow][skip][/] {asset.archive} — not in the published manifest")
+            cfg.failed.append(asset.archive)
+        else:
+            # What was published wins: the archive's real name, its checksum, and the files to extract
+            fetch(
+                entry["archive"] if entry else asset.archive,
+                cfg,
+                sha256=entry.get("sha256") if entry else None,
+                files={f["path"] for f in entry["files"]} if entry and entry.get("files") else None,
+            )
         # An optional asset that is not published (yet) is a warning, not a failed setup
         if asset.optional and len(cfg.failed) > before:
             del cfg.failed[before:]
@@ -132,7 +160,7 @@ def main(source: str | None, zenodo_id: str, sandbox: bool, osf_node_id: str,
     if optional_missed:
         console.print(f"  [yellow]Optional asset(s) not available, skipped:[/] {', '.join(optional_missed)}")
 
-    # 3. Summary
+    # 4. Summary
     console.print(Rule())
     if not cfg.failed:
         if optional_missed:

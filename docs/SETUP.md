@@ -438,7 +438,12 @@ Bundle specific assets only:
 ```bash
 poetry run bundle-assets --only soil --only yield
 poetry run bundle-assets --exclude dssat
+poetry run bundle-assets --interactive      # shows files and size per asset, then asks one by one
 ```
+
+Bundling also writes `dist/manifest.json` (schema 1): for each bundled asset its archive name, SHA-256, size and the exact files inside, plus the generation time and git commit. A partial run keeps the entries of assets bundled earlier whose archive is still in `dist/`. `upload-osf` and `upload-zenodo` upload the manifest with the bundles.
+
+`setup-data` reads the published manifest first. With it, every download is checked against its SHA-256, only the files the manifest lists are extracted, and a required asset missing from the manifest fails early with a clear message. Without one (older publishes) it falls back to the asset registry alone. `--no-manifest` ignores it.
 
 ### 2. Upload — choose OSF or Zenodo
 

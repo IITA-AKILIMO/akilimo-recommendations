@@ -36,7 +36,7 @@ from rich.rule import Rule
 from tqdm import tqdm
 
 from .assets import asset_options, resolve
-from .common import DIST_DIR, Config, ProgressReader, console
+from .common import DIST_DIR, MANIFEST_NAME, Config, ProgressReader, console
 
 _OSF_TITLE = "Akilimo Cassava Recommendations — Data Assets"
 
@@ -253,6 +253,17 @@ def main(create_new: bool, node_id: str, sandbox: bool,
 
         if not _upload_file(node_id, filepath, token, existing, sandbox):
             failed.append(filename)
+
+    # The manifest tells setup-data which files each bundle holds and their checksums
+    manifest = DIST_DIR / MANIFEST_NAME
+    if manifest.exists():
+        if not _upload_file(node_id, manifest, token, existing, sandbox):
+            failed.append(MANIFEST_NAME)
+    else:
+        console.print(
+            f"  [yellow][skip][/] {MANIFEST_NAME} not found in dist/ — "
+            "setup-data will have no checksums or file list. Run [bold]poetry run bundle-assets[/]."
+        )
 
     # -----------------------------------------------------------------------
     # Step 4 — summary and next steps

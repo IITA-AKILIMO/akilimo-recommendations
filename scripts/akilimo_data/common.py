@@ -12,6 +12,7 @@ Environment variables (loaded from scripts/.env via python-dotenv):
 
 from __future__ import annotations
 
+import hashlib
 import os
 import tarfile
 import tempfile
@@ -54,6 +55,21 @@ def is_bundle_excluded(name: str) -> bool:
     """True for a tar member / path that must not be bundled or extracted."""
     path = name.replace("\\", "/").removeprefix("./")
     return path in BUNDLE_EXCLUDED_FILES or path.endswith(BUNDLE_EXCLUDED_SUFFIXES)
+
+
+# The manifest published next to the bundles (written by bundle-assets, uploaded with
+# them, read by setup-data): for every asset its archive, SHA-256 and the exact files
+# inside, so a download can be verified and only the listed files are extracted.
+MANIFEST_NAME = "manifest.json"
+MANIFEST_SCHEMA = 1
+
+
+def sha256_of(path: Path) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1_048_576), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 # ---------------------------------------------------------------------------
@@ -145,8 +161,19 @@ def download_file(url: str, dest: Path, description: str = "") -> bool:
         return False
 
 
-def fetch_tarball(url: str, asset_name: str, cfg: Config) -> bool:
-    """Download a tarball from *url* and extract it into PROJECT_ROOT."""
+def fetch_tarball(
+    url: str,
+    asset_name: str,
+    cfg: Config,
+    sha256: str | None = None,
+    files: set[str] | None = None,
+) -> bool:
+    """
+    Download a tarball from *url* and extract it into PROJECT_ROOT.
+
+    With *sha256* the download must match it. With *files* (from the manifest) only
+    those paths are extracted, besides folders; anything else in the archive is left out.
+    """
     with tempfile.NamedTemporaryFile(suffix=".tar.gz", delete=False) as tmp:
         tmp_path = Path(tmp.name)
 
@@ -157,14 +184,28 @@ def fetch_tarball(url: str, asset_name: str, cfg: Config) -> bool:
         cfg.failed.append(asset_name)
         return False
 
+    if sha256 and sha256_of(tmp_path) != sha256:
+        console.print(f"  [bold red][fail][/] {asset_name}: checksum does not match the manifest")
+        cfg.failed.append(asset_name)
+        tmp_path.unlink(missing_ok=True)
+        return False
+
     console.print(f"  Extracting  [cyan]{asset_name}[/] ...")
     try:
         with tarfile.open(tmp_path, "r:gz") as tar:
-            members = [m for m in tar.getmembers() if not is_bundle_excluded(m.name)]
-            skipped = len(tar.getmembers()) - len(members)
+            everything = tar.getmembers()
+            members = [m for m in everything if not is_bundle_excluded(m.name)]
+            kept_local = len(everything) - len(members)
+            not_listed = 0
+            if files is not None:
+                listed = [m for m in members if m.isdir() or m.name.replace("\\", "/").removeprefix("./") in files]
+                not_listed = len(members) - len(listed)
+                members = listed
             tar.extractall(path=PROJECT_ROOT, members=members)
-        if skipped:
-            console.print(f"  [dim]kept local copies of {skipped} tracked/runtime file(s)[/]")
+        if kept_local:
+            console.print(f"  [dim]kept local copies of {kept_local} tracked/runtime file(s)[/]")
+        if not_listed:
+            console.print(f"  [dim]left out {not_listed} file(s) the manifest does not list[/]")
         console.print(f"  [green][ok][/]   {asset_name}")
         return True
     except tarfile.TarError as exc:
@@ -188,25 +229,26 @@ class ProgressReader:
         return data
 
 
-def fetch_zenodo_tarball(filename: str, cfg: Config) -> bool:
+def zenodo_url(filename: str, cfg: Config) -> str | None:
+    """Download URL of a file in the Zenodo record, or None when no record is configured."""
     if not cfg.zenodo_id:
         console.print(
             f"  [yellow][skip][/] {filename} — "
             "ZENODO_RECORD_ID not set (add it to .env or pass --zenodo-id)"
         )
-        return False
-    url = f"{cfg.zenodo_files_base}/{filename}?download=1"
-    return fetch_tarball(url, filename, cfg)
+        return None
+    return f"{cfg.zenodo_files_base}/{filename}?download=1"
 
 
-def fetch_osf_tarball(filename: str, cfg: Config) -> bool:
-    """Download a tarball from an OSF project node and extract it into PROJECT_ROOT."""
+def osf_url(filename: str, cfg: Config, *, quiet: bool = False) -> str | None:
+    """Download URL of a file in the OSF project's storage, or None (reported unless *quiet*)."""
     if not cfg.osf_node_id:
-        console.print(
-            f"  [yellow][skip][/] {filename} — "
-            "OSF_NODE_ID not set (add it to .env or pass --osf-node-id)"
-        )
-        return False
+        if not quiet:
+            console.print(
+                f"  [yellow][skip][/] {filename} — "
+                "OSF_NODE_ID not set (add it to .env or pass --osf-node-id)"
+            )
+        return None
 
     # List files in the node's osfstorage to find the download URL.
     try:
@@ -214,25 +256,53 @@ def fetch_osf_tarball(filename: str, cfg: Config) -> bool:
         resp.raise_for_status()
         files = resp.json().get("data", [])
     except requests.RequestException as exc:
-        console.print(f"  [bold red][fail][/] listing OSF node {cfg.osf_node_id}: {exc}")
-        cfg.failed.append(filename)
-        return False
+        if not quiet:
+            console.print(f"  [bold red][fail][/] listing OSF node {cfg.osf_node_id}: {exc}")
+        return None
 
     entry = next(
         (f for f in files if f.get("attributes", {}).get("name") == filename),
         None,
     )
-    if entry is None:
-        console.print(
-            f"  [bold red][fail][/] {filename} not found in OSF node {cfg.osf_node_id}"
-        )
+    url = (entry or {}).get("links", {}).get("download", "")
+    if not url and not quiet:
+        console.print(f"  [bold red][fail][/] {filename} not found in OSF node {cfg.osf_node_id}")
+    return url or None
+
+
+def fetch_manifest(source: str, cfg: Config) -> dict | None:
+    """
+    The published manifest, or None when there is none (older publishes) or it cannot be
+    read. Never raises: setup-data then falls back to the asset registry alone.
+    """
+    url = zenodo_url(MANIFEST_NAME, cfg) if source == "zenodo" else osf_url(MANIFEST_NAME, cfg, quiet=True)
+    if not url:
+        return None
+    try:
+        resp = requests.get(url, timeout=30)
+        resp.raise_for_status()
+        manifest = resp.json()
+    except (requests.RequestException, ValueError):
+        return None
+    if not isinstance(manifest, dict) or not isinstance(manifest.get("assets"), dict):
+        return None
+    return manifest
+
+
+def fetch_zenodo_tarball(filename: str, cfg: Config, sha256: str | None = None,
+                         files: set[str] | None = None) -> bool:
+    url = zenodo_url(filename, cfg)
+    return bool(url) and fetch_tarball(url, filename, cfg, sha256, files)
+
+
+def fetch_osf_tarball(filename: str, cfg: Config, sha256: str | None = None,
+                      files: set[str] | None = None) -> bool:
+    """Download a tarball from an OSF project node and extract it into PROJECT_ROOT."""
+    if not cfg.osf_node_id:
+        osf_url(filename, cfg)  # says why it is skipped
+        return False
+    url = osf_url(filename, cfg)
+    if not url:
         cfg.failed.append(filename)
         return False
-
-    download_url = entry.get("links", {}).get("download", "")
-    if not download_url:
-        console.print(f"  [bold red][fail][/] no download link for {filename} in OSF")
-        cfg.failed.append(filename)
-        return False
-
-    return fetch_tarball(download_url, filename, cfg)
+    return fetch_tarball(url, filename, cfg, sha256, files)

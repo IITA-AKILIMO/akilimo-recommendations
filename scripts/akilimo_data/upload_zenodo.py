@@ -33,7 +33,7 @@ from rich.rule import Rule
 from tqdm import tqdm
 
 from .assets import asset_options, resolve
-from .common import DIST_DIR, PROJECT_ROOT, Config, ProgressReader, console
+from .common import DIST_DIR, MANIFEST_NAME, PROJECT_ROOT, Config, ProgressReader, console
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -233,6 +233,17 @@ def main(create_new: bool, deposit_id: str, sandbox: bool,
 
         if not _upload_file(bucket_url, filepath, token):
             failed.append(filename)
+
+    # The manifest tells setup-data which files each bundle holds and their checksums
+    manifest = DIST_DIR / MANIFEST_NAME
+    if manifest.exists():
+        if not _upload_file(bucket_url, manifest, token):
+            failed.append(MANIFEST_NAME)
+    else:
+        console.print(
+            f"  [yellow][skip][/] {MANIFEST_NAME} not found in dist/ — "
+            "setup-data will have no checksums or file list. Run [bold]poetry run bundle-assets[/]."
+        )
 
     # -----------------------------------------------------------------------
     # Step 3 — next steps
