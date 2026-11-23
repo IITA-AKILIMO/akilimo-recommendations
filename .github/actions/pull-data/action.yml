@@ -29,6 +29,14 @@ inputs:
     description: "Where to pull from: github, osf or zenodo; empty = osf"
     required: false
     default: ""
+  data_repo:
+    description: "owner/name of the repository whose release holds the data (source github); empty = this repository"
+    required: false
+    default: ""
+  data_tag:
+    description: "Release tag of the data (source github); empty = data-latest"
+    required: false
+    default: ""
   github_token:
     description: "Token that can read the data release of the repository (needed when it is private; used only with source github)"
     required: false
@@ -53,6 +61,8 @@ runs:
         OSF_TOKEN: ${{ inputs.osf_token }}
         DATA_SOURCE: ${{ inputs.source }}
         GITHUB_TOKEN: ${{ inputs.github_token }}
+        GITHUB_DATA_REPO: ${{ inputs.data_repo }}
+        GITHUB_DATA_TAG: ${{ inputs.data_tag }}
         ASSETS: ${{ inputs.assets }}
         ASSETS_EXCLUDE: ${{ inputs.exclude_assets }}
       with:
@@ -60,7 +70,7 @@ runs:
         username: ${{ inputs.username }}
         key: ${{ inputs.key }}
         command_timeout: 40m
-        envs: APP_DIR, OSF_NODE_ID, OSF_TOKEN, DATA_SOURCE, GITHUB_TOKEN, ASSETS, ASSETS_EXCLUDE
+        envs: APP_DIR, OSF_NODE_ID, OSF_TOKEN, DATA_SOURCE, GITHUB_TOKEN, GITHUB_DATA_REPO, GITHUB_DATA_TAG, ASSETS, ASSETS_EXCLUDE
         script: |
           set -e
 

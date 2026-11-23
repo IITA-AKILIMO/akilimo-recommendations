@@ -251,13 +251,13 @@ def auth_headers(url: str, cfg: "Config") -> dict[str, str]:
 
 
 def download_file(url: str, dest: Path, description: str = "",
-                  headers: dict[str, str] | None = None, attempts: int = 4) -> bool:
+                  headers: dict[str, str] | None = None, attempts: int = 6) -> bool:
     """
     Stream-download *url* to *dest* with a tqdm progress bar.
     Returns True on success, False on any network error (never raises).
 
-    A dropped connection, a timeout, or a 408/429/5xx answer (OSF and GitHub both give an
-    occasional 502) is retried with a growing pause, starting the file again each time; 401,
+    A dropped connection, a timeout, or a 408/429/5xx answer (OSF and GitHub both give
+    502s, once for more than a minute) is retried with a growing pause (6 tries, about 2 minutes), starting the file again each time; 401,
     403, 404 and the like fail at once, since another try cannot change them.
     """
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -563,6 +563,62 @@ def zenodo_url(filename: str, cfg: Config) -> str | None:
     return f"{cfg.zenodo_files_base}/{filename}?download=1"
 
 
+class ManifestUnavailable(Exception):
+    """
+    The published manifest could not be read because the host failed (not because there is none).
+    Falling back to the asset registry would then guess which archives belong together, and
+    an asset that is split into several archives would come out incomplete.
+    """
+
+
+def http_get(url: str, *, headers: dict[str, str] | None = None, timeout: int = 30,
+             attempts: int = 5) -> requests.Response:
+    """
+    GET with retries: a dropped connection, a timeout or a 408/429/5xx answer is tried again
+    after a growing pause. The last response is returned (the caller judges its status); the
+    last connection error is raised.
+    """
+    for attempt in range(1, attempts + 1):
+        try:
+            response = requests.get(url, headers=headers, timeout=timeout)
+        except (requests.ConnectionError, requests.Timeout) as exc:
+            if attempt == attempts:
+                raise
+            wait = 2 ** attempt * 2
+            console.print(f"  [yellow][retry][/] {url.split('?')[0][:80]}: {type(exc).__name__}, "
+                          f"attempt {attempt + 1} of {attempts} in {wait}s")
+            time.sleep(wait)
+            continue
+        if (response.status_code in _RETRY_STATUS or response.status_code == 408) and attempt < attempts:
+            wait = 2 ** attempt * 2
+            console.print(f"  [yellow][retry][/] {url.split('?')[0][:80]}: HTTP {response.status_code}, "
+                          f"attempt {attempt + 1} of {attempts} in {wait}s")
+            time.sleep(wait)
+            continue
+        return response
+    raise RuntimeError("unreachable")
+
+
+def osf_listing(cfg: Config, *, quiet: bool = False) -> list[dict] | None:
+    """The files in the OSF project's storage, or None when the listing failed (reported unless *quiet*)."""
+    try:
+        resp = http_get(cfg.osf_storage_url, headers=auth_headers(cfg.osf_storage_url, cfg))
+        resp.raise_for_status()
+        return resp.json().get("data", [])
+    except (requests.RequestException, ValueError) as exc:
+        if not quiet:
+            console.print(f"  [bold red][fail][/] listing OSF node {cfg.osf_node_id}: {exc}")
+        return None
+
+
+def _osf_file_url(entry: dict | None) -> str | None:
+    # The files.osf.io resource URL, not links.download (osf.io/download): for a private project the
+    # latter sends an anonymous or token-less request to a login page, and a token does not survive
+    # its redirect. The resource URL answers to the token directly and works anonymously when public.
+    links = (entry or {}).get("links", {})
+    return links.get("move") or links.get("upload") or links.get("download") or None
+
+
 def osf_url(filename: str, cfg: Config, *, quiet: bool = False) -> str | None:
     """Download URL of a file in the OSF project's storage, or None (reported unless *quiet*)."""
     if not cfg.osf_node_id:
@@ -573,49 +629,55 @@ def osf_url(filename: str, cfg: Config, *, quiet: bool = False) -> str | None:
             )
         return None
 
-    # List files in the node's osfstorage to find the download URL.
-    try:
-        resp = requests.get(cfg.osf_storage_url, headers=auth_headers(cfg.osf_storage_url, cfg), timeout=30)
-        resp.raise_for_status()
-        files = resp.json().get("data", [])
-    except requests.RequestException as exc:
-        if not quiet:
-            console.print(f"  [bold red][fail][/] listing OSF node {cfg.osf_node_id}: {exc}")
+    files = osf_listing(cfg, quiet=quiet)
+    if files is None:
         return None
 
-    entry = next(
-        (f for f in files if f.get("attributes", {}).get("name") == filename),
-        None,
-    )
-    # The files.osf.io resource URL, not links.download (osf.io/download): for a private project the
-    # latter sends an anonymous or token-less request to a login page, and a token does not survive
-    # its redirect. The resource URL answers to the token directly and works anonymously when public.
-    links = (entry or {}).get("links", {})
-    url = links.get("move") or links.get("upload") or links.get("download", "")
+    url = _osf_file_url(next((f for f in files if f.get("attributes", {}).get("name") == filename), None))
     if not url and not quiet:
         console.print(f"  [bold red][fail][/] {filename} not found in OSF node {cfg.osf_node_id}")
-    return url or None
+    return url
 
 
 def fetch_manifest(source: str, cfg: Config) -> dict | None:
     """
-    The published manifest, or None when there is none (older publishes) or it cannot be
-    read. Never raises: setup-data then falls back to the asset registry alone.
+    The published manifest, or None when none is published (older publishes: setup-data then
+    uses the asset registry alone). Raises ManifestUnavailable when the host cannot be asked
+    or answers with an error, after retries: a transient outage must not turn into a silent,
+    incomplete download.
     """
     if source == "github":
         from .github_release import fetch_github_manifest  # imports this module: loaded here, not at the top
         return fetch_github_manifest(cfg)
-    url = zenodo_url(MANIFEST_NAME, cfg) if source == "zenodo" else osf_url(MANIFEST_NAME, cfg, quiet=True)
-    if not url:
-        return None
+
+    if source == "zenodo":
+        url = zenodo_url(MANIFEST_NAME, cfg)
+        if not url:
+            return None
+    else:
+        if not cfg.osf_node_id:
+            return None
+        files = osf_listing(cfg, quiet=True)
+        if files is None:
+            raise ManifestUnavailable(f"could not list the files of OSF node {cfg.osf_node_id}")
+        url = _osf_file_url(next((f for f in files if f.get("attributes", {}).get("name") == MANIFEST_NAME), None))
+        if not url:
+            return None  # listed fine, no manifest in it: an older publish
+
     try:
-        resp = requests.get(url, headers=auth_headers(url, cfg), timeout=30)
-        resp.raise_for_status()
+        resp = http_get(url, headers=auth_headers(url, cfg))
+    except requests.RequestException as exc:
+        raise ManifestUnavailable(f"could not download {MANIFEST_NAME}: {exc}") from exc
+    if resp.status_code == 404:
+        return None
+    if not resp.ok:
+        raise ManifestUnavailable(f"downloading {MANIFEST_NAME} gave HTTP {resp.status_code}")
+    try:
         manifest = resp.json()
-    except (requests.RequestException, ValueError):
-        return None
+    except ValueError as exc:
+        raise ManifestUnavailable(f"{MANIFEST_NAME} is not valid JSON") from exc
     if not isinstance(manifest, dict) or not isinstance(manifest.get("assets"), dict):
-        return None
+        raise ManifestUnavailable(f"{MANIFEST_NAME} has no 'assets' section")
     return manifest
 
 

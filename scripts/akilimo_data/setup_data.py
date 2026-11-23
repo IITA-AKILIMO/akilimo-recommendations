@@ -38,6 +38,7 @@ from .common import (
     PROJECT_ROOT,
     Config,
     console,
+    ManifestUnavailable,
     fetch_manifest,
     fetch_osf_tarball,
     fetch_zenodo_tarball,
@@ -97,7 +98,15 @@ def main(source: str | None, zenodo_id: str, sandbox: bool, osf_node_id: str,
 
     # What was published (archive names, checksums, the files in each bundle). Its asset names
     # are known to this run even when this machine has none of the data yet.
-    manifest = None if no_manifest else fetch_manifest(source, cfg)
+    try:
+        manifest = None if no_manifest else fetch_manifest(source, cfg)
+    except ManifestUnavailable as exc:
+        # Not "there is no manifest": the host failed. Guessing the archives from the registry
+        # would leave an asset that is split into several archives incomplete.
+        console.print(f"[red bold]Cannot read the published manifest:[/] {exc}.\n"
+                      "  Not guessing which archives belong together. Try again later, or pass "
+                      "[bold]--no-manifest[/] to download the main archive of each asset only.")
+        sys.exit(1)
     published = manifest["assets"] if manifest else None
     assets = resolve(only, exclude, extra=published or (), downloading=True)
 

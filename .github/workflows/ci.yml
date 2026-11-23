@@ -301,7 +301,12 @@ jobs:
           # Where the data comes from: the DATA_SOURCE repository variable (github, osf or zenodo;
           # osf when unset). github reads the data release of this repository with the job's token
           DATA_SOURCE: ${{ vars.DATA_SOURCE }}
-          GITHUB_TOKEN: ${{ github.token }}
+          # The release can live in another (private) repository: DATA_REPO is its owner/name and
+          # DATA_TAG the tag. The job's own token reads only this repository, so for another one the
+          # DATA_GITHUB_TOKEN secret (a fine-grained token with Contents: read on it) is used
+          GITHUB_DATA_REPO: ${{ vars.DATA_REPO }}
+          GITHUB_DATA_TAG: ${{ vars.DATA_TAG }}
+          GITHUB_TOKEN: ${{ secrets.DATA_GITHUB_TOKEN || github.token }}
         run: |
           cp .env.example .env
           pipx install poetry

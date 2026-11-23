@@ -436,7 +436,9 @@ Bundling also writes `dist/manifest.json` (schema 2): for each bundled asset its
 
 Uploads behave like the other hosts: files whose SHA-256 GitHub already holds are skipped (GitHub reports one per asset), a changed asset is deleted and uploaded again, the upload ledger and `--jobs` and `--force` apply, and the manifest goes last. Downloads are verified against the manifest, or against GitHub's own SHA-256 when there is no manifest.
 
-To switch CI and the servers, set the `DATA_SOURCE` repository variable to `github`. CI then reads the release with the job's own token. A private repository needs a token that can read contents on each server: store a fine-grained personal access token (Contents: read) as the `DATA_GITHUB_TOKEN` repository secret. Upload from your machine (or any machine) with your own token; CI does not publish.
+**Keeping the data out of a public repository:** the release does not have to be in this repository. Create a separate private repository for the data (for example `IITA-AKILIMO/akilimo-data`) and point everything at it: upload with `GITHUB_DATA_REPO=IITA-AKILIMO/akilimo-data poetry run upload-github` (or set it in `scripts/.env`), and set the repository variables `DATA_SOURCE=github` and `DATA_REPO=IITA-AKILIMO/akilimo-data` (optionally `DATA_TAG`) here. Everything that downloads then needs a token that can read that repository, because the job's own token reads only this one: create a fine-grained personal access token with **Contents: read** on the data repository and store it as the `DATA_GITHUB_TOKEN` secret (CI, the Deploy and the Data setup workflows all use it). Without `DATA_REPO` the release lives in this repository and CI reads it with the job's own token.
+
+If the manifest cannot be read because the host fails (not because none is published), `setup-data` stops with a message instead of guessing the archives from the registry; an asset split into several archives would come out incomplete. `--no-manifest` downloads each asset's main archive only. Downloads retry transient errors (six tries, about two minutes).
 
 ### 2. Upload — choose OSF or Zenodo
 

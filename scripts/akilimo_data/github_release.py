@@ -25,7 +25,7 @@ from urllib.parse import quote
 
 import requests
 
-from .common import MANIFEST_NAME, PROJECT_ROOT, Config, console, fetch_tarball
+from .common import MANIFEST_NAME, PROJECT_ROOT, Config, ManifestUnavailable, console, fetch_tarball, http_get
 
 API = "https://api.github.com"
 TOKEN_HOSTS = ("api.github.com", "uploads.github.com")
@@ -79,24 +79,29 @@ def headers_for(url: str, tok: str, accept: str = "application/vnd.github+json")
 _releases: dict[tuple[str, str], dict | None] = {}
 
 
-def get_release(slug: str, tag: str, tok: str, refresh: bool = False) -> dict | None:
-    """The release with this tag, or None when there is none (or it cannot be read)."""
+def lookup_release(slug: str, tag: str, tok: str, refresh: bool = False) -> tuple[dict | None, bool]:
+    """(release, failed): the release with this tag, or None; failed is True when GitHub could not be asked."""
     key = (slug, tag)
     if refresh or key not in _releases:
         url = f"{API}/repos/{slug}/releases/tags/{quote(tag)}"
         try:
-            resp = requests.get(url, headers=headers_for(url, tok), timeout=30)
+            resp = http_get(url, headers=headers_for(url, tok))
         except requests.RequestException as exc:
             console.print(f"  [bold red][fail][/] reading release {tag} of {slug}: {exc}")
-            return None
+            return None, True
         if resp.status_code == 404:
             _releases[key] = None
         elif resp.ok:
             _releases[key] = resp.json()
         else:
             console.print(f"  [bold red][fail][/] release {tag} of {slug}: HTTP {resp.status_code} — {resp.text[:200]}")
-            return None
-    return _releases[key]
+            return None, True
+    return _releases[key], False
+
+
+def get_release(slug: str, tag: str, tok: str, refresh: bool = False) -> dict | None:
+    """The release with this tag, or None when there is none (or it cannot be read)."""
+    return lookup_release(slug, tag, tok, refresh)[0]
 
 
 def ensure_release(slug: str, tag: str, tok: str) -> dict | None:
@@ -161,18 +166,20 @@ def fetch_github_tarball(filename: str, cfg: Config, sha256: str | None = None,
 
 
 def fetch_github_manifest(cfg: Config) -> dict | None:
-    """manifest.json of the data release, or None (never raises)."""
+    """manifest.json of the data release; None when there is none; ManifestUnavailable when GitHub fails."""
     tok = token()
-    asset = asset_named(get_release(repo_slug(cfg), tag_name(), tok), MANIFEST_NAME)
+    release, failed = lookup_release(repo_slug(cfg), tag_name(), tok)
+    if failed:
+        raise ManifestUnavailable(f"could not read release {tag_name()} of {repo_slug(cfg)}")
+    asset = asset_named(release, MANIFEST_NAME)
     if asset is None:
-        return None
+        return None  # no release, or none with a manifest: an older publish
     try:
-        resp = requests.get(asset["url"], headers=headers_for(asset["url"], tok, accept="application/octet-stream"),
-                            timeout=30)
+        resp = http_get(asset["url"], headers=headers_for(asset["url"], tok, accept="application/octet-stream"))
         resp.raise_for_status()
         manifest = resp.json()
-    except (requests.RequestException, ValueError):
-        return None
+    except (requests.RequestException, ValueError) as exc:
+        raise ManifestUnavailable(f"could not read {MANIFEST_NAME} from the release: {exc}") from exc
     if not isinstance(manifest, dict) or not isinstance(manifest.get("assets"), dict):
-        return None
+        raise ManifestUnavailable(f"{MANIFEST_NAME} has no 'assets' section")
     return manifest
