@@ -235,14 +235,27 @@ poetry run setup-data --source zenodo --zenodo-id 19231022
 poetry run setup-data --source zenodo --sandbox   # sandbox.zenodo.org
 ```
 
-This downloads and extracts these bundles:
+Everything in the data folder is bundled: each folder directly under `data/` is one asset with its own archive (`data/<name>` is `<name>-data.tar.gz`), found automatically, so a new data folder needs no configuration. What is **not** bundled is the exclusion list in `scripts/assets.json` (hidden folders, `*.sqlite` and the other price-database files, and the files tracked in git such as `translations.csv`); an extraction never overwrites those either. Today:
 
-| Bundle | Extracted to | Contents |
-|--------|-------------|----------|
-| `net-assets.tar.gz` | `net/` | Recommendation images (PNG) |
-| `data-input.tar.gz` | `data/input/` | CSV lookup tables (prices, translations, defaults) |
-| `soil-data.tar.gz` | `data/soil/` | Soil NPK RDS files |
-| `yield-data.tar.gz` | `data/yield/` | Yield NetCDF rasters (LINTUL model) |
+| Asset | Bundle | Extracted to | Contents |
+|-------|--------|-------------|----------|
+| `input` | `data-input.tar.gz` | `data/input/` | CSV lookup tables (prices, defaults) |
+| `soil` | `soil-data.tar.gz` | `data/soil/` | Soil NPK RDS files |
+| `yield` | `yield-data.tar.gz` | `data/yield/` | Yield NetCDF rasters (LINTUL model) |
+| `dssat` (optional) | `dssat-data.tar.gz` | `data/dssat/` | DSSAT planting date x cultivar output (PDC, Nigeria maize) |
+| `spam` (optional, on demand) | `spam-data.tar.gz` | `data/spam/` | MapSPAM 2020 source for the cassava-area mask (109 MB); not downloaded unless asked: `setup-data --only spam` |
+
+Choose which assets a run handles; the same options work for `bundle-assets`, `upload-osf` and `upload-zenodo`:
+
+```bash
+poetry run setup-data --list-assets          # names, folders, and what is selected
+poetry run setup-data --only soil --only yield
+poetry run setup-data --exclude dssat        # e.g. a server that never serves PDC
+```
+
+To make a choice permanent, set `ASSETS` (exactly these) or `ASSETS_EXCLUDE` in `scripts/.env`. `required` in `assets.json` names the assets whose absence fails a run; every other asset is optional and is skipped with a warning when it is not published yet. To keep something out of the bundles, add a pattern to `exclude` (gitignore style: a name without `/` matches anywhere, a pattern with `/` matches that path). With a published manifest, `setup-data` also fetches assets it lists that this repository has never heard of. If OSF answers 401, set `OSF_TOKEN` (in `scripts/.env` or the environment); it is sent to `api.osf.io` and `files.osf.io` only. For a private project the token must allow reading file contents as well as listing them (a download without it is a login page, which `setup-data` now reports as "not a gzip file").
+
+The Data setup workflow has matching `assets` and `exclude_assets` inputs.
 
 Re-running is safe — already-extracted files are preserved.
 
@@ -418,15 +431,20 @@ The port matches `API_PORT` in your `.env` (default `8000`).
 ```bash
 cd scripts
 poetry run bundle-assets
-# Produces: dist/net-assets.tar.gz  dist/data-input.tar.gz
-#           dist/soil-data.tar.gz   dist/yield-data.tar.gz
+# Produces one dist/<archive> per asset in scripts/assets.json
 ```
 
-Bundle specific groups only:
+Bundle specific assets only:
 
 ```bash
 poetry run bundle-assets --only soil --only yield
+poetry run bundle-assets --exclude dssat
+poetry run bundle-assets --interactive      # shows files and size per asset, then asks one by one
 ```
+
+Bundling also writes `dist/manifest.json` (schema 2): for each bundled asset its archives (an asset is one archive, plus one extra archive for each file over `split_over_mb`, 50 MB by default, so changing one big file re-uploads only that file), and for each archive its SHA-256, size and the exact files inside, plus the generation time and git commit. Sizes are bytes, and also text (`"1.4 MiB"`) unless you pass `--no-human-sizes` or set `human_sizes` to false in `assets.json`. Archives of files that are already compressed (`.rds`, `.zip`, ...) are stored without recompressing; the rest use gzip level 6. A partial run keeps the entries of assets bundled earlier whose archive is still in `dist/`. `upload-osf` and `upload-zenodo` upload the manifest with the bundles. Archives are reproducible (sorted members, no timestamps or owners), so bundling unchanged data gives the same hash, and an upload skips any file the host already holds with the same hash (OSF compares SHA-256, Zenodo MD5; the manifest itself is only rewritten when its contents change). `--force` uploads everything anyway. Uploads run 3 files at a time (`--jobs N`, 1 to 8), read the file in 1 MiB blocks, wait longer for bigger files, and retry a dropped connection or a 429/5xx answer with a growing pause (OSF and Zenodo cannot resume, so a retry restarts that file). Every successful upload is recorded at once in `dist/upload-state.json` (per target: the OSF node or Zenodo deposit, with the file's SHA-256), so after a crash, Ctrl-C or a failed file the next run skips what already went up and sends only the rest; a rebuilt archive with different content goes again, and `--force` ignores the record. The manifest is uploaded last, and only when every archive went up. `assets.json` has two pattern lists with the same syntax: `exclude` (whole folders and files that belong to the repo or the server) and `ignore` (junk inside the folders being bundled: `*.tmp`, `*.bak`, `*~`, `Thumbs.db`, `desktop.ini` by default). To leave files out of one bundling run, use `--ignore PATTERN` (repeatable, relative to `data/`, e.g. `--ignore 'yield/*.bak' --ignore 'soil/old'`), or set `ASSETS_IGNORE` for good.
+
+`setup-data` reads the published manifest first. With it, every download is checked against its SHA-256, only the files the manifest lists are extracted, and a required asset missing from the manifest fails early with a clear message. Without one (older publishes) it falls back to the asset registry alone. `--no-manifest` ignores it.
 
 ### 2. Upload — choose OSF or Zenodo
 

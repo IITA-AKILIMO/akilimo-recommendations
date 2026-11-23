@@ -35,13 +35,17 @@ import requests
 from rich.rule import Rule
 from tqdm import tqdm
 
-from .common import DIST_DIR, Config, ProgressReader, console
-
-OSF_BUNDLES = [
-    "data-input.tar.gz",
-    "soil-data.tar.gz",
-    "yield-data.tar.gz",
-]
+from .assets import asset_options, resolve
+from .common import (
+    DIST_DIR,
+    MANIFEST_NAME,
+    Config,
+    UploadLedger,
+    console,
+    put_file,
+    run_uploads,
+    upload_plan,
+)
 
 _OSF_TITLE = "Akilimo Cassava Recommendations — Data Assets"
 
@@ -103,18 +107,37 @@ def _list_files(node_id: str, token: str, sandbox: bool) -> list[dict]:
 
 
 def _upload_file(
-    node_id: str, filepath: Path, token: str, existing: list[dict], sandbox: bool
+    node_id: str, filepath: Path, token: str, existing: list[dict], sandbox: bool,
+    force: bool = False, show_bar: bool = True, ledger: UploadLedger | None = None,
 ) -> bool:
-    """Upload *filepath* to an OSF node, overwriting any existing file of the same name."""
+    """
+    Upload *filepath* to an OSF node, overwriting any existing file of the same name.
+    A file is not uploaded again (unless *force*) when the ledger says an earlier run already
+    sent this exact content, or when OSF already holds the same SHA-256.
+    """
     size = filepath.stat().st_size
-    console.print(f"  Uploading [cyan]{filepath.name}[/]  ({size / 1_048_576:.1f} MB) ...")
+    target = f"osf{':test' if sandbox else ''}:{node_id}"
 
-    wb = _wb_base(sandbox)
+    if ledger and not force and ledger.is_done(target, filepath):
+        console.print(f"  [dim][done earlier][/] {filepath.name} — uploaded by an earlier run, skipped")
+        return True
 
     match = next(
         (f for f in existing if f.get("attributes", {}).get("name") == filepath.name),
         None,
     )
+    if match and not force:
+        hashes = match.get("attributes", {}).get("extra", {}).get("hashes", {}) or {}
+        if hashes.get("sha256") and hashes["sha256"] == (ledger.sha256(filepath) if ledger else sha256_of(filepath)):
+            console.print(f"  [dim][unchanged][/] {filepath.name} — same SHA-256 as on OSF, not uploaded")
+            if ledger:
+                ledger.record(target, filepath)
+            return True
+
+    console.print(f"  Uploading [cyan]{filepath.name}[/]  ({size / 1_048_576:.1f} MB) ...")
+
+    wb = _wb_base(sandbox)
+
     if match:
         upload_url = match.get("links", {}).get("upload", "")
         if not upload_url:
@@ -123,20 +146,12 @@ def _upload_file(
     else:
         upload_url = f"{wb}/{node_id}/providers/osfstorage/?name={filepath.name}"
 
-    with (
-        open(filepath, "rb") as fh,
-        tqdm(total=size, unit="B", unit_scale=True, desc=f"  {filepath.name}", leave=False) as bar,
-    ):
-        response = requests.put(
-            upload_url,
-            data=ProgressReader(fh, bar),
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/octet-stream",
-                "Content-Length": str(size),
-            },
-            timeout=600,
-        )
+    response = put_file(
+        upload_url,
+        filepath,
+        {"Authorization": f"Bearer {token}", "Content-Type": "application/octet-stream"},
+        show_bar=show_bar,
+    )
 
     if response.status_code in (200, 201):
         name = (
@@ -147,6 +162,8 @@ def _upload_file(
         )
         action = "updated" if match else "created"
         console.print(f"  [green][ok][/]   {name} ({action})")
+        if ledger:
+            ledger.record(target, filepath)
         return True
 
     console.print(
@@ -161,6 +178,10 @@ def _upload_file(
 # ---------------------------------------------------------------------------
 
 @click.command()
+@asset_options
+@click.option("--force", is_flag=True, help="Upload every file, even when OSF already holds the same SHA-256.")
+@click.option("--jobs", "-j", type=click.IntRange(1, 8), default=3, show_default=True,
+              help="Files uploaded at the same time.")
 @click.option("--new", "create_new", is_flag=True, help="Create a new OSF project.")
 @click.option(
     "--node-id",
@@ -174,7 +195,8 @@ def _upload_file(
     default=False,
     help="Use test.osf.io instead of osf.io.",
 )
-def main(create_new: bool, node_id: str, sandbox: bool) -> None:
+def main(create_new: bool, node_id: str, sandbox: bool, force: bool, jobs: int,
+         only: tuple[str, ...], exclude: tuple[str, ...]) -> None:
     """Upload data bundles to an OSF project."""
 
     token = os.environ.get("OSF_TOKEN", "")
@@ -241,19 +263,43 @@ def main(create_new: bool, node_id: str, sandbox: bool) -> None:
     # -----------------------------------------------------------------------
     console.print(Rule("Uploading files"))
 
+    ledger = UploadLedger()
+    target = f"osf{':test' if sandbox else ''}:{node_id}"
+    if force:
+        ledger.forget(target)
+
     failed: list[str] = []
-    for filename in OSF_BUNDLES:
+    to_send: list[Path] = []
+    for filename, optional in upload_plan(resolve(only, exclude)):
         filepath = DIST_DIR / filename
         if not filepath.exists():
             console.print(
                 f"  [yellow][skip][/] {filename} not found in dist/. "
                 "Run [bold]poetry run bundle-assets[/] first."
             )
-            failed.append(filename)
+            if not optional:
+                failed.append(filename)
             continue
+        to_send.append(filepath)
 
-        if not _upload_file(node_id, filepath, token, existing, sandbox):
-            failed.append(filename)
+    show_bar = jobs <= 1 or len(to_send) <= 1
+    failed += run_uploads(
+        to_send, lambda fp: _upload_file(node_id, fp, token, existing, sandbox, force, show_bar, ledger), jobs
+    )
+
+    # The manifest goes last, and only when every archive it lists is there: a manifest that
+    # names archives OSF does not have would make setup-data fail
+    manifest = DIST_DIR / MANIFEST_NAME
+    if failed:
+        console.print(f"  [yellow][skip][/] {MANIFEST_NAME} not uploaded because some archives failed")
+    elif manifest.exists():
+        if not _upload_file(node_id, manifest, token, existing, sandbox, force, True, ledger):
+            failed.append(MANIFEST_NAME)
+    else:
+        console.print(
+            f"  [yellow][skip][/] {MANIFEST_NAME} not found in dist/ — "
+            "setup-data will have no checksums or file list. Run [bold]poetry run bundle-assets[/]."
+        )
 
     # -----------------------------------------------------------------------
     # Step 4 — summary and next steps

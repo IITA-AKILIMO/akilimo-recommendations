@@ -27,19 +27,25 @@ import subprocess
 import sys
 from pathlib import Path
 
+import hashlib
+
 import click
 import requests
 from rich.rule import Rule
 from tqdm import tqdm
 
-from .common import DIST_DIR, PROJECT_ROOT, Config, ProgressReader, console
-
-ZENODO_BUNDLES = [
-    "data-input.tar.gz",
-    "soil-data.tar.gz",
-    "yield-data.tar.gz",
-]
-
+from .assets import asset_options, resolve
+from .common import (
+    DIST_DIR,
+    MANIFEST_NAME,
+    PROJECT_ROOT,
+    Config,
+    UploadLedger,
+    console,
+    put_file,
+    run_uploads,
+    upload_plan,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -56,27 +62,54 @@ def _git_tag() -> str:
         return "1.0.0"
 
 
-def _upload_file(bucket_url: str, filepath: Path, token: str) -> bool:
+def _md5_of(path: Path) -> str:
+    digest = hashlib.md5(usedforsecurity=False)
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1_048_576), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _remote_checksums(api_base: str, deposit_id: str, token: str) -> dict[str, str]:
+    """File name -> MD5 of the files already in the deposit (Zenodo reports MD5 only)."""
+    try:
+        resp = requests.get(
+            f"{api_base}/deposit/depositions/{deposit_id}/files",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        return {f["filename"]: f.get("checksum", "") for f in resp.json()}
+    except (requests.RequestException, ValueError, KeyError):
+        return {}  # cannot tell: upload everything rather than skip wrongly
+
+
+def _upload_file(bucket_url: str, filepath: Path, token: str,
+                 remote: dict[str, str] | None = None, show_bar: bool = True,
+                 ledger: UploadLedger | None = None, target: str = "", force: bool = False) -> bool:
     size = filepath.stat().st_size
+    if ledger and not force and ledger.is_done(target, filepath):
+        console.print(f"  [dim][done earlier][/] {filepath.name} — uploaded by an earlier run, skipped")
+        return True
+    if remote and remote.get(filepath.name) and remote[filepath.name] == _md5_of(filepath):
+        console.print(f"  [dim][unchanged][/] {filepath.name} — same MD5 as in the deposit, not uploaded")
+        if ledger:
+            ledger.record(target, filepath)
+        return True
     console.print(f"  Uploading [cyan]{filepath.name}[/]  ({size / 1_048_576:.1f} MB) ...")
 
-    with (
-        open(filepath, "rb") as fh,
-        tqdm(total=size, unit="B", unit_scale=True, desc=f"  {filepath.name}", leave=False) as bar,
-    ):
-        response = requests.put(
-            f"{bucket_url}/{filepath.name}",
-            data=ProgressReader(fh, bar),
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Length": str(size),
-            },
-            timeout=600,
-        )
+    response = put_file(
+        f"{bucket_url}/{filepath.name}",
+        filepath,
+        {"Authorization": f"Bearer {token}"},
+        show_bar=show_bar,
+    )
 
     if response.ok:
         checksum = response.json().get("checksum", "")
         console.print(f"  [green][ok][/]   {filepath.name}  (md5:{checksum})")
+        if ledger:
+            ledger.record(target, filepath)
         return True
 
     console.print(
@@ -130,6 +163,10 @@ def _build_metadata(cfg: Config) -> dict:
 # ---------------------------------------------------------------------------
 
 @click.command()
+@asset_options
+@click.option("--force", is_flag=True, help="Upload every file, even when the deposit already holds the same MD5.")
+@click.option("--jobs", "-j", type=click.IntRange(1, 8), default=3, show_default=True,
+              help="Files uploaded at the same time.")
 @click.option("--new", "create_new", is_flag=True, help="Create a new Zenodo deposit.")
 @click.option(
     "--deposit-id",
@@ -143,8 +180,9 @@ def _build_metadata(cfg: Config) -> dict:
     default=lambda: os.environ.get("ZENODO_USE_SANDBOX", "0") == "1",
     help="Use sandbox.zenodo.org instead of zenodo.org.",
 )
-def main(create_new: bool, deposit_id: str, sandbox: bool) -> None:
-    """Upload soil-data.tar.gz and yield-data.tar.gz to a Zenodo deposit."""
+def main(create_new: bool, deposit_id: str, sandbox: bool, force: bool, jobs: int,
+         only: tuple[str, ...], exclude: tuple[str, ...]) -> None:
+    """Upload the data bundles to a Zenodo deposit."""
 
     token = os.environ.get("ZENODO_TOKEN", "")
     if not token:
@@ -222,19 +260,44 @@ def main(create_new: bool, deposit_id: str, sandbox: bool) -> None:
     # -----------------------------------------------------------------------
     console.print(Rule("Uploading files"))
 
+    # What the deposit already holds, so unchanged files are not sent again
+    remote = None if force else _remote_checksums(api_base, deposit_id, token)
+
+    ledger = UploadLedger()
+    target = f"zenodo{':sandbox' if sandbox else ''}:{deposit_id}"
+    if force:
+        ledger.forget(target)
+
     failed: list[str] = []
-    for filename in ZENODO_BUNDLES:
+    to_send: list[Path] = []
+    for filename, optional in upload_plan(resolve(only, exclude)):
         filepath = DIST_DIR / filename
         if not filepath.exists():
             console.print(
                 f"  [yellow][skip][/] {filename} not found in dist/. "
                 "Run [bold]poetry run bundle-assets[/] first."
             )
-            failed.append(filename)
+            if not optional:
+                failed.append(filename)
             continue
+        to_send.append(filepath)
 
-        if not _upload_file(bucket_url, filepath, token):
-            failed.append(filename)
+    show_bar = jobs <= 1 or len(to_send) <= 1
+    failed += run_uploads(to_send, lambda fp: _upload_file(bucket_url, fp, token, remote, show_bar, ledger, target, force), jobs)
+
+    # The manifest goes last, and only when every archive it lists is there: a manifest that
+    # names archives the deposit does not have would make setup-data fail
+    manifest = DIST_DIR / MANIFEST_NAME
+    if failed:
+        console.print(f"  [yellow][skip][/] {MANIFEST_NAME} not uploaded because some archives failed")
+    elif manifest.exists():
+        if not _upload_file(bucket_url, manifest, token, remote, True, ledger, target, force):
+            failed.append(MANIFEST_NAME)
+    else:
+        console.print(
+            f"  [yellow][skip][/] {MANIFEST_NAME} not found in dist/ — "
+            "setup-data will have no checksums or file list. Run [bold]poetry run bundle-assets[/]."
+        )
 
     # -----------------------------------------------------------------------
     # Step 3 — next steps

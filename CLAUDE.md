@@ -29,6 +29,8 @@ poetry run setup-data --source zenodo      # or Zenodo
 
 Re-running is safe — already-extracted files are preserved.
 
+Everything in `data/` is bundled: each folder directly under it is one asset and one archive (`input`, `soil`, `yield`, `dssat`, ...), found automatically; `scripts/assets.json` holds the exclusion list (what is NOT bundled: hidden folders, `*.sqlite`, files tracked in git; `data/spam` is bundled but `on_demand`, so `setup-data` fetches it only with `--only spam`), which assets are `required` (the rest are optional, so a server without `dssat` still sets up) and any archive names that differ. If OSF answers 401 to the file listing, set `OSF_TOKEN` (sent to `api.osf.io` and `files.osf.io` only; a private project needs a token that can read file contents). Narrow any run with `--only NAME` / `--exclude NAME` (repeatable), or for good with `ASSETS` / `ASSETS_EXCLUDE` in `scripts/.env`; `poetry run setup-data --list-assets` shows them. A new data folder needs no configuration. `bundle-assets` (also `--interactive`) writes `dist/manifest.json` (archive, SHA-256 and file list per asset), the uploads publish it (and skip files whose hash the host already holds; `--force` overrides), and `setup-data` uses it to verify downloads and extract only the listed files (`--no-manifest` skips it).
+
 ### Publishing data files (maintainers only)
 
 ```bash
@@ -38,8 +40,8 @@ cp .env.example .env
 
 poetry install
 
-# 1. Bundle all four data directories → dist/*.tar.gz
-poetry run bundle-assets
+# 1. Bundle the assets in scripts/assets.json → dist/*.tar.gz
+poetry run bundle-assets                  # all; or --only soil --only yield, --exclude dssat
 
 # 2a. Upload to OSF (recommended)
 poetry run upload-osf --new               # first time → prints node ID

@@ -162,6 +162,7 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           app_dir: ${{ needs.plan.outputs.app_dir }}
           osf_node_id: ${{ secrets.OSF_NODE_ID }}
+          osf_token: ${{ secrets.OSF_TOKEN }}
 
       - name: Restart service
         uses: appleboy/ssh-action@v1.2.5

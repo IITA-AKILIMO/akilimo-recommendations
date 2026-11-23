@@ -18,6 +18,12 @@ on:
       osf_node_id:
         description: "OSF project node ID (overrides the OSF_NODE_ID secret)"
         required: false
+      assets:
+        description: "Only these assets, comma separated (input, soil, yield, dssat; see scripts/assets.json). Empty = the defaults"
+        required: false
+      exclude_assets:
+        description: "Leave these assets out, comma separated. Empty = none"
+        required: false
 
 permissions:
   contents: read
@@ -53,3 +59,6 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           app_dir: ${{ steps.target.outputs.app_dir }}
           osf_node_id: ${{ inputs.osf_node_id || secrets.OSF_NODE_ID }}
+          osf_token: ${{ secrets.OSF_TOKEN }}
+          assets: ${{ inputs.assets }}
+          exclude_assets: ${{ inputs.exclude_assets }}

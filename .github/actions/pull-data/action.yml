@@ -21,6 +21,18 @@ inputs:
     description: "OSF node ID written to scripts/.env when set"
     required: false
     default: ""
+  osf_token:
+    description: "OSF token for the file listing and the downloads (sent to api.osf.io and files.osf.io only, not written to disk)"
+    required: false
+    default: ""
+  assets:
+    description: "Assets to pull, comma separated (names in scripts/assets.json); empty = the defaults"
+    required: false
+    default: ""
+  exclude_assets:
+    description: "Assets to leave out, comma separated; empty = none"
+    required: false
+    default: ""
 
 runs:
   using: composite
@@ -30,12 +42,15 @@ runs:
       env:
         APP_DIR: ${{ inputs.app_dir }}
         OSF_NODE_ID: ${{ inputs.osf_node_id }}
+        OSF_TOKEN: ${{ inputs.osf_token }}
+        ASSETS: ${{ inputs.assets }}
+        ASSETS_EXCLUDE: ${{ inputs.exclude_assets }}
       with:
         host: ${{ inputs.host }}
         username: ${{ inputs.username }}
         key: ${{ inputs.key }}
         command_timeout: 40m
-        envs: APP_DIR, OSF_NODE_ID
+        envs: APP_DIR, OSF_NODE_ID, OSF_TOKEN, ASSETS, ASSETS_EXCLUDE
         script: |
           set -e
 
