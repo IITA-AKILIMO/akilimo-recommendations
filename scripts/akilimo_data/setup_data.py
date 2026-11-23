@@ -9,10 +9,10 @@ Configuration is loaded from scripts/.env (see .env.example).
 CLI flags override .env values.
 
 Usage:
-    poetry run setup-data                              # auto-detect source
+    poetry run setup-data                              # the default source: github
     poetry run setup-data --source zenodo
     poetry run setup-data --source osf --osf-node-id abc12
-    poetry run setup-data --source github             # a release of this repository (DATA_SOURCE=github)
+    poetry run setup-data --source osf                # or zenodo; DATA_SOURCE sets it for good
     poetry run setup-data --zenodo-id 1234567
     poetry run setup-data --sandbox
     poetry run setup-data --only yield --only soil
@@ -37,6 +37,7 @@ from . import github_release
 from .common import (
     PROJECT_ROOT,
     Config,
+    load_asset_config,
     console,
     ManifestUnavailable,
     fetch_manifest,
@@ -45,7 +46,13 @@ from .common import (
 )
 
 def _detect_source(zenodo_id: str, osf_node_id: str) -> str:
-    """Return 'zenodo' or 'osf' based on which IDs are configured."""
+    """
+    The source when neither --source nor DATA_SOURCE says: "default_source" of scripts/assets.json
+    (github unless changed). "auto" there restores the old guess from the IDs: OSF, then Zenodo.
+    """
+    configured = load_asset_config()["default_source"]
+    if configured in ("github", "osf", "zenodo"):
+        return configured
     if osf_node_id:
         return "osf"
     if zenodo_id:
@@ -59,9 +66,9 @@ def _detect_source(zenodo_id: str, osf_node_id: str) -> str:
     type=click.Choice(["zenodo", "osf", "github"]),
     default=None,
     envvar="DATA_SOURCE",
-    show_default="env DATA_SOURCE, else auto-detect from .env",
-    help="Download source: github (a release of this repository, see upload-github), osf or zenodo. "
-         "Auto-detected from configured IDs if omitted.",
+    show_default="env DATA_SOURCE, else default_source in scripts/assets.json (github)",
+    help="Download source: github (a release of the data repository, see upload-github), osf or zenodo. "
+         "Default: default_source in scripts/assets.json, which is github.",
 )
 @click.option(
     "--zenodo-id",

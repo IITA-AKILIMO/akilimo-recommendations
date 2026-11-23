@@ -3,9 +3,11 @@ GitHub Releases as a place to keep the data bundles.
 
 One release holds the current bundles as assets (up to 2 GiB each) plus manifest.json:
 
-    tag      GITHUB_DATA_TAG, default "data-latest" (a pre-release that is never marked
-             "latest", so it does not interfere with the version releases of the deploy)
-    repo     GITHUB_DATA_REPO ("owner/name"), else GITHUB_REPOSITORY (set in GitHub Actions),
+    tag      GITHUB_DATA_TAG, else "github.tag" of scripts/assets.json, else "data-latest" (a
+             pre-release that is never marked "latest", so it does not interfere with the
+             version releases of the deploy)
+    repo     GITHUB_DATA_REPO ("owner/name"), else the "github.repo" of scripts/assets.json
+             (the private data repository), else GITHUB_REPOSITORY (set in GitHub Actions),
              else the owner and name of this checkout's origin remote
     token    GITHUB_TOKEN or GH_TOKEN, else `gh auth token`. Needed to upload and to read a
              private repository; a public one downloads without it. Sent to api.github.com
@@ -25,7 +27,16 @@ from urllib.parse import quote
 
 import requests
 
-from .common import MANIFEST_NAME, PROJECT_ROOT, Config, ManifestUnavailable, console, fetch_tarball, http_get
+from .common import (
+    MANIFEST_NAME,
+    PROJECT_ROOT,
+    Config,
+    ManifestUnavailable,
+    console,
+    fetch_tarball,
+    http_get,
+    load_asset_config,
+)
 
 API = "https://api.github.com"
 TOKEN_HOSTS = ("api.github.com", "uploads.github.com")
@@ -46,13 +57,14 @@ def token() -> str:
 
 
 def tag_name() -> str:
-    return os.environ.get("GITHUB_DATA_TAG", "").strip() or DEFAULT_TAG
+    return os.environ.get("GITHUB_DATA_TAG", "").strip() or load_asset_config()["github_tag"] or DEFAULT_TAG
 
 
 def repo_slug(cfg: Config | None = None) -> str:
     """owner/name of the repository that holds the release (see the module doc)."""
-    for name in ("GITHUB_DATA_REPO", "GITHUB_REPOSITORY"):
-        value = os.environ.get(name, "").strip()
+    for value in (os.environ.get("GITHUB_DATA_REPO", ""), load_asset_config()["github_repo"],
+                  os.environ.get("GITHUB_REPOSITORY", "")):
+        value = value.strip()
         if re.fullmatch(r"[\w.-]+/[\w.-]+", value):
             return value
     try:
