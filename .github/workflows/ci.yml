@@ -379,6 +379,10 @@ jobs:
         if: ${{ (!cancelled()) && steps.passed.outputs.cache-hit != 'true' }}
         run: sh tests/test_check_health.sh
 
+      - name: Test the deploy housekeeping script
+        if: ${{ (!cancelled()) && steps.passed.outputs.cache-hit != 'true' }}
+        run: sh tests/test_housekeeping.sh
+
       # success() is true only when every step above passed, so a marker is never saved for a
       # failing run
       - name: Remember that these checks passed
