@@ -424,6 +424,20 @@ Bundling also writes `dist/manifest.json` (schema 2): for each bundled asset its
 
 `setup-data` reads the published manifest first. With it, every download is checked against its SHA-256, only the files the manifest lists are extracted, and a required asset missing from the manifest fails early with a clear message. Without one (older publishes) it falls back to the asset registry alone. `--no-manifest` ignores it.
 
+### GitHub Releases: a third place to keep the data
+
+`poetry run upload-github` publishes the archives and `manifest.json` as assets of one release of this repository, and `poetry run setup-data --source github` (or `DATA_SOURCE=github`) downloads them. Assets can be up to 2 GiB, which the 50 MB split stays far under.
+
+| Setting | Meaning |
+|---|---|
+| `GITHUB_DATA_TAG` | the release tag, default `data-latest`; a dated tag such as `data-2026-11-23` keeps a release of its own. The release is created as a pre-release that is never marked "latest", so it does not interfere with the version releases of the deploy |
+| `GITHUB_DATA_REPO` | `owner/name`; default `GITHUB_REPOSITORY` in Actions, else this checkout's `origin` |
+| `GITHUB_TOKEN` or `GH_TOKEN` | needed to upload (it can write releases) and, for a private repository, to download (it can read contents); empty falls back to the GitHub CLI's login (`gh auth login`). Sent to `api.github.com` and `uploads.github.com` only |
+
+Uploads behave like the other hosts: files whose SHA-256 GitHub already holds are skipped (GitHub reports one per asset), a changed asset is deleted and uploaded again, the upload ledger and `--jobs` and `--force` apply, and the manifest goes last. Downloads are verified against the manifest, or against GitHub's own SHA-256 when there is no manifest.
+
+To switch CI and the servers, set the `DATA_SOURCE` repository variable to `github`. CI then reads the release with the job's own token. A private repository needs a token that can read contents on each server: store a fine-grained personal access token (Contents: read) as the `DATA_GITHUB_TOKEN` repository secret. Upload from your machine (or any machine) with your own token; CI does not publish.
+
 ### 2. Upload — choose OSF or Zenodo
 
 #### Option A: OSF (recommended)

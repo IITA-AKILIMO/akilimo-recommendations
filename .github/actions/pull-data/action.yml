@@ -25,6 +25,14 @@ inputs:
     description: "OSF token for the file listing and the downloads (sent to api.osf.io and files.osf.io only, not written to disk)"
     required: false
     default: ""
+  source:
+    description: "Where to pull from: github, osf or zenodo; empty = osf"
+    required: false
+    default: ""
+  github_token:
+    description: "Token that can read the data release of the repository (needed when it is private; used only with source github)"
+    required: false
+    default: ""
   assets:
     description: "Assets to pull, comma separated (names in scripts/assets.json); empty = the defaults"
     required: false
@@ -43,6 +51,8 @@ runs:
         APP_DIR: ${{ inputs.app_dir }}
         OSF_NODE_ID: ${{ inputs.osf_node_id }}
         OSF_TOKEN: ${{ inputs.osf_token }}
+        DATA_SOURCE: ${{ inputs.source }}
+        GITHUB_TOKEN: ${{ inputs.github_token }}
         ASSETS: ${{ inputs.assets }}
         ASSETS_EXCLUDE: ${{ inputs.exclude_assets }}
       with:
@@ -50,7 +60,7 @@ runs:
         username: ${{ inputs.username }}
         key: ${{ inputs.key }}
         command_timeout: 40m
-        envs: APP_DIR, OSF_NODE_ID, OSF_TOKEN, ASSETS, ASSETS_EXCLUDE
+        envs: APP_DIR, OSF_NODE_ID, OSF_TOKEN, DATA_SOURCE, GITHUB_TOKEN, ASSETS, ASSETS_EXCLUDE
         script: |
           set -e
 
@@ -81,11 +91,12 @@ runs:
             sed -i "s/^OSF_NODE_ID=.*/OSF_NODE_ID=$OSF_NODE_ID/" .env
           fi
 
-          # OSF is the single source for runtime data on the servers
-          poetry run setup-data --source osf
+          # The source is the DATA_SOURCE repository variable: github (a release of this
+          # repository; GITHUB_TOKEN reads it when private), osf (the default) or zenodo
+          poetry run setup-data --source "${DATA_SOURCE:-osf}"
 
           # Derived data that is not in the OSF bundle (the Rwanda
           # scheduled-planting file), built from the yield data just pulled
           cd "$APP_DIR"
           sh tools/ensure_sp_files.sh
-          echo "Data setup complete (source: osf, dir: $APP_DIR)"
+          echo "Data setup complete (source: ${DATA_SOURCE:-osf}, dir: $APP_DIR)"

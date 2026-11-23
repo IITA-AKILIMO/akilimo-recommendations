@@ -292,9 +292,11 @@ def fetch_tarball(
     cfg: Config,
     sha256: str | None = None,
     files: set[str] | None = None,
+    headers: dict[str, str] | None = None,
 ) -> bool:
     """
-    Download a tarball from *url* and extract it into PROJECT_ROOT.
+    Download a tarball from *url* and extract it into PROJECT_ROOT. *headers* replaces the
+    default request headers (the OSF token header); GitHub release assets pass their own.
 
     With *sha256* the download must match it. With *files* (from the manifest) only
     those paths are extracted, besides folders; anything else in the archive is left out.
@@ -303,7 +305,7 @@ def fetch_tarball(
         tmp_path = Path(tmp.name)
 
     console.print(f"  Downloading [cyan]{asset_name}[/] ...")
-    ok = download_file(url, tmp_path, asset_name, auth_headers(url, cfg))
+    ok = download_file(url, tmp_path, asset_name, auth_headers(url, cfg) if headers is None else headers)
 
     if not ok:
         cfg.failed.append(asset_name)
@@ -368,9 +370,10 @@ _RETRY_STATUS = {429, 500, 502, 503, 504}
 
 
 def put_file(url: str, filepath: Path, headers: dict[str, str], *, show_bar: bool = True,
-             attempts: int = 4) -> requests.Response:
+             attempts: int = 4, method: str = "PUT") -> requests.Response:
     """
-    PUT *filepath* to *url* (Content-Length set, body streamed from disk).
+    PUT (or POST, for GitHub release assets) *filepath* to *url* (Content-Length set, body
+    streamed from disk).
 
     The read timeout grows with the file (a 470 MB file on a slow link needs far more than a
     fixed 10 minutes), and a dropped connection or a 429/5xx answer is retried with a growing
@@ -391,7 +394,8 @@ def put_file(url: str, filepath: Path, headers: dict[str, str], *, show_bar: boo
                 tqdm(total=size, unit="B", unit_scale=True, desc=f"  {filepath.name}",
                      leave=False, disable=not show_bar) as bar,
             ):
-                response = session.put(
+                response = session.request(
+                    method,
                     url,
                     data=ProgressReader(fh, bar),
                     headers={**headers, "Content-Length": str(size)},
@@ -585,6 +589,9 @@ def fetch_manifest(source: str, cfg: Config) -> dict | None:
     The published manifest, or None when there is none (older publishes) or it cannot be
     read. Never raises: setup-data then falls back to the asset registry alone.
     """
+    if source == "github":
+        from .github_release import fetch_github_manifest  # imports this module: loaded here, not at the top
+        return fetch_github_manifest(cfg)
     url = zenodo_url(MANIFEST_NAME, cfg) if source == "zenodo" else osf_url(MANIFEST_NAME, cfg, quiet=True)
     if not url:
         return None

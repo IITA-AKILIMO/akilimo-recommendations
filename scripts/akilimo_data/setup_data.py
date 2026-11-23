@@ -12,6 +12,7 @@ Usage:
     poetry run setup-data                              # auto-detect source
     poetry run setup-data --source zenodo
     poetry run setup-data --source osf --osf-node-id abc12
+    poetry run setup-data --source github             # a release of this repository (DATA_SOURCE=github)
     poetry run setup-data --zenodo-id 1234567
     poetry run setup-data --sandbox
     poetry run setup-data --only yield --only soil
@@ -19,7 +20,8 @@ Usage:
     poetry run setup-data --list-assets
 
 .env keys used:
-    ZENODO_RECORD_ID, ZENODO_USE_SANDBOX, OSF_NODE_ID, ASSETS, ASSETS_EXCLUDE, OSF_TOKEN
+    DATA_SOURCE, ZENODO_RECORD_ID, ZENODO_USE_SANDBOX, OSF_NODE_ID, OSF_TOKEN, ASSETS, ASSETS_EXCLUDE,
+    GITHUB_DATA_REPO, GITHUB_DATA_TAG, GITHUB_TOKEN
 """
 
 from __future__ import annotations
@@ -31,6 +33,7 @@ import click
 from rich.rule import Rule
 
 from .assets import asset_options, resolve
+from . import github_release
 from .common import (
     PROJECT_ROOT,
     Config,
@@ -52,10 +55,12 @@ def _detect_source(zenodo_id: str, osf_node_id: str) -> str:
 @click.command()
 @click.option(
     "--source",
-    type=click.Choice(["zenodo", "osf"]),
+    type=click.Choice(["zenodo", "osf", "github"]),
     default=None,
-    show_default="auto-detect from .env",
-    help="Download source. Auto-detected from configured IDs if omitted.",
+    envvar="DATA_SOURCE",
+    show_default="env DATA_SOURCE, else auto-detect from .env",
+    help="Download source: github (a release of this repository, see upload-github), osf or zenodo. "
+         "Auto-detected from configured IDs if omitted.",
 )
 @click.option(
     "--zenodo-id",
@@ -83,7 +88,7 @@ def _detect_source(zenodo_id: str, osf_node_id: str) -> str:
 @asset_options
 def main(source: str | None, zenodo_id: str, sandbox: bool, osf_node_id: str,
          no_manifest: bool, only: tuple[str, ...], exclude: tuple[str, ...]) -> None:
-    """Download Akilimo runtime data from Zenodo or OSF."""
+    """Download Akilimo runtime data from a GitHub release, OSF or Zenodo."""
 
     cfg = Config(zenodo_id=zenodo_id, sandbox=sandbox, osf_node_id=osf_node_id)
 
@@ -111,6 +116,11 @@ def main(source: str | None, zenodo_id: str, sandbox: bool, osf_node_id: str,
                 "\n  [yellow]Warning:[/] ZENODO_RECORD_ID is not set — all downloads will be skipped.\n"
                 "  Add it to [bold]scripts/.env[/] or pass [bold]--zenodo-id[/]."
             )
+    elif source == "github":
+        console.print(
+            f"  GitHub release: {github_release.repo_slug(cfg)} @ {github_release.tag_name()}"
+            + ("" if github_release.token() else "  [dim](no token: only a public repository can be read)[/]")
+        )
     else:
         console.print(
             "  OSF node     : "
@@ -139,7 +149,7 @@ def main(source: str | None, zenodo_id: str, sandbox: bool, osf_node_id: str,
 
     # 3. Download bundles
     console.print(Rule(f"{source.capitalize()} — downloading {len(assets)} bundle(s)"))
-    fetch = fetch_zenodo_tarball if source == "zenodo" else fetch_osf_tarball
+    fetch = {"zenodo": fetch_zenodo_tarball, "github": github_release.fetch_github_tarball}.get(source, fetch_osf_tarball)
     optional_missed: list[str] = []
     for asset in assets:
         before = len(cfg.failed)
@@ -179,7 +189,15 @@ def main(source: str | None, zenodo_id: str, sandbox: bool, osf_node_id: str,
         console.print(f"[red bold]{len(cfg.failed)} asset(s) failed:[/]")
         for item in cfg.failed:
             console.print(f"  [red]•[/] {item}")
-        if source == "zenodo":
+        if source == "github":
+            console.print(
+                "\n[yellow]Common causes:[/]\n"
+                f"  • Release [cyan]{github_release.tag_name()}[/] does not exist in {github_release.repo_slug(cfg)} yet (run upload-github)\n"
+                "  • The repository is private and GITHUB_TOKEN is not set (or cannot read contents)\n"
+                "  • No internet connection\n\n"
+                "Re-run after fixing — already-extracted files are preserved."
+            )
+        elif source == "zenodo":
             console.print(
                 "\n[yellow]Common causes:[/]\n"
                 f"  • Zenodo record ID [cyan]{cfg.zenodo_id or '(not set)'}[/] is wrong or deposit not published\n"
