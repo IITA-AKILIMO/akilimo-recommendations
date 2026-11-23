@@ -313,8 +313,13 @@ jobs:
           # pipx puts poetry here, which is not on the PATH of this step
           export PATH="$PATH:$HOME/.local/bin"
           poetry install --no-interaction
-          # CI needs no DSSAT output (the PDC tests use a made-up table)
-          poetry run setup-data ${DATA_SOURCE:+--source "$DATA_SOURCE"} --exclude dssat
+          # CI needs no DSSAT output (the PDC tests use a made-up table). If the default source
+          # fails (the release is not published yet, the token is missing, GitHub is down), fall
+          # back to OSF, which still holds the data, and say so in a warning
+          poetry run setup-data ${DATA_SOURCE:+--source "$DATA_SOURCE"} --exclude dssat || {
+            echo "::warning::Data download from the default source failed; falling back to OSF"
+            poetry run setup-data --source osf --exclude dssat
+          }
 
       # Only after a download that worked: saving after a failed one stored an empty
       # cache under this key, and every later run restored it and found no data
