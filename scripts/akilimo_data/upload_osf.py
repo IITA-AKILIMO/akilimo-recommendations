@@ -36,7 +36,7 @@ from rich.rule import Rule
 from tqdm import tqdm
 
 from .assets import asset_options, resolve
-from .common import DIST_DIR, MANIFEST_NAME, Config, ProgressReader, console
+from .common import DIST_DIR, MANIFEST_NAME, Config, ProgressReader, console, sha256_of
 
 _OSF_TITLE = "Akilimo Cassava Recommendations — Data Assets"
 
@@ -98,18 +98,29 @@ def _list_files(node_id: str, token: str, sandbox: bool) -> list[dict]:
 
 
 def _upload_file(
-    node_id: str, filepath: Path, token: str, existing: list[dict], sandbox: bool
+    node_id: str, filepath: Path, token: str, existing: list[dict], sandbox: bool,
+    force: bool = False,
 ) -> bool:
-    """Upload *filepath* to an OSF node, overwriting any existing file of the same name."""
+    """
+    Upload *filepath* to an OSF node, overwriting any existing file of the same name.
+    A file whose SHA-256 equals the one OSF already holds is not uploaded again (unless *force*).
+    """
     size = filepath.stat().st_size
-    console.print(f"  Uploading [cyan]{filepath.name}[/]  ({size / 1_048_576:.1f} MB) ...")
-
-    wb = _wb_base(sandbox)
 
     match = next(
         (f for f in existing if f.get("attributes", {}).get("name") == filepath.name),
         None,
     )
+    if match and not force:
+        hashes = match.get("attributes", {}).get("extra", {}).get("hashes", {}) or {}
+        if hashes.get("sha256") and hashes["sha256"] == sha256_of(filepath):
+            console.print(f"  [dim][unchanged][/] {filepath.name} — same SHA-256 as on OSF, not uploaded")
+            return True
+
+    console.print(f"  Uploading [cyan]{filepath.name}[/]  ({size / 1_048_576:.1f} MB) ...")
+
+    wb = _wb_base(sandbox)
+
     if match:
         upload_url = match.get("links", {}).get("upload", "")
         if not upload_url:
@@ -157,6 +168,7 @@ def _upload_file(
 
 @click.command()
 @asset_options
+@click.option("--force", is_flag=True, help="Upload every file, even when OSF already holds the same SHA-256.")
 @click.option("--new", "create_new", is_flag=True, help="Create a new OSF project.")
 @click.option(
     "--node-id",
@@ -170,7 +182,7 @@ def _upload_file(
     default=False,
     help="Use test.osf.io instead of osf.io.",
 )
-def main(create_new: bool, node_id: str, sandbox: bool,
+def main(create_new: bool, node_id: str, sandbox: bool, force: bool,
          only: tuple[str, ...], exclude: tuple[str, ...]) -> None:
     """Upload data bundles to an OSF project."""
 
@@ -251,13 +263,13 @@ def main(create_new: bool, node_id: str, sandbox: bool,
                 failed.append(filename)
             continue
 
-        if not _upload_file(node_id, filepath, token, existing, sandbox):
+        if not _upload_file(node_id, filepath, token, existing, sandbox, force):
             failed.append(filename)
 
     # The manifest tells setup-data which files each bundle holds and their checksums
     manifest = DIST_DIR / MANIFEST_NAME
     if manifest.exists():
-        if not _upload_file(node_id, manifest, token, existing, sandbox):
+        if not _upload_file(node_id, manifest, token, existing, sandbox, force):
             failed.append(MANIFEST_NAME)
     else:
         console.print(

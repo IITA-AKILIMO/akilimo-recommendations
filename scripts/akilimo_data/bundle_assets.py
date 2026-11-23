@@ -19,6 +19,7 @@ Usage:
 
 from __future__ import annotations
 
+import gzip
 import json
 import subprocess
 import sys
@@ -86,10 +87,24 @@ def create_bundle(asset: Asset) -> dict | None:
     )
     DIST_DIR.mkdir(parents=True, exist_ok=True)
 
-    with tarfile.open(output_path, "w:gz") as tar:
+    # Reproducible archive: same files in, same bytes out (sorted members, no timestamps,
+    # owners or machine-specific modes, gzip header without a time). The uploads compare
+    # hashes to skip files that did not change, which only works if a rebuild of unchanged
+    # data gives the same hash.
+    def _normalise(info: tarfile.TarInfo) -> tarfile.TarInfo | None:
         # Leave out git-tracked files and the runtime price database
-        tar.add(source_dir, arcname=asset.dir,
-                filter=lambda info: None if is_bundle_excluded(info.name) else info)
+        if is_bundle_excluded(info.name):
+            return None
+        info.mtime = 0
+        info.uid = info.gid = 0
+        info.uname = info.gname = ""
+        info.mode = 0o755 if info.isdir() else 0o644
+        return info
+
+    with open(output_path, "wb") as raw:
+        with gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0, compresslevel=9) as gz:
+            with tarfile.open(fileobj=gz, mode="w", format=tarfile.GNU_FORMAT) as tar:
+                tar.add(source_dir, arcname=asset.dir, filter=_normalise)
 
     size = output_path.stat().st_size
     console.print(f"  [green][ok][/]   {output_path.relative_to(PROJECT_ROOT)}  ({_mb(size)})")
@@ -129,12 +144,24 @@ def write_manifest(entries: dict[str, dict]) -> None:
         except (OSError, ValueError, AttributeError):
             assets = {}
     assets.update(entries)
+    assets = dict(sorted(assets.items()))
+
+    # Nothing changed: keep the file byte for byte (same time and commit), so its hash stays
+    # the same and the upload of the manifest is skipped too
+    if path.exists():
+        try:
+            previous = json.loads(path.read_text(encoding="utf-8"))
+            if previous.get("schema") == MANIFEST_SCHEMA and previous.get("assets") == assets:
+                console.print(f"  [green][ok][/]   {path.relative_to(PROJECT_ROOT)}  (unchanged)")
+                return
+        except (OSError, ValueError):
+            pass
 
     manifest = {
         "schema": MANIFEST_SCHEMA,
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "git_commit": _git_commit(),
-        "assets": dict(sorted(assets.items())),
+        "assets": assets,
     }
     path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     console.print(f"  [green][ok][/]   {path.relative_to(PROJECT_ROOT)}  ({len(assets)} asset(s))")

@@ -29,7 +29,7 @@ poetry run setup-data --source zenodo      # or Zenodo
 
 Re-running is safe — already-extracted files are preserved.
 
-Which assets exist is configured in `scripts/assets.json` (`input`, `soil`, `yield`, `dssat`; `dssat` is optional, so a server without it still sets up). Narrow any run with `--only NAME` / `--exclude NAME` (repeatable), or for good with `ASSETS` / `ASSETS_EXCLUDE` in `scripts/.env`; `poetry run setup-data --list-assets` shows them. A new asset is one entry in `assets.json`, with no code change. `bundle-assets` (also `--interactive`) writes `dist/manifest.json` (archive, SHA-256 and file list per asset), the uploads publish it, and `setup-data` uses it to verify downloads and extract only the listed files (`--no-manifest` skips it).
+Which assets exist is configured in `scripts/assets.json` (`input`, `soil`, `yield`, `dssat`; `dssat` is optional, so a server without it still sets up). Narrow any run with `--only NAME` / `--exclude NAME` (repeatable), or for good with `ASSETS` / `ASSETS_EXCLUDE` in `scripts/.env`; `poetry run setup-data --list-assets` shows them. A new asset is one entry in `assets.json`, with no code change. `bundle-assets` (also `--interactive`) writes `dist/manifest.json` (archive, SHA-256 and file list per asset), the uploads publish it (and skip files whose hash the host already holds; `--force` overrides), and `setup-data` uses it to verify downloads and extract only the listed files (`--no-manifest` skips it).
 
 ### Publishing data files (maintainers only)
 

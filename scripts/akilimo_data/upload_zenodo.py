@@ -27,6 +27,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import hashlib
+
 import click
 import requests
 from rich.rule import Rule
@@ -50,8 +52,34 @@ def _git_tag() -> str:
         return "1.0.0"
 
 
-def _upload_file(bucket_url: str, filepath: Path, token: str) -> bool:
+def _md5_of(path: Path) -> str:
+    digest = hashlib.md5(usedforsecurity=False)
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1_048_576), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _remote_checksums(api_base: str, deposit_id: str, token: str) -> dict[str, str]:
+    """File name -> MD5 of the files already in the deposit (Zenodo reports MD5 only)."""
+    try:
+        resp = requests.get(
+            f"{api_base}/deposit/depositions/{deposit_id}/files",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        return {f["filename"]: f.get("checksum", "") for f in resp.json()}
+    except (requests.RequestException, ValueError, KeyError):
+        return {}  # cannot tell: upload everything rather than skip wrongly
+
+
+def _upload_file(bucket_url: str, filepath: Path, token: str,
+                 remote: dict[str, str] | None = None) -> bool:
     size = filepath.stat().st_size
+    if remote and remote.get(filepath.name) and remote[filepath.name] == _md5_of(filepath):
+        console.print(f"  [dim][unchanged][/] {filepath.name} — same MD5 as in the deposit, not uploaded")
+        return True
     console.print(f"  Uploading [cyan]{filepath.name}[/]  ({size / 1_048_576:.1f} MB) ...")
 
     with (
@@ -125,6 +153,7 @@ def _build_metadata(cfg: Config) -> dict:
 
 @click.command()
 @asset_options
+@click.option("--force", is_flag=True, help="Upload every file, even when the deposit already holds the same MD5.")
 @click.option("--new", "create_new", is_flag=True, help="Create a new Zenodo deposit.")
 @click.option(
     "--deposit-id",
@@ -138,7 +167,7 @@ def _build_metadata(cfg: Config) -> dict:
     default=lambda: os.environ.get("ZENODO_USE_SANDBOX", "0") == "1",
     help="Use sandbox.zenodo.org instead of zenodo.org.",
 )
-def main(create_new: bool, deposit_id: str, sandbox: bool,
+def main(create_new: bool, deposit_id: str, sandbox: bool, force: bool,
          only: tuple[str, ...], exclude: tuple[str, ...]) -> None:
     """Upload the data bundles to a Zenodo deposit."""
 
@@ -218,6 +247,9 @@ def main(create_new: bool, deposit_id: str, sandbox: bool,
     # -----------------------------------------------------------------------
     console.print(Rule("Uploading files"))
 
+    # What the deposit already holds, so unchanged files are not sent again
+    remote = None if force else _remote_checksums(api_base, deposit_id, token)
+
     failed: list[str] = []
     for asset in resolve(only, exclude):
         filename = asset.archive
@@ -231,13 +263,13 @@ def main(create_new: bool, deposit_id: str, sandbox: bool,
                 failed.append(filename)
             continue
 
-        if not _upload_file(bucket_url, filepath, token):
+        if not _upload_file(bucket_url, filepath, token, remote):
             failed.append(filename)
 
     # The manifest tells setup-data which files each bundle holds and their checksums
     manifest = DIST_DIR / MANIFEST_NAME
     if manifest.exists():
-        if not _upload_file(bucket_url, manifest, token):
+        if not _upload_file(bucket_url, manifest, token, remote):
             failed.append(MANIFEST_NAME)
     else:
         console.print(

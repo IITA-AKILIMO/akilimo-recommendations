@@ -260,7 +260,7 @@ jobs:
             data/input
             !data/input/translations.csv
             !data/input/fertilizer_npk.csv
-          key: runtime-data-v1-${{ hashFiles('scripts/.env.example') }}
+          key: runtime-data-v2-${{ hashFiles('scripts/.env.example') }}
 
       - name: Install Python for the data download (cache miss)
         if: ${{ !cancelled() && steps.data.outputs.cache-hit != 'true' }}
@@ -269,16 +269,22 @@ jobs:
           python-version: "3.13"
 
       - name: Download runtime data from OSF (cache miss)
+        id: download
         if: ${{ !cancelled() && steps.data.outputs.cache-hit != 'true' }}
         working-directory: scripts
         run: |
           cp .env.example .env
           pipx install poetry
+          # pipx puts poetry here, which is not on the PATH of this step
+          export PATH="$PATH:$HOME/.local/bin"
           poetry install --no-interaction
-          poetry run setup-data --source osf
+          # CI needs no DSSAT output (the PDC tests use a made-up table)
+          poetry run setup-data --source osf --exclude dssat
 
+      # Only after a download that worked: saving after a failed one stored an empty
+      # cache under this key, and every later run restored it and found no data
       - name: Save runtime data to the cache
-        if: ${{ !cancelled() && steps.data.outputs.cache-hit != 'true' }}
+        if: ${{ !cancelled() && steps.data.outputs.cache-hit != 'true' && steps.download.outcome == 'success' }}
         uses: actions/cache/save@v6
         with:
           path: |
@@ -287,7 +293,7 @@ jobs:
             data/input
             !data/input/translations.csv
             !data/input/fertilizer_npk.csv
-          key: runtime-data-v1-${{ hashFiles('scripts/.env.example') }}
+          key: runtime-data-v2-${{ hashFiles('scripts/.env.example') }}
 
       # Not in the OSF bundle: derived from the RW yield data that is. Built every
       # run, never cached, and skipped when the bundle already has the file.
