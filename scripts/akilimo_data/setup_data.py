@@ -32,7 +32,7 @@ import sys
 import click
 from rich.rule import Rule
 
-from .assets import asset_options, resolve
+from .assets import asset_options, from_manifest, resolve
 from . import github_release
 from .common import (
     PROJECT_ROOT,
@@ -115,12 +115,16 @@ def main(source: str | None, zenodo_id: str, sandbox: bool, osf_node_id: str,
                       "[bold]--no-manifest[/] to download the main archive of each asset only.")
         sys.exit(1)
     published = manifest["assets"] if manifest else None
-    assets = resolve(only, exclude, extra=published or (), downloading=True)
+    # With a manifest, what it lists is what gets downloaded (config lists neither add nor drop);
+    # without one, the config and the asset registry decide
+    assets = (from_manifest(published, only, exclude) if published is not None
+              else resolve(only, exclude, downloading=True))
 
     console.print(Rule("[bold cyan]Akilimo Data Setup[/]"))
     console.print(f"  Project root : {PROJECT_ROOT}")
     console.print(f"  Source       : [bold]{source}[/]")
-    console.print(f"  Assets       : {', '.join(a.name for a in assets) or '(none)'}")
+    console.print(f"  Assets       : {', '.join(a.name for a in assets) or '(none)'}"
+                  + ("  [dim](from the manifest)[/]" if published is not None else ""))
 
     if source == "zenodo":
         console.print(
