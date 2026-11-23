@@ -22,7 +22,7 @@ inputs:
     required: false
     default: ""
   osf_token:
-    description: "OSF token for reading the project (sent to osf.io only, not written to disk)"
+    description: "OSF token for the file listing (sent to api.osf.io only, not written to disk)"
     required: false
     default: ""
   assets:

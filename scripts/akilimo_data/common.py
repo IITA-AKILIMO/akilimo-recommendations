@@ -146,7 +146,7 @@ class Config:
     osf_node_id: str = field(
         default_factory=lambda: os.environ.get("OSF_NODE_ID", "")
     )
-    # Needed to read a private OSF project; sent to osf.io hosts only
+    # Needed for the OSF file listing; sent to api.osf.io only
     osf_token: str = field(
         default_factory=lambda: os.environ.get("OSF_TOKEN", "")
     )
@@ -177,14 +177,18 @@ class Config:
 # Download helpers
 # ---------------------------------------------------------------------------
 
-def _is_osf(url: str) -> bool:
+def _is_osf_api(url: str) -> bool:
     host = url.split("/")[2] if "://" in url else ""
-    return host == "osf.io" or host.endswith(".osf.io")
+    return host == "api.osf.io"
 
 
 def auth_headers(url: str, cfg: "Config") -> dict[str, str]:
-    """A bearer header for OSF hosts when OSF_TOKEN is set; never for any other host."""
-    return {"Authorization": f"Bearer {cfg.osf_token}"} if cfg.osf_token and _is_osf(url) else {}
+    """
+    A bearer header for api.osf.io when OSF_TOKEN is set, never for any other host. The file
+    listing needs it (OSF answers 401 without), but the file downloads (osf.io and
+    files.osf.io) must not carry it: with the token they answer 403, without it 200.
+    """
+    return {"Authorization": f"Bearer {cfg.osf_token}"} if cfg.osf_token and _is_osf_api(url) else {}
 
 
 def download_file(url: str, dest: Path, description: str = "",
