@@ -107,17 +107,36 @@ def is_excluded_name(rel: str) -> bool:
     anywhere in the path (so a folder is left out whole); a pattern with a slash matches that
     path or anything below it. * and ? work, and * also crosses folders.
     """
+    cfg = load_asset_config()
+    return any(_pattern_matches(rel, p) for p in [*cfg["exclude"], *cfg["ignore"], *_env_ignore(), *_run_ignore])
+
+
+def _pattern_matches(rel: str, pattern: str) -> bool:
     parts = [p for p in rel.replace("\\", "/").removeprefix("./").split("/") if p]
     if not parts:
         return False
+    if "/" in pattern:
+        return any(fnmatch.fnmatchcase("/".join(parts[:i]), pattern) for i in range(1, len(parts) + 1))
+    return any(fnmatch.fnmatchcase(part, pattern) for part in parts)
+
+
+def unused_ignore_patterns() -> list[str]:
+    """
+    Literal 'ignore' patterns (no wildcard; assets.json, ASSETS_IGNORE and --ignore) that match
+    nothing under the data root. A pattern matches the whole file or folder name, so 'report.csv' does not match
+    'report.csv.zip': an unused pattern usually means a typo or a missing suffix.
+    """
     cfg = load_asset_config()
-    for pattern in [*cfg["exclude"], *cfg["ignore"], *_env_ignore(), *_run_ignore]:
-        if "/" in pattern:
-            if any(fnmatch.fnmatchcase("/".join(parts[:i]), pattern) for i in range(1, len(parts) + 1)):
-                return True
-        elif any(fnmatch.fnmatchcase(part, pattern) for part in parts):
-            return True
-    return False
+    root = PROJECT_ROOT / cfg["root"]
+    if not root.is_dir():
+        return []
+    paths = [p.relative_to(root).as_posix() for p in root.rglob("*")]
+    patterns = [*cfg["ignore"], *_env_ignore(), *_run_ignore]
+    # Only literal names: a wildcard pattern (*.tmp) legitimately matches nothing most of the time
+    # (and not the usual OS litter names of the defaults, which are fine to find nothing)
+    literal = [pat for pat in dict.fromkeys(patterns)
+               if not any(ch in pat for ch in "*?[") and pat not in ("Thumbs.db", "desktop.ini")]
+    return [pat for pat in literal if not any(_pattern_matches(p, pat) for p in paths)]
 
 
 def is_bundle_excluded(name: str) -> bool:

@@ -10,7 +10,8 @@
     "*.bak",
     "*~",
     "Thumbs.db",
-    "desktop.ini"
+    "desktop.ini",
+    "spam2020V2r2_global_harvested_area.csv.zip"
   ],
   "exclude": [
     ".*",
@@ -20,8 +21,7 @@
     "*.db",
     "input/translations.csv",
     "input/fertilizer_npk.csv",
-    "input/cassava_area_spam2020.csv",
-    "spam/spam2020V2r2_global_harvested_area.csv"
+    "input/cassava_area_spam2020.csv"
   ],
   "required": [
     "input",

@@ -52,6 +52,7 @@ from .common import (
     is_bundle_excluded,
     load_asset_config,
     sha256_of,
+    unused_ignore_patterns,
 )
 
 
@@ -305,6 +306,13 @@ def main(interactive: bool, human: bool | None, ignore: tuple[str, ...],
     console.print(f"  Assets          : {', '.join(a.name for a in targets) or '(none)'}")
     if ignore:
         console.print(f"  Ignoring        : {', '.join(ignore)}")
+    unused = unused_ignore_patterns()
+    if unused:
+        console.print(
+            f"  [yellow]Warning:[/] ignore pattern(s) matching no file under data/: {', '.join(unused)}\n"
+            "  A pattern matches the whole name ('a.csv' does not match 'a.csv.zip'); "
+            "'*' and '?' are wildcards."
+        )
 
     for asset in targets:
         console.print(Rule(asset.name, style="dim"))
