@@ -81,7 +81,7 @@ def _stem(asset: Asset) -> str:
 def plan_parts(asset: Asset, files: list[dict]) -> list[tuple[str, list[dict]]]:
     """
     [(archive name, files)]: the small files together under the asset's own archive name, every
-    file over "split_over_mb" in an archive of its own (<stem>__<path below the asset>.tar.gz).
+    file over "split_over_mb" in an archive of its own (<stem>-<path below the asset>.tar.gz).
     """
     limit = load_asset_config()["split_over_mb"] * 1_048_576
     small = [f for f in files if f["size"] <= limit]
@@ -93,7 +93,7 @@ def plan_parts(asset: Asset, files: list[dict]) -> list[tuple[str, list[dict]]]:
     for f in big:
         below = f["path"].removeprefix(asset.dir + "/")
         slug = re.sub(r"[^A-Za-z0-9._-]+", "_", below)
-        parts.append((f"{_stem(asset)}__{slug}.tar.gz", [f]))
+        parts.append((f"{_stem(asset)}-{slug}.tar.gz", [f]))
     return parts
 
 
@@ -141,6 +141,31 @@ def write_archive(archive: str, files: list[dict]) -> dict:
     }
 
 
+def _stale_archives(asset: Asset) -> list:
+    """
+    Archives in dist/ that an earlier run made for this asset: the ones its previous manifest
+    entry lists, and files named <stem>.tar.gz or <stem>-*.tar.gz that do not belong to another
+    asset (whose own archive, or whose parts, can start with this stem too).
+    """
+    others = [a for a in registry().values() if a.name != asset.name]
+    stem = _stem(asset)
+
+    def _other_owns(name: str) -> bool:
+        return any(name == o.archive or (len(_stem(o)) > len(stem) and name.startswith(_stem(o) + "-"))
+                   for o in others)
+
+    found = {p for p in [*DIST_DIR.glob(f"{stem}.tar.gz"), *DIST_DIR.glob(f"{stem}-*.tar.gz")]
+             if not _other_owns(p.name)}
+    manifest = DIST_DIR / MANIFEST_NAME
+    if manifest.exists():
+        try:
+            entry = json.loads(manifest.read_text(encoding="utf-8")).get("assets", {}).get(asset.name, {})
+            found |= {DIST_DIR / n for n in archives_of(entry) if (DIST_DIR / n).exists()}
+        except (OSError, ValueError, AttributeError):
+            pass
+    return sorted(found)
+
+
 def create_bundle(asset: Asset) -> dict | None:
     """Write the asset's archives; returns its manifest entry, or None when skipped."""
     if not asset.path.exists():
@@ -158,7 +183,7 @@ def create_bundle(asset: Asset) -> dict | None:
     # big, or removed) must not linger and get uploaded
     planned = plan_parts(asset, files)
     keep = {name for name, _ in planned}
-    for old in [*DIST_DIR.glob(f"{_stem(asset)}.tar.gz"), *DIST_DIR.glob(f"{_stem(asset)}__*.tar.gz")]:
+    for old in _stale_archives(asset):
         if old.name not in keep:
             old.unlink()
 
