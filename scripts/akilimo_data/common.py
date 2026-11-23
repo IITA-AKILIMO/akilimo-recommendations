@@ -251,39 +251,52 @@ def auth_headers(url: str, cfg: "Config") -> dict[str, str]:
 
 
 def download_file(url: str, dest: Path, description: str = "",
-                  headers: dict[str, str] | None = None) -> bool:
+                  headers: dict[str, str] | None = None, attempts: int = 4) -> bool:
     """
     Stream-download *url* to *dest* with a tqdm progress bar.
     Returns True on success, False on any network error (never raises).
+
+    A dropped connection, a timeout, or a 408/429/5xx answer (OSF and GitHub both give an
+    occasional 502) is retried with a growing pause, starting the file again each time; 401,
+    403, 404 and the like fail at once, since another try cannot change them.
     """
     dest.parent.mkdir(parents=True, exist_ok=True)
     label = description or dest.name
 
-    try:
-        with requests.get(url, stream=True, timeout=60, headers=headers) as response:
-            response.raise_for_status()
-            total = int(response.headers.get("content-length", 0))
+    for attempt in range(1, attempts + 1):
+        try:
+            with requests.get(url, stream=True, timeout=60, headers=headers) as response:
+                response.raise_for_status()
+                total = int(response.headers.get("content-length", 0))
 
-            with (
-                open(dest, "wb") as fh,
-                tqdm(
-                    total=total or None,
-                    unit="B",
-                    unit_scale=True,
-                    desc=f"  {label}",
-                    leave=False,
-                ) as bar,
-            ):
-                for chunk in response.iter_content(chunk_size=65_536):
-                    fh.write(chunk)
-                    bar.update(len(chunk))
+                with (
+                    open(dest, "wb") as fh,
+                    tqdm(
+                        total=total or None,
+                        unit="B",
+                        unit_scale=True,
+                        desc=f"  {label}",
+                        leave=False,
+                    ) as bar,
+                ):
+                    for chunk in response.iter_content(chunk_size=65_536):
+                        fh.write(chunk)
+                        bar.update(len(chunk))
 
-        return True
+            return True
 
-    except requests.RequestException as exc:
-        console.print(f"  [bold red][fail][/] {label}: {exc}")
-        dest.unlink(missing_ok=True)
-        return False
+        except requests.RequestException as exc:
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            retriable = status in _RETRY_STATUS or status == 408 if status else True
+            dest.unlink(missing_ok=True)
+            if retriable and attempt < attempts:
+                wait = 2 ** attempt * 2
+                console.print(f"  [yellow][retry][/] {label}: {exc}\n         attempt {attempt + 1} of {attempts} in {wait}s")
+                time.sleep(wait)
+                continue
+            console.print(f"  [bold red][fail][/] {label}: {exc}")
+            return False
+    return False  # unreachable
 
 
 def fetch_tarball(
