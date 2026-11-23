@@ -221,7 +221,7 @@ Everything in the data folder is bundled: each folder directly under `data/` is 
 | `soil` | `soil-data.tar.gz` | `data/soil/` | Soil NPK RDS files |
 | `yield` | `yield-data.tar.gz` | `data/yield/` | Yield NetCDF rasters (LINTUL model) |
 | `dssat` (optional) | `dssat-data.tar.gz` | `data/dssat/` | DSSAT planting date x cultivar output (PDC, Nigeria maize) |
-| `spam` (optional, on demand) | `spam-data.tar.gz` | `data/spam/` | MapSPAM 2020 source for the cassava-area mask (109 MB); not downloaded unless asked: `setup-data --only spam` |
+| `spam` (optional) | `spam-data.tar.gz` | `data/spam/` | MapSPAM 2020 extract behind the cassava-area mask (the 109 MB source zip is on the `ignore` list) |
 
 Choose which assets a run handles; the same options work for `bundle-assets`, `upload-osf` and `upload-zenodo`:
 
