@@ -35,7 +35,17 @@ from rich.rule import Rule
 from tqdm import tqdm
 
 from .assets import asset_options, resolve
-from .common import DIST_DIR, MANIFEST_NAME, PROJECT_ROOT, Config, console, put_file, run_uploads, upload_plan
+from .common import (
+    DIST_DIR,
+    MANIFEST_NAME,
+    PROJECT_ROOT,
+    Config,
+    UploadLedger,
+    console,
+    put_file,
+    run_uploads,
+    upload_plan,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -75,10 +85,16 @@ def _remote_checksums(api_base: str, deposit_id: str, token: str) -> dict[str, s
 
 
 def _upload_file(bucket_url: str, filepath: Path, token: str,
-                 remote: dict[str, str] | None = None, show_bar: bool = True) -> bool:
+                 remote: dict[str, str] | None = None, show_bar: bool = True,
+                 ledger: UploadLedger | None = None, target: str = "", force: bool = False) -> bool:
     size = filepath.stat().st_size
+    if ledger and not force and ledger.is_done(target, filepath):
+        console.print(f"  [dim][done earlier][/] {filepath.name} — uploaded by an earlier run, skipped")
+        return True
     if remote and remote.get(filepath.name) and remote[filepath.name] == _md5_of(filepath):
         console.print(f"  [dim][unchanged][/] {filepath.name} — same MD5 as in the deposit, not uploaded")
+        if ledger:
+            ledger.record(target, filepath)
         return True
     console.print(f"  Uploading [cyan]{filepath.name}[/]  ({size / 1_048_576:.1f} MB) ...")
 
@@ -92,6 +108,8 @@ def _upload_file(bucket_url: str, filepath: Path, token: str,
     if response.ok:
         checksum = response.json().get("checksum", "")
         console.print(f"  [green][ok][/]   {filepath.name}  (md5:{checksum})")
+        if ledger:
+            ledger.record(target, filepath)
         return True
 
     console.print(
@@ -245,6 +263,11 @@ def main(create_new: bool, deposit_id: str, sandbox: bool, force: bool, jobs: in
     # What the deposit already holds, so unchanged files are not sent again
     remote = None if force else _remote_checksums(api_base, deposit_id, token)
 
+    ledger = UploadLedger()
+    target = f"zenodo{':sandbox' if sandbox else ''}:{deposit_id}"
+    if force:
+        ledger.forget(target)
+
     failed: list[str] = []
     to_send: list[Path] = []
     for filename, optional in upload_plan(resolve(only, exclude)):
@@ -260,7 +283,7 @@ def main(create_new: bool, deposit_id: str, sandbox: bool, force: bool, jobs: in
         to_send.append(filepath)
 
     show_bar = jobs <= 1 or len(to_send) <= 1
-    failed += run_uploads(to_send, lambda fp: _upload_file(bucket_url, fp, token, remote, show_bar), jobs)
+    failed += run_uploads(to_send, lambda fp: _upload_file(bucket_url, fp, token, remote, show_bar, ledger, target, force), jobs)
 
     # The manifest goes last, and only when every archive it lists is there: a manifest that
     # names archives the deposit does not have would make setup-data fail
@@ -268,7 +291,7 @@ def main(create_new: bool, deposit_id: str, sandbox: bool, force: bool, jobs: in
     if failed:
         console.print(f"  [yellow][skip][/] {MANIFEST_NAME} not uploaded because some archives failed")
     elif manifest.exists():
-        if not _upload_file(bucket_url, manifest, token, remote):
+        if not _upload_file(bucket_url, manifest, token, remote, True, ledger, target, force):
             failed.append(MANIFEST_NAME)
     else:
         console.print(

@@ -17,8 +17,10 @@ import hashlib
 import json
 import os
 import re
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
 import tarfile
 import tempfile
 from dataclasses import dataclass, field
@@ -411,6 +413,64 @@ def put_file(url: str, filepath: Path, headers: dict[str, str], *, show_bar: boo
             continue
         return response
     raise RuntimeError("unreachable")  # the loop always returns or raises
+
+
+UPLOAD_STATE_FILE: Path = DIST_DIR / "upload-state.json"
+
+
+class UploadLedger:
+    """
+    What this machine has already uploaded, per target (OSF node or Zenodo deposit):
+    dist/upload-state.json, {target: {file name: {sha256, size, uploaded_at}}}. Every
+    successful upload is recorded at once, so after a crash, Ctrl-C or a failed file the
+    next run skips what went up and sends only the rest. A file is skipped only when its
+    SHA-256 still equals the recorded one, so a rebuilt archive with new content goes again.
+    The host's own hash check still applies on top. --force ignores the ledger.
+    """
+
+    def __init__(self, path: Path = UPLOAD_STATE_FILE) -> None:
+        self._path = path
+        self._lock = threading.Lock()
+        self._hashes: dict[Path, str] = {}
+        try:
+            self._data = json.loads(path.read_text(encoding="utf-8")).get("targets", {})
+        except (OSError, ValueError, AttributeError):
+            self._data = {}
+
+    def sha256(self, filepath: Path) -> str:
+        """SHA-256 of a file, computed once per run (the archives are hundreds of MB)."""
+        with self._lock:
+            known = self._hashes.get(filepath)
+        if known is None:
+            known = sha256_of(filepath)
+            with self._lock:
+                self._hashes[filepath] = known
+        return known
+
+    def is_done(self, target: str, filepath: Path) -> bool:
+        entry = self._data.get(target, {}).get(filepath.name)
+        return bool(entry) and entry.get("size") == filepath.stat().st_size \
+            and entry.get("sha256") == self.sha256(filepath)
+
+    def record(self, target: str, filepath: Path) -> None:
+        entry = {
+            "sha256": self.sha256(filepath),
+            "size": filepath.stat().st_size,
+            "uploaded_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        }
+        with self._lock:
+            self._data.setdefault(target, {})[filepath.name] = entry
+            payload = json.dumps({"schema": 1, "targets": self._data}, indent=2) + "\n"
+            tmp = self._path.with_suffix(".tmp")
+            self._path.parent.mkdir(parents=True, exist_ok=True)
+            tmp.write_text(payload, encoding="utf-8")
+            os.replace(tmp, self._path)  # never leave a half-written ledger
+
+    def forget(self, target: str) -> None:
+        with self._lock:
+            if self._data.pop(target, None) is not None:
+                self._path.write_text(json.dumps({"schema": 1, "targets": self._data}, indent=2) + "\n",
+                                      encoding="utf-8")
 
 
 def upload_plan(assets) -> list[tuple[str, bool]]:

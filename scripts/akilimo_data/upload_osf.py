@@ -36,7 +36,16 @@ from rich.rule import Rule
 from tqdm import tqdm
 
 from .assets import asset_options, resolve
-from .common import DIST_DIR, MANIFEST_NAME, Config, console, put_file, run_uploads, sha256_of, upload_plan
+from .common import (
+    DIST_DIR,
+    MANIFEST_NAME,
+    Config,
+    UploadLedger,
+    console,
+    put_file,
+    run_uploads,
+    upload_plan,
+)
 
 _OSF_TITLE = "Akilimo Cassava Recommendations — Data Assets"
 
@@ -99,13 +108,19 @@ def _list_files(node_id: str, token: str, sandbox: bool) -> list[dict]:
 
 def _upload_file(
     node_id: str, filepath: Path, token: str, existing: list[dict], sandbox: bool,
-    force: bool = False, show_bar: bool = True,
+    force: bool = False, show_bar: bool = True, ledger: UploadLedger | None = None,
 ) -> bool:
     """
     Upload *filepath* to an OSF node, overwriting any existing file of the same name.
-    A file whose SHA-256 equals the one OSF already holds is not uploaded again (unless *force*).
+    A file is not uploaded again (unless *force*) when the ledger says an earlier run already
+    sent this exact content, or when OSF already holds the same SHA-256.
     """
     size = filepath.stat().st_size
+    target = f"osf{':test' if sandbox else ''}:{node_id}"
+
+    if ledger and not force and ledger.is_done(target, filepath):
+        console.print(f"  [dim][done earlier][/] {filepath.name} — uploaded by an earlier run, skipped")
+        return True
 
     match = next(
         (f for f in existing if f.get("attributes", {}).get("name") == filepath.name),
@@ -113,8 +128,10 @@ def _upload_file(
     )
     if match and not force:
         hashes = match.get("attributes", {}).get("extra", {}).get("hashes", {}) or {}
-        if hashes.get("sha256") and hashes["sha256"] == sha256_of(filepath):
+        if hashes.get("sha256") and hashes["sha256"] == (ledger.sha256(filepath) if ledger else sha256_of(filepath)):
             console.print(f"  [dim][unchanged][/] {filepath.name} — same SHA-256 as on OSF, not uploaded")
+            if ledger:
+                ledger.record(target, filepath)
             return True
 
     console.print(f"  Uploading [cyan]{filepath.name}[/]  ({size / 1_048_576:.1f} MB) ...")
@@ -145,6 +162,8 @@ def _upload_file(
         )
         action = "updated" if match else "created"
         console.print(f"  [green][ok][/]   {name} ({action})")
+        if ledger:
+            ledger.record(target, filepath)
         return True
 
     console.print(
@@ -244,6 +263,11 @@ def main(create_new: bool, node_id: str, sandbox: bool, force: bool, jobs: int,
     # -----------------------------------------------------------------------
     console.print(Rule("Uploading files"))
 
+    ledger = UploadLedger()
+    target = f"osf{':test' if sandbox else ''}:{node_id}"
+    if force:
+        ledger.forget(target)
+
     failed: list[str] = []
     to_send: list[Path] = []
     for filename, optional in upload_plan(resolve(only, exclude)):
@@ -260,7 +284,7 @@ def main(create_new: bool, node_id: str, sandbox: bool, force: bool, jobs: int,
 
     show_bar = jobs <= 1 or len(to_send) <= 1
     failed += run_uploads(
-        to_send, lambda fp: _upload_file(node_id, fp, token, existing, sandbox, force, show_bar), jobs
+        to_send, lambda fp: _upload_file(node_id, fp, token, existing, sandbox, force, show_bar, ledger), jobs
     )
 
     # The manifest goes last, and only when every archive it lists is there: a manifest that
@@ -269,7 +293,7 @@ def main(create_new: bool, node_id: str, sandbox: bool, force: bool, jobs: int,
     if failed:
         console.print(f"  [yellow][skip][/] {MANIFEST_NAME} not uploaded because some archives failed")
     elif manifest.exists():
-        if not _upload_file(node_id, manifest, token, existing, sandbox, force):
+        if not _upload_file(node_id, manifest, token, existing, sandbox, force, True, ledger):
             failed.append(MANIFEST_NAME)
     else:
         console.print(
