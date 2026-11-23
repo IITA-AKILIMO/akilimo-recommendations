@@ -35,7 +35,7 @@ from rich.rule import Rule
 from tqdm import tqdm
 
 from .assets import asset_options, resolve
-from .common import DIST_DIR, MANIFEST_NAME, PROJECT_ROOT, Config, ProgressReader, console
+from .common import DIST_DIR, MANIFEST_NAME, PROJECT_ROOT, Config, console, put_file, run_uploads, upload_plan
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -75,26 +75,19 @@ def _remote_checksums(api_base: str, deposit_id: str, token: str) -> dict[str, s
 
 
 def _upload_file(bucket_url: str, filepath: Path, token: str,
-                 remote: dict[str, str] | None = None) -> bool:
+                 remote: dict[str, str] | None = None, show_bar: bool = True) -> bool:
     size = filepath.stat().st_size
     if remote and remote.get(filepath.name) and remote[filepath.name] == _md5_of(filepath):
         console.print(f"  [dim][unchanged][/] {filepath.name} — same MD5 as in the deposit, not uploaded")
         return True
     console.print(f"  Uploading [cyan]{filepath.name}[/]  ({size / 1_048_576:.1f} MB) ...")
 
-    with (
-        open(filepath, "rb") as fh,
-        tqdm(total=size, unit="B", unit_scale=True, desc=f"  {filepath.name}", leave=False) as bar,
-    ):
-        response = requests.put(
-            f"{bucket_url}/{filepath.name}",
-            data=ProgressReader(fh, bar),
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Length": str(size),
-            },
-            timeout=600,
-        )
+    response = put_file(
+        f"{bucket_url}/{filepath.name}",
+        filepath,
+        {"Authorization": f"Bearer {token}"},
+        show_bar=show_bar,
+    )
 
     if response.ok:
         checksum = response.json().get("checksum", "")
@@ -154,6 +147,8 @@ def _build_metadata(cfg: Config) -> dict:
 @click.command()
 @asset_options
 @click.option("--force", is_flag=True, help="Upload every file, even when the deposit already holds the same MD5.")
+@click.option("--jobs", "-j", type=click.IntRange(1, 8), default=3, show_default=True,
+              help="Files uploaded at the same time.")
 @click.option("--new", "create_new", is_flag=True, help="Create a new Zenodo deposit.")
 @click.option(
     "--deposit-id",
@@ -167,7 +162,7 @@ def _build_metadata(cfg: Config) -> dict:
     default=lambda: os.environ.get("ZENODO_USE_SANDBOX", "0") == "1",
     help="Use sandbox.zenodo.org instead of zenodo.org.",
 )
-def main(create_new: bool, deposit_id: str, sandbox: bool, force: bool,
+def main(create_new: bool, deposit_id: str, sandbox: bool, force: bool, jobs: int,
          only: tuple[str, ...], exclude: tuple[str, ...]) -> None:
     """Upload the data bundles to a Zenodo deposit."""
 
@@ -251,24 +246,28 @@ def main(create_new: bool, deposit_id: str, sandbox: bool, force: bool,
     remote = None if force else _remote_checksums(api_base, deposit_id, token)
 
     failed: list[str] = []
-    for asset in resolve(only, exclude):
-        filename = asset.archive
+    to_send: list[Path] = []
+    for filename, optional in upload_plan(resolve(only, exclude)):
         filepath = DIST_DIR / filename
         if not filepath.exists():
             console.print(
                 f"  [yellow][skip][/] {filename} not found in dist/. "
                 "Run [bold]poetry run bundle-assets[/] first."
             )
-            if not asset.optional:
+            if not optional:
                 failed.append(filename)
             continue
+        to_send.append(filepath)
 
-        if not _upload_file(bucket_url, filepath, token, remote):
-            failed.append(filename)
+    show_bar = jobs <= 1 or len(to_send) <= 1
+    failed += run_uploads(to_send, lambda fp: _upload_file(bucket_url, fp, token, remote, show_bar), jobs)
 
-    # The manifest tells setup-data which files each bundle holds and their checksums
+    # The manifest goes last, and only when every archive it lists is there: a manifest that
+    # names archives the deposit does not have would make setup-data fail
     manifest = DIST_DIR / MANIFEST_NAME
-    if manifest.exists():
+    if failed:
+        console.print(f"  [yellow][skip][/] {MANIFEST_NAME} not uploaded because some archives failed")
+    elif manifest.exists():
         if not _upload_file(bucket_url, manifest, token, remote):
             failed.append(MANIFEST_NAME)
     else:

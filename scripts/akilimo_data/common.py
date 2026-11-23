@@ -16,13 +16,18 @@ import fnmatch
 import hashlib
 import json
 import os
+import re
+import time
+from concurrent.futures import ThreadPoolExecutor
 import tarfile
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Callable
 
 import requests
 from dotenv import load_dotenv
+from requests.adapters import HTTPAdapter
 from rich.console import Console
 from tqdm import tqdm
 
@@ -64,6 +69,10 @@ def load_asset_config() -> dict:
             "required": [str(n) for n in raw.get("required", [])],
             "optional": [str(n) for n in raw.get("optional", [])],
             "on_demand": [str(n) for n in raw.get("on_demand", [])],
+            "split_over_mb": float(raw.get("split_over_mb", 50)),
+            "compress_level": int(raw.get("compress_level", 6)),
+            "human_sizes": bool(raw.get("human_sizes", True)),
+            "already_compressed": tuple(str(x).lower() for x in raw.get("already_compressed", [])),
             "archives": {str(k): str(v) for k, v in (raw.get("archives") or {}).items()},
         }
         # Listed as an asset but also on the exclusion list: the exclusion wins, so say so
@@ -77,16 +86,30 @@ def load_asset_config() -> dict:
     return _asset_config
 
 
+_run_ignore: list[str] = []
+
+
+def add_ignore_patterns(patterns) -> None:
+    """Patterns to leave out for this run only (the --ignore option), on top of the config list."""
+    _run_ignore.extend(p.strip() for p in patterns if p and p.strip())
+
+
+def _env_ignore() -> list[str]:
+    """ASSETS_IGNORE: comma or newline separated patterns, always applied (env or scripts/.env)."""
+    return [p.strip() for p in re.split(r"[,\n]", os.environ.get("ASSETS_IGNORE", "")) if p.strip()]
+
+
 def is_excluded_name(rel: str) -> bool:
     """
-    True when a path relative to the data root is on the exclusion list. A name without a
-    slash matches that name anywhere in the path (so a folder is left out whole); a pattern
-    with a slash matches that path or anything below it.
+    True when a path relative to the data root is on the exclusion list (assets.json), on
+    ASSETS_IGNORE, or on this run's --ignore list. A name without a slash matches that name
+    anywhere in the path (so a folder is left out whole); a pattern with a slash matches that
+    path or anything below it. * and ? work, and * also crosses folders.
     """
     parts = [p for p in rel.replace("\\", "/").removeprefix("./").split("/") if p]
     if not parts:
         return False
-    for pattern in load_asset_config()["exclude"]:
+    for pattern in [*load_asset_config()["exclude"], *_env_ignore(), *_run_ignore]:
         if "/" in pattern:
             if any(fnmatch.fnmatchcase("/".join(parts[:i]), pattern) for i in range(1, len(parts) + 1)):
                 return True
@@ -108,7 +131,17 @@ def is_bundle_excluded(name: str) -> bool:
 # them, read by setup-data): for every asset its archive, SHA-256 and the exact files
 # inside, so a download can be verified and only the listed files are extracted.
 MANIFEST_NAME = "manifest.json"
-MANIFEST_SCHEMA = 1
+MANIFEST_SCHEMA = 2
+
+
+def human_size(n: int | float) -> str:
+    """1536 -> '1.5 KiB' (binary units, one decimal; plain bytes below 1 KiB)."""
+    value = float(n)
+    for unit in ("B", "KiB", "MiB", "GiB", "TiB"):
+        if value < 1024 or unit == "TiB":
+            return f"{int(value)} B" if unit == "B" else f"{value:.1f} {unit}"
+        value /= 1024
+    return f"{value:.1f} TiB"  # unreachable
 
 
 def sha256_of(path: Path) -> str:
@@ -282,12 +315,124 @@ def fetch_tarball(
         tmp_path.unlink(missing_ok=True)
 
 
+# ---------------------------------------------------------------------------
+# Upload helper shared by upload-osf and upload-zenodo
+# ---------------------------------------------------------------------------
+
+class _BigBlockAdapter(HTTPAdapter):
+    """Send file bodies in 1 MiB blocks; the default is 16 KiB, which is a lot of Python per byte."""
+
+    def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
+        pool_kwargs.setdefault("blocksize", 1_048_576)
+        super().init_poolmanager(connections, maxsize, block, **pool_kwargs)
+
+
+_RETRY_STATUS = {429, 500, 502, 503, 504}
+
+
+def put_file(url: str, filepath: Path, headers: dict[str, str], *, show_bar: bool = True,
+             attempts: int = 4) -> requests.Response:
+    """
+    PUT *filepath* to *url* (Content-Length set, body streamed from disk).
+
+    The read timeout grows with the file (a 470 MB file on a slow link needs far more than a
+    fixed 10 minutes), and a dropped connection or a 429/5xx answer is retried with a growing
+    pause, reopening the file each time. The last response is returned for the caller to judge.
+    Neither OSF nor Zenodo can resume a partial upload, so a retry starts the file again.
+    """
+    size = filepath.stat().st_size
+    # Assume at least ~100 KB/s; never less than 10 minutes
+    timeout = (30, max(600, size // 100_000))
+    session = requests.Session()
+    session.mount("https://", _BigBlockAdapter())
+    session.mount("http://", _BigBlockAdapter())
+
+    for attempt in range(1, attempts + 1):
+        try:
+            with (
+                open(filepath, "rb") as fh,
+                tqdm(total=size, unit="B", unit_scale=True, desc=f"  {filepath.name}",
+                     leave=False, disable=not show_bar) as bar,
+            ):
+                response = session.put(
+                    url,
+                    data=ProgressReader(fh, bar),
+                    headers={**headers, "Content-Length": str(size)},
+                    timeout=timeout,
+                )
+        except (requests.ConnectionError, requests.Timeout) as exc:
+            if attempt == attempts:
+                raise
+            wait = 2 ** attempt * 2
+            console.print(f"  [yellow][retry][/] {filepath.name}: {type(exc).__name__}, "
+                          f"attempt {attempt + 1} of {attempts} in {wait}s")
+            time.sleep(wait)
+            continue
+        if response.status_code in _RETRY_STATUS and attempt < attempts:
+            wait = 2 ** attempt * 2
+            console.print(f"  [yellow][retry][/] {filepath.name}: HTTP {response.status_code}, "
+                          f"attempt {attempt + 1} of {attempts} in {wait}s")
+            time.sleep(wait)
+            continue
+        return response
+    raise RuntimeError("unreachable")  # the loop always returns or raises
+
+
+def upload_plan(assets) -> list[tuple[str, bool]]:
+    """
+    [(archive file name, optional)] to upload for these assets: the archives (parts) the local
+    dist/manifest.json lists for each, or the asset's single archive when it has no entry.
+    """
+    manifest_path = DIST_DIR / MANIFEST_NAME
+    listed: dict = {}
+    if manifest_path.exists():
+        try:
+            listed = json.loads(manifest_path.read_text(encoding="utf-8")).get("assets", {})
+        except (OSError, ValueError):
+            listed = {}
+
+    plan: list[tuple[str, bool]] = []
+    for asset in assets:
+        entry = listed.get(asset.name) or {}
+        names = [p["archive"] for p in entry.get("parts", [])] or [asset.archive]
+        plan.extend((name, asset.optional) for name in names)
+    return plan
+
+
+def run_uploads(files: list[Path], upload: Callable[[Path], bool], jobs: int) -> list[str]:
+    """
+    Upload *files* with *jobs* at a time and return the names that failed. An upload that
+    raises (a network error after its retries) counts as failed; it never stops the others.
+    """
+    failed: list[str] = []
+
+    def _one(path: Path) -> bool:
+        try:
+            return upload(path)
+        except Exception as exc:  # noqa: BLE001 - report and carry on with the other files
+            console.print(f"  [bold red][fail][/] {path.name}: {type(exc).__name__}: {exc}")
+            return False
+
+    if jobs <= 1 or len(files) <= 1:
+        results = [_one(f) for f in files]
+    else:
+        with ThreadPoolExecutor(max_workers=jobs) as pool:
+            results = list(pool.map(_one, files))
+    failed.extend(f.name for f, ok in zip(files, results) if not ok)
+    return failed
+
+
 class ProgressReader:
     """Wraps a binary file object and advances a tqdm bar on every read."""
 
     def __init__(self, fh, bar: tqdm) -> None:
         self._fh = fh
         self._bar = bar
+        self._total = os.fstat(fh.fileno()).st_size
+
+    def __len__(self) -> int:
+        # requests takes the body length from here (and so sends Content-Length, not chunked)
+        return self._total
 
     def read(self, size: int = -1) -> bytes:
         data = self._fh.read(size)

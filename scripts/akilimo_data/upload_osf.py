@@ -36,7 +36,7 @@ from rich.rule import Rule
 from tqdm import tqdm
 
 from .assets import asset_options, resolve
-from .common import DIST_DIR, MANIFEST_NAME, Config, ProgressReader, console, sha256_of
+from .common import DIST_DIR, MANIFEST_NAME, Config, console, put_file, run_uploads, sha256_of, upload_plan
 
 _OSF_TITLE = "Akilimo Cassava Recommendations — Data Assets"
 
@@ -99,7 +99,7 @@ def _list_files(node_id: str, token: str, sandbox: bool) -> list[dict]:
 
 def _upload_file(
     node_id: str, filepath: Path, token: str, existing: list[dict], sandbox: bool,
-    force: bool = False,
+    force: bool = False, show_bar: bool = True,
 ) -> bool:
     """
     Upload *filepath* to an OSF node, overwriting any existing file of the same name.
@@ -129,20 +129,12 @@ def _upload_file(
     else:
         upload_url = f"{wb}/{node_id}/providers/osfstorage/?name={filepath.name}"
 
-    with (
-        open(filepath, "rb") as fh,
-        tqdm(total=size, unit="B", unit_scale=True, desc=f"  {filepath.name}", leave=False) as bar,
-    ):
-        response = requests.put(
-            upload_url,
-            data=ProgressReader(fh, bar),
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/octet-stream",
-                "Content-Length": str(size),
-            },
-            timeout=600,
-        )
+    response = put_file(
+        upload_url,
+        filepath,
+        {"Authorization": f"Bearer {token}", "Content-Type": "application/octet-stream"},
+        show_bar=show_bar,
+    )
 
     if response.status_code in (200, 201):
         name = (
@@ -169,6 +161,8 @@ def _upload_file(
 @click.command()
 @asset_options
 @click.option("--force", is_flag=True, help="Upload every file, even when OSF already holds the same SHA-256.")
+@click.option("--jobs", "-j", type=click.IntRange(1, 8), default=3, show_default=True,
+              help="Files uploaded at the same time.")
 @click.option("--new", "create_new", is_flag=True, help="Create a new OSF project.")
 @click.option(
     "--node-id",
@@ -182,7 +176,7 @@ def _upload_file(
     default=False,
     help="Use test.osf.io instead of osf.io.",
 )
-def main(create_new: bool, node_id: str, sandbox: bool, force: bool,
+def main(create_new: bool, node_id: str, sandbox: bool, force: bool, jobs: int,
          only: tuple[str, ...], exclude: tuple[str, ...]) -> None:
     """Upload data bundles to an OSF project."""
 
@@ -251,24 +245,30 @@ def main(create_new: bool, node_id: str, sandbox: bool, force: bool,
     console.print(Rule("Uploading files"))
 
     failed: list[str] = []
-    for asset in resolve(only, exclude):
-        filename = asset.archive
+    to_send: list[Path] = []
+    for filename, optional in upload_plan(resolve(only, exclude)):
         filepath = DIST_DIR / filename
         if not filepath.exists():
             console.print(
                 f"  [yellow][skip][/] {filename} not found in dist/. "
                 "Run [bold]poetry run bundle-assets[/] first."
             )
-            if not asset.optional:
+            if not optional:
                 failed.append(filename)
             continue
+        to_send.append(filepath)
 
-        if not _upload_file(node_id, filepath, token, existing, sandbox, force):
-            failed.append(filename)
+    show_bar = jobs <= 1 or len(to_send) <= 1
+    failed += run_uploads(
+        to_send, lambda fp: _upload_file(node_id, fp, token, existing, sandbox, force, show_bar), jobs
+    )
 
-    # The manifest tells setup-data which files each bundle holds and their checksums
+    # The manifest goes last, and only when every archive it lists is there: a manifest that
+    # names archives OSF does not have would make setup-data fail
     manifest = DIST_DIR / MANIFEST_NAME
-    if manifest.exists():
+    if failed:
+        console.print(f"  [yellow][skip][/] {MANIFEST_NAME} not uploaded because some archives failed")
+    elif manifest.exists():
         if not _upload_file(node_id, manifest, token, existing, sandbox, force):
             failed.append(MANIFEST_NAME)
     else:

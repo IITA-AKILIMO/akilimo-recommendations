@@ -148,13 +148,16 @@ def main(source: str | None, zenodo_id: str, sandbox: bool, osf_node_id: str,
             console.print(f"  [yellow][skip][/] {asset.archive} — not in the published manifest")
             cfg.failed.append(asset.archive)
         else:
-            # What was published wins: the archive's real name, its checksum, and the files to extract
-            fetch(
-                entry["archive"] if entry else asset.archive,
-                cfg,
-                sha256=entry.get("sha256") if entry else None,
-                files={f["path"] for f in entry["files"]} if entry and entry.get("files") else None,
-            )
+            # What was published wins: each archive's real name, its checksum, and the files to
+            # extract. An asset is one archive, or several (big files have their own)
+            parts = (entry.get("parts") or [entry]) if entry else [{"archive": asset.archive}]
+            for part in parts:
+                fetch(
+                    part["archive"],
+                    cfg,
+                    sha256=part.get("sha256"),
+                    files={f["path"] for f in part["files"]} if part.get("files") else None,
+                )
         # An optional asset that is not published (yet) is a warning, not a failed setup
         if asset.optional and len(cfg.failed) > before:
             del cfg.failed[before:]
