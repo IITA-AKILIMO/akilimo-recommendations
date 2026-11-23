@@ -3,11 +3,12 @@ name: Deploy
 # Deploys the branch to its server in three jobs (kept few so the run graph
 # stays readable):
 #
-#   Plan -> Deploy to server -> Tag release (beta tags are "beta-" pre-releases;
+#   Plan -> Deploy to server (ends with housekeeping) -> Tag release (beta tags are "beta-" pre-releases;
 #   skipped when setup_data is ticked)
 #
 # "Deploy to server" runs these steps in order: update code and packages,
-# pull runtime data (optional), restart the service, check health.
+# pull runtime data (optional), restart the service, check health, housekeeping
+# (translations, prices, coverage; tools/housekeeping.sh; never fails the deploy).
 #
 # Called by CI (ci.yml) after every check has passed, so it runs this file's
 # version from the pushed branch. Plan matches the branch to a target in
@@ -26,12 +27,20 @@ on:
         description: "Pull runtime data from OSF before restarting"
         type: boolean
         default: false
+      housekeeping:
+        description: "Post-deploy housekeeping, comma separated: translations, prices, coverage, api-sync; or all, or none (tools/housekeeping.sh)"
+        type: string
+        default: "all"
   workflow_dispatch:
     inputs:
       setup_data:
         description: "Pull runtime data from OSF before restarting"
         type: boolean
         default: false
+      housekeeping:
+        description: "Post-deploy housekeeping, comma separated: translations, prices, coverage, api-sync; or all, or none (tools/housekeeping.sh)"
+        type: string
+        default: "all"
 
 permissions:
   contents: read
@@ -201,6 +210,30 @@ jobs:
             # port this one was meant to use cannot make a crashed service look
             # healthy; see tools/check_health.sh
             sh tools/check_health.sh "$SERVICE_NAME" "$APP_DIR" 180
+
+      # After a healthy deploy only (the default success() condition). Each task is independent
+      # and none can fail the deploy (continue-on-error on top of the script's own exit 0): a
+      # failure shows as a warning. Pick the tasks with the housekeeping input, or "none".
+      - name: Housekeeping (translations, prices, coverage; never fails the deploy)
+        if: inputs.housekeeping != 'none'
+        continue-on-error: true
+        uses: appleboy/ssh-action@v1.2.5
+        env:
+          APP_DIR: ${{ needs.plan.outputs.app_dir }}
+          SERVICE_NAME: ${{ needs.plan.outputs.service_name }}
+          TASKS: ${{ inputs.housekeeping || 'all' }}
+          # Optional repository variable: the command that makes the AKILIMO API copy the engine's
+          # new coverage, run on this server, e.g. cd /var/www/akilimo-api && php artisan coverage:sync
+          COVERAGE_SYNC_CMD: ${{ vars.COVERAGE_SYNC_CMD }}
+        with:
+          host: ${{ vars.SERVER_HOST }}
+          username: ${{ vars.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          command_timeout: 40m
+          envs: APP_DIR, SERVICE_NAME, TASKS, COVERAGE_SYNC_CMD
+          script: |
+            cd "$APP_DIR"
+            sh tools/housekeeping.sh "$SERVICE_NAME" "$APP_DIR" "$TASKS"
 
   # ---------------------------------------------------------------------------
   # Release: every deploy target, once the deploy is healthy. main and
