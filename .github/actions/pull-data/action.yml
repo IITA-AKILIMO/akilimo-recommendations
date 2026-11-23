@@ -25,6 +25,22 @@ inputs:
     description: "OSF token for the file listing and the downloads (sent to api.osf.io and files.osf.io only, not written to disk)"
     required: false
     default: ""
+  source:
+    description: "Where to pull from: github, osf or zenodo; empty = the default source (github)"
+    required: false
+    default: ""
+  data_repo:
+    description: "owner/name of the repository whose release holds the data (source github); empty = github.repo in scripts/assets.json"
+    required: false
+    default: ""
+  data_tag:
+    description: "Release tag of the data (source github); empty = github.tag in scripts/assets.json"
+    required: false
+    default: ""
+  github_token:
+    description: "Token that can read the data repository (Contents: read; it is private); used only with source github"
+    required: false
+    default: ""
   assets:
     description: "Assets to pull, comma separated (names in scripts/assets.json); empty = the defaults"
     required: false
@@ -43,6 +59,10 @@ runs:
         APP_DIR: ${{ inputs.app_dir }}
         OSF_NODE_ID: ${{ inputs.osf_node_id }}
         OSF_TOKEN: ${{ inputs.osf_token }}
+        DATA_SOURCE: ${{ inputs.source }}
+        GITHUB_TOKEN: ${{ inputs.github_token }}
+        GITHUB_DATA_REPO: ${{ inputs.data_repo }}
+        GITHUB_DATA_TAG: ${{ inputs.data_tag }}
         ASSETS: ${{ inputs.assets }}
         ASSETS_EXCLUDE: ${{ inputs.exclude_assets }}
       with:
@@ -50,7 +70,7 @@ runs:
         username: ${{ inputs.username }}
         key: ${{ inputs.key }}
         command_timeout: 40m
-        envs: APP_DIR, OSF_NODE_ID, OSF_TOKEN, ASSETS, ASSETS_EXCLUDE
+        envs: APP_DIR, OSF_NODE_ID, OSF_TOKEN, DATA_SOURCE, GITHUB_TOKEN, GITHUB_DATA_REPO, GITHUB_DATA_TAG, ASSETS, ASSETS_EXCLUDE
         script: |
           set -e
 
@@ -81,11 +101,13 @@ runs:
             sed -i "s/^OSF_NODE_ID=.*/OSF_NODE_ID=$OSF_NODE_ID/" .env
           fi
 
-          # OSF is the single source for runtime data on the servers
-          poetry run setup-data --source osf
+          # The source is the DATA_SOURCE repository variable when set (osf or zenodo to go back),
+          # else the default of scripts/assets.json: github, the private data repository, read
+          # with GITHUB_TOKEN
+          poetry run setup-data ${DATA_SOURCE:+--source "$DATA_SOURCE"}
 
           # Derived data that is not in the OSF bundle (the Rwanda
           # scheduled-planting file), built from the yield data just pulled
           cd "$APP_DIR"
           sh tools/ensure_sp_files.sh
-          echo "Data setup complete (source: osf, dir: $APP_DIR)"
+          echo "Data setup complete (source: ${DATA_SOURCE:-default}, dir: $APP_DIR)"

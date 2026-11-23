@@ -368,7 +368,7 @@ def main(interactive: bool, human: bool | None, ignore: tuple[str, ...],
     console.print(
         "\n[bold]Next steps:[/]\n\n"
         f"  Upload {len(archives)} archive(s) and {MANIFEST_NAME}:\n"
-        "  poetry run upload-osf        (or poetry run upload-zenodo --new)\n"
-        "  Both upload the manifest last, skip files whose hash the host already holds, and\n"
+        "  poetry run upload-github     (the default host; or upload-osf, or upload-zenodo --new)\n"
+        "  All upload the manifest last, skip files whose hash the host already holds, and\n"
         "  take the same --only / --exclude options (plus --jobs and --force)."
     )

@@ -60,5 +60,10 @@ jobs:
           app_dir: ${{ steps.target.outputs.app_dir }}
           osf_node_id: ${{ inputs.osf_node_id || secrets.OSF_NODE_ID }}
           osf_token: ${{ secrets.OSF_TOKEN }}
+          source: ${{ vars.DATA_SOURCE }}
+          data_repo: ${{ vars.DATA_REPO }}
+          data_tag: ${{ vars.DATA_TAG }}
+          # A private repository needs a token that can read contents (a fine-grained PAT) on the server
+          github_token: ${{ secrets.DATA_GITHUB_TOKEN }}
           assets: ${{ inputs.assets }}
           exclude_assets: ${{ inputs.exclude_assets }}

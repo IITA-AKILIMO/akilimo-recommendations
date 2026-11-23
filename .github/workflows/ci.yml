@@ -298,6 +298,15 @@ jobs:
         env:
           # OSF answers 401 to a file listing without one; empty (and harmless) on fork PRs
           OSF_TOKEN: ${{ secrets.OSF_TOKEN }}
+          # Where the data comes from: github (the private data repository named in
+          # scripts/assets.json) unless the DATA_SOURCE repository variable says osf or zenodo.
+          # The release is read with the DATA_GITHUB_TOKEN secret (Contents: read on that
+          # repository); the job's own token only reaches this repository
+          DATA_SOURCE: ${{ vars.DATA_SOURCE }}
+          # Overrides of the data repository (owner/name) and release tag in scripts/assets.json
+          GITHUB_DATA_REPO: ${{ vars.DATA_REPO }}
+          GITHUB_DATA_TAG: ${{ vars.DATA_TAG }}
+          GITHUB_TOKEN: ${{ secrets.DATA_GITHUB_TOKEN || github.token }}
         run: |
           cp .env.example .env
           pipx install poetry
@@ -305,7 +314,7 @@ jobs:
           export PATH="$PATH:$HOME/.local/bin"
           poetry install --no-interaction
           # CI needs no DSSAT output (the PDC tests use a made-up table)
-          poetry run setup-data --source osf --exclude dssat
+          poetry run setup-data ${DATA_SOURCE:+--source "$DATA_SOURCE"} --exclude dssat
 
       # Only after a download that worked: saving after a failed one stored an empty
       # cache under this key, and every later run restored it and found no data

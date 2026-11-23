@@ -424,6 +424,22 @@ Bundling also writes `dist/manifest.json` (schema 2): for each bundled asset its
 
 `setup-data` reads the published manifest first. With it, every download is checked against its SHA-256, only the files the manifest lists are extracted, and a required asset missing from the manifest fails early with a clear message. Without one (older publishes) it falls back to the asset registry alone. `--no-manifest` ignores it.
 
+### GitHub Releases: a third place to keep the data
+
+**GitHub is the default source of the data.** `poetry run upload-github` publishes the archives and `manifest.json` as assets of one release of the private data repository named in `scripts/assets.json` (`github.repo`, `IITA-AKILIMO/akilimo-data`), and plain `poetry run setup-data` downloads them. The default source (`default_source`) and the repository and tag can be changed in that file; `--source osf` or `zenodo`, or the `DATA_SOURCE` variable, use another host. Assets can be up to 2 GiB, which the 50 MB split stays far under.
+
+| Setting | Meaning |
+|---|---|
+| `GITHUB_DATA_TAG` | the release tag, default `data-latest`; a dated tag such as `data-2026-11-23` keeps a release of its own. The release is created as a pre-release that is never marked "latest", so it does not interfere with the version releases of the deploy |
+| `GITHUB_DATA_REPO` | `owner/name`; default `GITHUB_REPOSITORY` in Actions, else this checkout's `origin` |
+| `GITHUB_TOKEN` or `GH_TOKEN` | needed to upload (it can write releases) and, for a private repository, to download (it can read contents); empty falls back to the GitHub CLI's login (`gh auth login`). Sent to `api.github.com` and `uploads.github.com` only |
+
+Uploads behave like the other hosts: files whose SHA-256 GitHub already holds are skipped (GitHub reports one per asset), a changed asset is deleted and uploaded again, the upload ledger and `--jobs` and `--force` apply, and the manifest goes last. Downloads are verified against the manifest, or against GitHub's own SHA-256 when there is no manifest.
+
+**The data stays out of the public code repository:** the release lives in the separate private repository `IITA-AKILIMO/akilimo-data`. Upload with `poetry run upload-github` (it needs your token: `GITHUB_TOKEN` or `gh auth login`). Everything that downloads needs a token that can read that repository, because the job's own token reads only the code repository: create a fine-grained personal access token with **Contents: read** on `akilimo-data` and store it as the `DATA_GITHUB_TOKEN` secret (CI, Deploy and Data setup all use it). The repository variables `DATA_REPO` and `DATA_TAG` override the repository and tag of `assets.json`, and `DATA_SOURCE=osf` (or `zenodo`) takes CI and the servers back to that host.
+
+If the manifest cannot be read because the host fails (not because none is published), `setup-data` stops with a message instead of guessing the archives from the registry; an asset split into several archives would come out incomplete. `--no-manifest` downloads each asset's main archive only. Downloads retry transient errors (six tries, about two minutes).
+
 ### 2. Upload — choose OSF or Zenodo
 
 #### Option A: OSF (recommended)
