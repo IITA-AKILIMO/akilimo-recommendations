@@ -68,14 +68,34 @@ cassava_area_cells <- function(country) {
     })
 }
 
-# TRUE where lon/lat falls in a cell with at least cassava_min_ha() ha of
-# cassava (a cell absent from the file has none); all TRUE when there is no
-# mask for the country.
+# How many MapSPAM cells around a point's own cell are also searched for cassava
+# (1 = the 8 neighbours, ~9 km each way). A point passes when its own cell or any
+# cell within this distance has at least cassava_min_ha() ha, which fills
+# one-cell gaps and softens the edge of sparse areas. Env CASSAVA_BUFFER_CELLS
+# overrides it; 0 tests the point's own cell only; bad values use the default.
+CASSAVA_BUFFER_CELLS_DEFAULT <- 1L
+
+cassava_buffer_cells <- function() {
+    v <- suppressWarnings(as.numeric(Sys.getenv("CASSAVA_BUFFER_CELLS", "")))
+    if (length(v) != 1L || is.na(v) || v < 0 || v != floor(v)) CASSAVA_BUFFER_CELLS_DEFAULT else as.integer(v)
+}
+
+# TRUE where lon/lat falls in a cell, or within cassava_buffer_cells() cells of
+# one, with at least cassava_min_ha() ha of cassava (a cell absent from the file
+# has none); all TRUE when there is no mask for the country.
 cassava_cells_ok <- function(country, lon, lat) {
     ha <- cassava_area_cells(country)
     if (is.null(ha)) return(rep(TRUE, length(lon)))
-    got <- ha[spam_cell_key(lon, lat)]
-    unname(!is.na(got) & got >= cassava_min_ha())
+    ix <- floor(lon * 12)
+    iy <- floor(lat * 12)
+    b <- cassava_buffer_cells()
+    min_ha <- cassava_min_ha()
+    ok <- rep(FALSE, length(lon))
+    for (dx in -b:b) for (dy in -b:b) {
+        got <- unname(ha[paste(ix + dx, iy + dy)])
+        ok <- ok | (!is.na(got) & got >= min_ha)
+    }
+    ok
 }
 
 is_point_covered <- function(country, lon, lat) {

@@ -128,7 +128,7 @@ POST /compute (api.R)
     → run_akilimo(postBody) (R/AkilimoMain.R)
         → validate_request(): field/range checks + is_point_covered() coverage gate
           (R/get_data.R — rejects lat/lon outside the country's yield grid, or in a MapSPAM cassava cell
-          below CASSAVA_MIN_HA (default 0 ha, i.e. any cassava; data/input/cassava_area_spam2020.csv), with a 400)
+          below CASSAVA_MIN_HA (default 0 ha, i.e. any cassava, within CASSAVA_BUFFER_CELLS (default 1) cells; data/input/cassava_area_spam2020.csv), with a 400)
         → Parses all fields
         → Creates temp dir: temp/{YYYYMMDD_HHMMSS}_{COUNTRY}_{TYPE}_{rand4}/
         → Dispatches to processor based on request flags:
@@ -187,7 +187,7 @@ Spatial data lives under `./data/` (gitignored, except `data/input/translations.
 ### Path and Server Configuration
 `AKILIMO_ROOT` env var sets `akpath` (defaults to `"."`). `API_HOST` and `API_PORT` control the Plumber bind address and port (defaults: `0.0.0.0:8000`). All file paths are relative to `akpath`.
 
-Cassava-area mask: `CASSAVA_MIN_HA` (default 0) is the minimum cassava harvested area, in hectares per ~9 km MapSPAM 2020 cell, for a point to count as covered by FR and SP and to appear in `GET /coverage`; `0` keeps every cell with any cassava; a higher value such as `20` drops sparse cells. The data is `data/input/cassava_area_spam2020.csv` (tracked in git; MapSPAM 2020 v2r2 harvested area, cassava, all technologies, filtered to the five countries), and a missing file turns the mask off. Tests: `tests/test_cassava_mask.R`.
+Cassava-area mask: `CASSAVA_MIN_HA` (default 0) is the minimum cassava harvested area, in hectares per ~9 km MapSPAM 2020 cell, for a point to count as covered by FR and SP and to appear in `GET /coverage`; `0` keeps every cell with any cassava; a higher value such as `20` drops sparse cells. `CASSAVA_BUFFER_CELLS` (default 1) also searches that many MapSPAM cells around the point's own cell (1 = the 8 neighbours), so a point in a one-cell gap next to cassava is covered; `0` tests the own cell only. The data is `data/input/cassava_area_spam2020.csv` (tracked in git; MapSPAM 2020 v2r2 harvested area, cassava, all technologies, filtered to the five countries), and a missing file turns the mask off. Tests: `tests/test_cassava_mask.R`.
 
 Logging: `LOG_LEVEL` (default `INFO`), `LOG_DIR`, `LOG_FILE_PREFIX`, `LOG_CHANNEL` and `LOG_STACK` (Laravel-style: a log line goes to a stack of channels, `file`, `stderr` and `stdout`, default `file,stderr`; `LOG_CHANNEL=stderr` uses one channel on its own, `LOG_STACK=null` logs nothing), each channel's own level in `LOG_FILE_LEVEL`, `LOG_STDERR_LEVEL` and `LOG_STDOUT_LEVEL` (else `LOG_LEVEL` applies; for example everything in the file but only INFO and above on the console: `LOG_STDERR_LEVEL=INFO`, which the older `LOG_STDERR=false` still means), `LOG_MAX_CHARS` (default 20000; cuts any single log line, `0` = no limit), `LOG_FORMAT` (`text` default, or `json` for one JSON object per line; `LOG_FILE_FORMAT`, `LOG_STDERR_FORMAT` and `LOG_STDOUT_FORMAT` set it for one channel), `LOG_KEEP_DAYS` (delete daily log files older than this; default 0 = keep all) and `LOG_SLOW_MS` (a slower request is logged at WARN; default 30000, 0 = never). `.env.example` lists them all.
 
