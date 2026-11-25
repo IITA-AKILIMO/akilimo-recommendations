@@ -104,3 +104,28 @@ expect_equal(code_of(req(PP = TRUE, areaUnits = "mile")), "invalid_input")
 assign("is_point_covered", function(country, lon, lat) FALSE, envir = globalenv())
 expect_equal(code_of(req(FR = TRUE)), "outside_coverage")
 expect_equal(as.character(bad_request("Malformed JSON body")$data$code), "invalid_input")
+
+# Land-operation methods: the AKILIMO API sends "MANUAL"; the PP scenarios use lower case, so an
+# upper-case method matched no row and getPPrecText() failed with "missing value where TRUE/FALSE needed".
+expect_equal(normalise_method("MANUAL"), "manual")
+expect_equal(normalise_method(" Tractor "), "tractor")
+expect_equal(normalise_method("NA"), "N/A")
+expect_equal(normalise_method("N/A"), "N/A")
+expect_equal(normalise_method(NA), "N/A")
+expect_equal(normalise_method(character(0)), "N/A")
+
+source(file.path(akpath, "R", "process-PP.R"))
+assign("min_nr_multiplier", function(riskAtt) 0, envir = globalenv())
+assign("tr", function(key, lang, ...) key, envir = globalenv())
+costLMO <- data.frame(
+  operation = c(rep(c("ploughing", "harrowing", "ridging"), 2), "weeding1", "weeding2"),
+  method = c(rep("manual", 3), rep("tractor", 3), NA, NA),
+  costHa = c(100, 80, 120, NA, NA, NA, 50, 40))
+for (m in c("manual", "MANUAL")) {
+  pp <- process_PP(PP = TRUE, country = "TZ", lang = "en", areaHa = 0.4, costLMO = costLMO,
+                   ploughing = TRUE, ridging = TRUE,
+                   method_ploughing = normalise_method(m), method_ridging = normalise_method(m),
+                   FCY = 18.75, rootUP = 200, riskAtt = 0, user = NULL, userField = NULL, area = 1,
+                   areaUnits = "acre", PD = NULL, HD = NULL, lat = 0, lon = 0, cassPD = 0, cassUW = 0, maxInv = 0)
+  expect_true(is.character(pp$recommendation) && nzchar(pp$recommendation), info = m)
+}

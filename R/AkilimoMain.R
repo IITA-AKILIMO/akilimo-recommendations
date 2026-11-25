@@ -56,6 +56,14 @@ has_available_fertilizer <- function(body) {
     any(grepl("^newFert.name$", nms))
 }
 
+# Land-operation method as the processors compare it: lower case ("manual", "tractor"),
+# and "NA" (or a missing value) as "N/A". The AKILIMO API may send "MANUAL"; left as is it
+# matches no scenario row and process_PP() failed with a bare 500.
+normalise_method <- function(m) {
+  if (length(m) != 1L || is.na(m) || toupper(trimws(m)) %in% c("NA", "N/A", "")) return("N/A")
+  tolower(trimws(m))
+}
+
 validate_request <- function(body) {
   VALID_COUNTRIES <- c("NG", "TZ", "RW", "GH", "BI")
   # Must match the units parse_request() converts: ekari/hekta are aliases for
@@ -380,8 +388,9 @@ dispatch_recommendations <- function(p, body) {
     method_ploughing <- from_json("method_ploughing", body)
     method_harrowing <- from_json("method_harrowing", body)
     method_ridging <- from_json("method_ridging", body)
-    if (method_ploughing == "NA") method_ploughing <- "N/A"
-    method_ridging <- ifelse(method_ridging == "NA", "N/A", tolower(method_ridging))
+    method_ploughing <- normalise_method(method_ploughing)
+    method_harrowing <- normalise_method(method_harrowing)
+    method_ridging <- normalise_method(method_ridging)
 
     costLMO <- get_costLMO(body, p$country, p$areaHa, p$areaUnits,
                            ploughing, harrowing, ridging,
@@ -414,6 +423,9 @@ dispatch_recommendations <- function(p, body) {
     method_ploughing <- from_json("method_ploughing", body)
     method_harrowing <- from_json("method_harrowing", body)
     method_ridging <- from_json("method_ridging", body)
+    method_ploughing <- normalise_method(method_ploughing)
+    method_harrowing <- normalise_method(method_harrowing)
+    method_ridging <- normalise_method(method_ridging)
 
     process_SP(
       SPP = p$SPP, SPH = p$SPH, PD_window = p$PD_window, HD_window = p$HD_window,
