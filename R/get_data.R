@@ -44,7 +44,7 @@ cellFromLonLat <- function(lon, lat, res=0.05) {
 
 # Minimum cassava harvested area (ha) a MapSPAM cell needs to count as cassava
 # area. Env CASSAVA_MIN_HA overrides it; 0 keeps every cell with any cassava.
-CASSAVA_MIN_HA_DEFAULT <- 20
+CASSAVA_MIN_HA_DEFAULT <- 0
 
 cassava_min_ha <- function() {
     v <- suppressWarnings(as.numeric(Sys.getenv("CASSAVA_MIN_HA", "")))

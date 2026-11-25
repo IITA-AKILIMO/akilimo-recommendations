@@ -56,7 +56,7 @@ Returns `200` on success, `400` on a bad request, `500` on an unexpected server 
 
 Returns a GeoJSON `FeatureCollection` with one `Feature` per supported country (NG, TZ, RW, GH, BI), each a polygon tracing the actual geographic area the yield/soil data covers (not a bounding box). Each feature's properties include `country`, `n_cells` (number of 0.05° grid cells in that country's yield data) and `rec_types`, a comma-separated list of the recommendation types `/compute` serves in that country (for example `"FR,PP,SP"` for RW).
 
-Intended for other services that need to know where AKILIMO can produce a recommendation — e.g. to draw coverage overlays on a map, or to pre-filter requests before calling `/compute`. The footprint is generated from the same data `is_point_covered()` uses internally, so it matches `/compute`'s own coverage decisions exactly. It is the yield grid restricted to cassava-growing areas: MapSPAM 2020 cells (about 9 km) with at least `CASSAVA_MIN_HA` hectares of cassava (default 20). Computed once per server process and cached in memory.
+Intended for other services that need to know where AKILIMO can produce a recommendation — e.g. to draw coverage overlays on a map, or to pre-filter requests before calling `/compute`. The footprint is generated from the same data `is_point_covered()` uses internally, so it matches `/compute`'s own coverage decisions exactly. It is the yield grid restricted to cassava-growing areas: MapSPAM 2020 cells (about 9 km) with at least `CASSAVA_MIN_HA` hectares of cassava (default 0, so any cell with cassava). Computed once per server process and cached in memory.
 
 The footprint limits only the types that use location data: FR and SP requests for a point outside it get a `400`. IC and PP give the same advice anywhere in the country, so they are not limited to it. Inside the footprint, a type is still only available if it is listed in `rec_types` (see [Availability by country](#availability-by-country)). The footprint can also contain holes (interior rings) where the grid has no cells, so map clients must draw polygon holes rather than only the outer ring.
 
@@ -388,7 +388,7 @@ Common causes:
 | `Missing required field: country` | `country` absent or blank |
 | `Invalid country: xx — must be one of: NG, TZ, RW, GH, BI` | Unrecognised country code |
 | `Invalid or missing lat — must be numeric between -90 and 90` | `lat` out of range or non-numeric |
-| `No recommendation data available for lat=X, lon=Y in CC — this location is outside the supported agricultural area for this country` | FR or SP request for a coordinate outside the country's yield/soil grid or in an area with too little cassava (below `CASSAVA_MIN_HA`, default 20 ha per ~9 km cell); check it against `GET /coverage/CC` |
+| `No recommendation data available for lat=X, lon=Y in CC — this location is outside the supported agricultural area for this country` | FR or SP request for a coordinate outside the country's yield/soil grid or in an area with too little cassava (below `CASSAVA_MIN_HA`, default 0, i.e. only cells with no cassava, per ~9 km cell); check it against `GET /coverage/CC` |
 | `Invalid or missing area — must be a positive number` | `area` ≤ 0 or absent |
 | `At least one recommendation flag must be TRUE` | All of FR/IC/PP/SPP/SPH/PDC are false |
 | `PD must be a valid date in YYYY-MM-DD format` | Bad date string |

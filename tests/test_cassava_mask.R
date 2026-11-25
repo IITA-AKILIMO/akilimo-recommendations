@@ -13,12 +13,12 @@ old <- Sys.getenv("CASSAVA_MIN_HA", unset = NA)
 on.exit(if (is.na(old)) Sys.unsetenv("CASSAVA_MIN_HA") else Sys.setenv(CASSAVA_MIN_HA = old), add = TRUE)
 Sys.unsetenv("CASSAVA_MIN_HA")
 
-# Threshold: 20 ha by default, overridable, and bad values fall back to the default
-expect_equal(cassava_min_ha(), 20)
+# Threshold: 0 ha by default, overridable, and bad values fall back to the default
+expect_equal(cassava_min_ha(), 0)
 Sys.setenv(CASSAVA_MIN_HA = "250"); expect_equal(cassava_min_ha(), 250)
 Sys.setenv(CASSAVA_MIN_HA = "0");   expect_equal(cassava_min_ha(), 0)
-Sys.setenv(CASSAVA_MIN_HA = "-5");  expect_equal(cassava_min_ha(), 20)
-Sys.setenv(CASSAVA_MIN_HA = "abc"); expect_equal(cassava_min_ha(), 20)
+Sys.setenv(CASSAVA_MIN_HA = "-5");  expect_equal(cassava_min_ha(), 0)
+Sys.setenv(CASSAVA_MIN_HA = "abc"); expect_equal(cassava_min_ha(), 0)
 Sys.unsetenv("CASSAVA_MIN_HA")
 
 # A point and the MapSPAM cell it falls in share a key, anywhere in the cell
@@ -26,11 +26,11 @@ expect_equal(spam_cell_key(7.675, 7.375), spam_cell_key(7.70, 7.40))
 expect_false(spam_cell_key(7.675, 7.375) == spam_cell_key(7.76, 7.375))
 
 # Every country has a mask and clear-cut points: Ibadan area (NG) is a strong cassava cell,
-# a Sahel cell (NG, ~7 ha) is below the default threshold
+# a Sahel cell (NG, ~7 ha) is kept by default and dropped at 20 ha
 for (cc in c("NG", "TZ", "RW", "GH", "BI"))
   expect_true(length(cassava_area_cells(cc)) > 0, info = paste(cc, "has mask rows"))
 expect_true(cassava_cells_ok("NG", 7.675, 7.375), info = "NG cell with ~2000 ha is kept")
-expect_false(cassava_cells_ok("NG", 5.79, 13.54), info = "NG cell with ~7 ha is below 20 ha")
+expect_true(cassava_cells_ok("NG", 5.79, 13.54), info = "NG cell with ~7 ha is kept by default")
 expect_false(cassava_cells_ok("RW", 29.375, -2.825), info = "a cell with no recorded cassava is dropped")
 
 # The threshold moves the boundary: the ~7 ha cell passes at 5 ha and fails at 20 ha
@@ -38,6 +38,8 @@ Sys.setenv(CASSAVA_MIN_HA = "5");  expect_true(cassava_cells_ok("NG", 5.79, 13.5
 Sys.setenv(CASSAVA_MIN_HA = "20"); expect_false(cassava_cells_ok("NG", 5.79, 13.54))
 Sys.unsetenv("CASSAVA_MIN_HA")
 
+Sys.setenv(CASSAVA_MIN_HA = "20")
 # Vectorised, and no mask for a country means every point passes (fails open)
 expect_equal(cassava_cells_ok("NG", c(7.675, 5.79), c(7.375, 13.54)), c(TRUE, FALSE))
 expect_true(all(cassava_cells_ok("XX", c(0, 10), c(0, 10))))
+Sys.unsetenv("CASSAVA_MIN_HA")
