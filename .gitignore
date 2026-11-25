@@ -46,3 +46,4 @@ data/input/*
 
 # Saved regression results for tests/test_small.R
 !tests/test_small.rds
+sample_payload_ouside_area.json
