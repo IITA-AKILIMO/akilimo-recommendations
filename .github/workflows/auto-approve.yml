@@ -102,7 +102,7 @@ jobs:
       - name: Generate GitHub App Token
         if: steps.gate.outputs.allowed == 'true'
         id: generate-token
-        uses: actions/create-github-app-token@v3.3.0
+        uses: actions/create-github-app-token@v3.4.0
         with:
           client-id: ${{ vars.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
